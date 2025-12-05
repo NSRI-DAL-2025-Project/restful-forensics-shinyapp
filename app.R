@@ -112,6 +112,7 @@ ui <- tagList(
       ), # end of tab panel for homepage
       
       
+      
       ## 1. Instructions Tab
       tabPanel(title = HTML("<span style = 'color:#000000;'>Instructions</span>"),
                h4("Instructions page (typical workflow for marker analysis)"),
@@ -125,35 +126,46 @@ ui <- tagList(
                           
                           div(class = "inner-card",
                               h5("A. Convert files to CSV and add population info"),
-                              p("Input file: VCF, BCF, or PLINK (.bed, .bim, .fam) files."),
-                              p("Expected output file: CSV file.")
+                              p("Input file/s:"), 
+                              tags$ul(
+                                 tags$li("VCF, BCF, or PLINK (.bed, .bim, .fam) files."),
+                                 tags$li("(Optional) Population data in XLSX or CSV")                          
+                              ),
+                              p("Parameter/s: Metadata on sample population"),
+                              p("Expected output file/s: CSV file.")
                           ),
                           div(class = "inner-card",
                               h5("B. Convert ForenSeq UAS outputs to wide format"),
-                              p("Input file: Compressed folder (.zip or .tar) of XLSX files."),
-                              p("Expected output file: Single CSV file (merged XLSX files)."),
+                              p("Input file/s: Compressed folder (.zip or .tar) of XLSX files."),
+                              p("Expected output file/s: Single CSV file (merged XLSX files)."),
                               br(),
                               p("This section builds upon the work of Ms. Maeviviene Sosing as part of the Filipino Genomes Research Program 2"),
                           ),
                           div(class = "inner-card",
                               h5("C. Convert VCF files to FASTA"),
-                              p("Input file: VCF file"),
-                              p("Expected output file: FASTA file.")
-                              ), 
+                              p("Input file/s: VCF file"),
+                              p("Expected output file/s: FASTA file.")
+                          ), 
                           div(class = "inner-card",
                               h5("D. Convert CSV or XLSX files to a SNIPPER-compatible file"),
-                              p("Input file: CSV or XLSX file."),
-                              p("Expected output file: XLSX file."),
+                              p("Input file/s: CSV or XLSX file."),
+                              p("Parameter/s: (optional) Target population name for classification"),
+                              p("Expected output file/s: XLSX file."),
                               p("SNIPPER tool for sample classification: https://mathgene.usc.es/snipper/index.php")
                           ),
                           div(class = "inner-card",
                               h5("E. Convert CSV files to STRUCTURE files."),
-                              p("Input file: CSV file with marker and population data."),
-                              p("Expected output file: str file and revised input file"),
+                              p("Input file/s: CSV file with marker and population data."),
+                              p("Parameter/s: User's operating system (for STRUCTURE input compatibility)"),
+                              p("Expected output file/s:"),
+                              tags$ul(
+                                 tags$li("structure (.str) file"),
+                                 tags$li("revised input file")
+                              ),
                               br(),
                               p("STRUCTURE generally can't handle sample labels with alphabets, the function would convert sample labels to their associated row number."),
                               p("For users who opt to use STRUCTURE via the terminal or using the GUI, instructions can be found here: https://web.stanford.edu/group/pritchardlab/structure_software/release_versions/v2.3.4/html/structure.html")
-                              )
+                          )
                       )
                   ),
                   ## extraction
@@ -165,7 +177,7 @@ ui <- tagList(
                           
                           div(class = "inner-card",
                               h5("A. Extract SNPs based on rsID (marker identification) or GRCh37/GRCh38 position"),
-                              p("Input file:"),
+                              p("Input file/s:"),
                               p("(1) VCF, BCF, or PLINK (.bed, .bim, .fam) files."),
                               p("(2) Markers/position list — you may type rsIDs manually, upload a list, or use a POS txt file."),
                               p("The position list (txt file) should include:"),
@@ -173,19 +185,21 @@ ui <- tagList(
                                  tags$li("[1] Chromosome number (integer)"),
                                  tags$li("[2] Starting base-pair position (integer)"),
                                  tags$li("[3] Final base-pair position (integer)")
-                              )
+                              ),
+                              p("Parameter/s: Filtering options"),
+                              p("Expected output file/s: VCF file")
                           ),
                           
                           div(class = "inner-card",
                               h5("B. Concordance analysis between files with the same samples"),
-                              p("Input files: Two CSV or XLSX files."),
-                              p("Expected outputs:"),
+                              p("Input file/s: Two CSV or XLSX files."),
+                              p("Parameter/s: Indicate if using haplotypes"),
+                              p("Expected output/s:"),
                               tags$ul(
                                  tags$li("Concordance table"),
                                  tags$li("Concordance plot")
                               )
                           )
-                          
                       )
                   ), # end of div for tab2
                   div(class = "clickable-card",
@@ -194,14 +208,24 @@ ui <- tagList(
                           h4("Filter individuals and variants using standard options in PLINK 1.9."),
                           p("Standard filtering flags are indicated. For other PLINK flags, see https://www.cog-genomics.org/plink/ for options to be specified in the 'Additional PLINK flags' text box."),
                           br(),
-                          p("Input file: VCF file"),
-                          p("Expected outputs:"),
+                          p("Input file/s: VCF file"),
+                          p("Parameter/s:"),
+                          tags$ul(
+                             tags$li("--mind [value]"),
+                             tags$li("--geno [value]"),
+                             tags$li("--maf [value]"),
+                             tags$li("--qual-threshold [value]"),
+                             tags$li("--hwe [value]"),
+                             tags$li("--indep-pairwise [value]"),
+                             tags$li("Other additional PLINK flags")
+                          ),
+                          p("Expected output/s:"),
                           tags$ul(
                              tags$li("VCF file"),
                              tags$li("Depth of Coverage Plots")
                           )
-                          )
-                      ), # end of div
+                      )
+                  ), # end of div
                   
                   div(class = "clickable-card",
                       div(class = "card-header", "↔️ Multiple Sequence Alignment"),
@@ -209,8 +233,9 @@ ui <- tagList(
                           h4("Perform multiple sequence alignment using the msa R package."),
                           p("Post-processing of alignment is performed using the DECIPHER package in R. https://bioconductor.org/packages/devel/bioc/vignettes/DECIPHER/inst/doc/ArtOfAlignmentInR.pdf"),
                           br(),
-                          p("Input file: Zipped folder of FASTA files."),
-                          p("Expected outputs:"),
+                          p("Input file/s: Zipped folder of FASTA files."),
+                          p("Parameter/s: Substitution matrix for the alignment (ClustalW, ClustalOmega, MUSCLE)"),
+                          p("Expected output/s:"),
                           tags$ul(
                              tags$li("Aligned sequences"),
                              tags$li("Alignment scores"),
@@ -219,8 +244,8 @@ ui <- tagList(
                           ),
                           br(),
                           p("The aligned sequences can be used in the tab 'Phylogenetic Tree'")
-                          )
-                      ),
+                      )
+                  ),
                   
                   div(class = "clickable-card",
                       div(class = "card-header", "🌲 Phylogenetic Tree"),
@@ -229,31 +254,70 @@ ui <- tagList(
                           p("Approaches to tree construction are NJ, UPGMA, Maximum Parsimony, and Maximum Likelihood. Check the assumptions and constraints of each approach [1]."),
                           br(),
                           p("Input file used is the alignment output from the MSA tab. There is an option of using the raw, adjusted, or staggered alignment for tree construction."),
+                          p("Parameters vary based on the method."),
                           p("Expected output is the phylogenetic tree in PNG format."),
                           br(), br(),
                           h5("References"),
                           p("[1] Zuo, Y., Zhang, Z., Zeng, Y., Hu, H., Hao, Y., Huang, S., and Li, B. (2024). Common methods for Phylogenetic Tree Construction and Their Implementation in R. Bioengineering(Basel), 11(5): 480. https://doi.org/10.3390/bioengineering11050480")
-                          )
-                      ),
+                      )
+                  ),
                   div(class = "clickable-card",
                       div(class = "card-header", "📑 Barcoding"),
-                      div(class = "card-body")
-                      ),
+                      div(class = "card-body",
+                          p("Perform DNA barcoding using the R package 'BarcodingR'"),
+                          div(class = "inner-card",
+                              h5("A. Species Identification"),
+                              p("Input file/s:"),
+                              tags$ul(
+                                 tags$li("Aligned reference sequences"),
+                                 tags$li("Aligned query sequences")
+                              ),
+                              p("Parameter/s:"),
+                              tags$ul(
+                                 tags$li("(without kmer method) Training model: bpNewTraining, fuzzyId, bpNewTrainingOnly, bpUsedTrained, or Bayesian"),
+                                 tags$li("(with kmer method) Fuzzy-set Method or BP-based method")
+                              )
+                          ),
+                          div(class = "inner-card",
+                              h5("B. Optimize kmer values"),
+                              p("Input file/s: Aligned sequences of the reference dataset (FASTA)"),
+                              p("Parameter/s: Length of maximum kmer value"),
+                              p("Expected output file: Kmer plot"),
+                              br(),
+                              p("This section builds upon the work of Ms. Maeviviene Sosing as part of the Filipino Genomes Research Program 2"),
+                          ),
+                          div(class = "inner-card",
+                              h5("C. Barcoding Gap"),
+                              p("Input file: VCF file"),
+                              p("Parameter/s: Distance (raw, K80, euclidean)"),
+                              p("Expected output file: Barcoding gap plot")
+                          ), 
+                          div(class = "inner-card",
+                              h5("D. Evaluate Barcodes"),
+                              p("Input file/s: CSV or XLSX file."),
+                              p("Parameter/s: Length of kmer for barcode 1 and barcode 2 (separate)")
+                          ),
+                          div(class = "inner-card",
+                              h5("E. Species Membership Value (TDR)"),
+                              p("Input file/s: CSV file with marker and population data."),
+                              p("Parameter/s: Boostrap value for query and reference samples.")
+                          )
+                      ) # end of card body
+                  ),
                   
                   ### POP Stat
                   div(class = "clickable-card",
                       div(class = "card-header", "📝 Population Statistics"),
                       div(class = "card-body",
-                          #h4("Calculate private alleles [1], heterozygosity [2], inbreeding coefficients [3], allele frequencies [4], hardy-weinberg equilibrium [5], and FST values [6]."),
                           p("Calculation of common population statistics:"),
                           tags$ul(
-                            tags$li("Private alleles [1] calculated using the poppr R package"),
-                            tags$li("Mean Allelic Richness [2] using the hierfstat R package"),
-                            tags$li("Heterozygosity [3] using the hierfstat R package"),
-                            tags$li("Inbreeding Coefficient [4] using the hierfstat R package"),
-                            tags$li("Allele frequency [5] using the adegenet R package"),
-                            tags$li("Hardy-Weinberg equilibrium [6] using the pegas R package"),
-                            tags$li("FST values [7] using the hierfstat R package")
+                             tags$li("Private alleles [1] calculated using the poppr R package"),
+                             tags$li("Mean Allelic Richness [2] using the hierfstat R package"),
+                             tags$li("Heterozygosity [3] using the hierfstat R package"),
+                             tags$li("Inbreeding Coefficient [4] using the hierfstat R package"),
+                             tags$li("Allele frequency [5] using the adegenet R package"),
+                             tags$li("Hardy-Weinberg equilibrium [6] using the pegas R package"),
+                             tags$li("FST values [7] using the hierfstat R package")
                           ),
                           br(),
                           p("Input file: CSV or XLSX file"),
@@ -292,7 +356,7 @@ ui <- tagList(
                           br(),
                           p("Input file: CSV or XLSX file"),
                           p("Expected output file: Zipped qmatrices, individual files, and PNG plots")                          
-                          ))
+                      ))
                ) # end of fluidpage
                
       ), # end of tab panel 
@@ -409,7 +473,7 @@ ui <- tagList(
                            )
                         ) # end of mainpanel
                      ) # end of sidebarLayout
-               
+                     
             ), # end of tabPanel for VCF to fasta
             
             tabPanel("Convert to SNIPPER-analysis ready file",
@@ -474,7 +538,7 @@ ui <- tagList(
                            
                         ) # end of mainpanel
                      )
-                     ) # end of tabpanel for csv to structure file
+            ) # end of tabpanel for csv to structure file
             
          )
       ), # end of tabpanel
@@ -524,7 +588,6 @@ ui <- tagList(
                                              
                                              actionButton("extractBtn", "Run Marker Extraction", icon = icon("play"))
                                              
-                                             #downloadButton("downloadExtracted", "Download Merged VCF")
                                           )
                                  )
                               ),
@@ -582,68 +645,67 @@ ui <- tagList(
       #############
       
       tabPanel(HTML("<span style = 'color:#ffffff;'> Filtering </span>"),
-         sidebarLayout(
-            sidebarPanel(
-               fileInput("forFilter", "Upload VCF/BCF/PLINK files"),
-               fileInput("highlightRef", "Optional Reference file for highlighting (CSV/XLSX)"),
-               checkboxInput("enableDP", "Plot Depth of Coverage", value = TRUE),
-               helpText("Depth of Coverage Plot only available if using a VCF file."),
-               selectInput("colorPalette", "Color Palette", choices = rownames(RColorBrewer::brewer.pal.info), selected = "Set2"),
-               hr(),
-               
-               h4("PLINK 1.9 Filtering Options"),
-               checkboxInput("filterIndiv", "Filter Individuals (--mind)", value = FALSE),
-               helpText("Exclude individuals with a missing genotype rate greater than the threshold"),
-               conditionalPanel("input.filterIndiv == true",
-                                numericInput("mindThresh", "Missingness Threshold (--mind)", value = 0.1, min = 0, max = 1, step = 0.01)
-                                ),
-               checkboxInput("filterVariant", "Filter Variants (--geno)", value = FALSE),
-               helpText("Exclude SNPs with a missing genotype rate greater than the threshold."),
-               conditionalPanel("input.filterVariant == true",
-                                numericInput("genoThresh", "Missingness Threshold (--geno)", value = 0.1, min = 0, max = 1, step = 0.01)
-                                ),
-               checkboxInput("filterAllele", "Filter Variants (--maf)", value = FALSE),
-               helpText("Exclude SNPs with a minor allele frequency less than the threshold."),
-               conditionalPanel("input.filterAllele == true",
-                                numericInput("mafThresh == true", "Minor Allele Frequency Threshold (--maf)", value = 0.1)
-                                ),
-               checkboxInput("filterQuality", "Filter by Quality (--qual-threshold)", value = FALSE),
-               helpText("Exclude variants with quality scores below the threshold."),
-               conditionalPanel("input.filterQuality == true",
-                                numericInput("qualThresh == true", "Quality Score Threshold (--qual-threshold)", value = 5)
-                                ),
-               checkboxInput("filterHWE", "Filter Variants (--hwe)", value = FALSE),
-               helpText("Exclude SNPs deviating from the Hardy-Weinberg Equilibrium."),
-               conditionalPanel("input.filterHWE == true",
-                                numericInput("qualHWE == true", "Hardy-Weinberg equilibrium exact test p-value Threshold (--hwe)", value = 0.000001, min = 0.0000000001)
-                                ),
-               checkboxInput("filterLD", "Filter Variants (--indep-pairwise)", value = FALSE),
-               helpText("Prune markers in approximate linkage equilibrium with each other."),
-               conditionalPanel("input.filterLD == true",
-                                numericInput("ldWindow", "Window Size (kb)", value = 500, min = 1, step = 1),
-                                numericInput("ldStep", "Step Size (variants)", value = 50, min = 1, step = 1),
-                                numericInput("ldR2", "r2 Threshold", value = 0.2, min = 0, max = 1, step = 0.01)
-                                ),
-               textInput("customFilter", "Additional PLINK flags", placeholder = "--keep filestokeep.txt"),
-               fileInput("extraFile1", "Optional file for first flag", accept = c(".txt", ".ped", ".psam", ".pheno")),
-               fileInput("extraFile2", "Optional file for second flag", accept = c(".txt", ".ped", ".psam", ".pheno")),
-               helpText("Upload extra files only if required by additional PLINK flags."),
-               actionButton("calcDP", "Run Filtering & Plotting", icon = icon("filter")),
-               textOutput("filterWarning")
-            ), # end of side panel
-            mainPanel(
-               verbatimTextOutput("plinkCommandPreview"),
-               h4("Depth of Coverage Plots"),
-               #uiOutput("depthPlots"),
-               imageOutput("depthMarkerPlot"),
-               imageOutput("depthSamplePlot"),
-               br(),
-               downloadButton("downloadFilteredFile", "Download Filtered File"),
-               downloadButton("downloadDepthPlots", "Download Plots")
-            ) # end of mainPanel
-            
-         ) # sidebar layout
-   ), # end of tab panel for filtering
+               sidebarLayout(
+                  sidebarPanel(
+                     fileInput("forFilter", "Upload VCF/BCF/PLINK files"),
+                     fileInput("highlightRef", "Optional Reference file for highlighting (CSV/XLSX)"),
+                     checkboxInput("enableDP", "Plot Depth of Coverage", value = TRUE),
+                     helpText("Depth of Coverage Plot only available if using a VCF file."),
+                     selectInput("colorPalette", "Color Palette", choices = rownames(RColorBrewer::brewer.pal.info), selected = "Set2"),
+                     hr(),
+                     
+                     h4("PLINK 1.9 Filtering Options"),
+                     checkboxInput("filterIndiv", "Filter Individuals (--mind)", value = FALSE),
+                     helpText("Exclude individuals with a missing genotype rate greater than the threshold"),
+                     conditionalPanel("input.filterIndiv == true",
+                                      numericInput("mindThresh", "Missingness Threshold (--mind)", value = 0.1, min = 0, max = 1, step = 0.01)
+                     ),
+                     checkboxInput("filterVariant", "Filter Variants (--geno)", value = FALSE),
+                     helpText("Exclude SNPs with a missing genotype rate greater than the threshold."),
+                     conditionalPanel("input.filterVariant == true",
+                                      numericInput("genoThresh", "Missingness Threshold (--geno)", value = 0.1, min = 0, max = 1, step = 0.01)
+                     ),
+                     checkboxInput("filterAllele", "Filter Variants (--maf)", value = FALSE),
+                     helpText("Exclude SNPs with a minor allele frequency less than the threshold."),
+                     conditionalPanel("input.filterAllele == true",
+                                      numericInput("mafThresh == true", "Minor Allele Frequency Threshold (--maf)", value = 0.1)
+                     ),
+                     checkboxInput("filterQuality", "Filter by Quality (--qual-threshold)", value = FALSE),
+                     helpText("Exclude variants with quality scores below the threshold."),
+                     conditionalPanel("input.filterQuality == true",
+                                      numericInput("qualThresh == true", "Quality Score Threshold (--qual-threshold)", value = 5)
+                     ),
+                     checkboxInput("filterHWE", "Filter Variants (--hwe)", value = FALSE),
+                     helpText("Exclude SNPs deviating from the Hardy-Weinberg Equilibrium."),
+                     conditionalPanel("input.filterHWE == true",
+                                      numericInput("qualHWE == true", "Hardy-Weinberg equilibrium exact test p-value Threshold (--hwe)", value = 0.000001, min = 0.0000000001)
+                     ),
+                     checkboxInput("filterLD", "Filter Variants (--indep-pairwise)", value = FALSE),
+                     helpText("Prune markers in approximate linkage equilibrium with each other."),
+                     conditionalPanel("input.filterLD == true",
+                                      numericInput("ldWindow", "Window Size (kb)", value = 500, min = 1, step = 1),
+                                      numericInput("ldStep", "Step Size (variants)", value = 50, min = 1, step = 1),
+                                      numericInput("ldR2", "r2 Threshold", value = 0.2, min = 0, max = 1, step = 0.01)
+                     ),
+                     textInput("customFilter", "Additional PLINK flags", placeholder = "--keep filestokeep.txt"),
+                     fileInput("extraFile1", "Optional file for first flag", accept = c(".txt", ".ped", ".psam", ".pheno")),
+                     fileInput("extraFile2", "Optional file for second flag", accept = c(".txt", ".ped", ".psam", ".pheno")),
+                     helpText("Upload extra files only if required by additional PLINK flags."),
+                     actionButton("calcDP", "Run Filtering & Plotting", icon = icon("filter")),
+                     textOutput("filterWarning")
+                  ), # end of side panel
+                  mainPanel(
+                     verbatimTextOutput("plinkCommandPreview"),
+                     h4("Depth of Coverage Plots"),
+                     imageOutput("depthMarkerPlot"),
+                     imageOutput("depthSamplePlot"),
+                     br(),
+                     downloadButton("downloadFilteredFile", "Download Filtered File"),
+                     downloadButton("downloadDepthPlots", "Download Plots")
+                  ) # end of mainPanel
+                  
+               ) # sidebar layout
+      ), # end of tab panel for filtering
       
       ###########
       # ADD MSA #
@@ -652,25 +714,25 @@ ui <- tagList(
       tabPanel(HTML("<span style = 'color:#ffffff;'> Multiple Sequence Alignment</span>"),
                sidebarLayout(
                   sidebarPanel(
-                           #useShinyjs(),
-                           fileInput("fastaFile", "Upload zipped FASTA files"),
-                           radioButtons("substitutionMatrix", "Choose Substitution Matrix for MSA",
-                                        choices = c("ClustalW" = "ClustalW", "ClustalOmega" = "ClustalOmega", "MUSCLE" = "Muscle")),
-                           br(),
-                           actionButton("runMSA", "Align", icon = icon("align-justify")),
-                           selectInput("msaDownloadType", "Choose alignment (FASTA and PDF) version to download:",
-                                       choices = c(
-                                          "Initial" = "initial",
-                                          "Adjusted" = "adjusted",
-                                          "Staggered" = "staggered"
-                                       ),
-                                       selected = "initial"),
-                           downloadButton("downloadAlignedFASTA", "Download Aligned Sequences"),
-                           br(), br(),
-                           downloadButton("downloadAlignmentScores", "Download Alignment Scores"),
-                           br(), br(),
-                           downloadButton("downloadAlignmentPDF", "Download Alignment PDF")
-                           
+                     #useShinyjs(),
+                     fileInput("fastaFile", "Upload zipped FASTA files"),
+                     radioButtons("substitutionMatrix", "Choose Substitution Matrix for MSA",
+                                  choices = c("ClustalW" = "ClustalW", "ClustalOmega" = "ClustalOmega", "MUSCLE" = "Muscle")),
+                     br(),
+                     actionButton("runMSA", "Align", icon = icon("align-justify")),
+                     selectInput("msaDownloadType", "Choose alignment (FASTA and PDF) version to download:",
+                                 choices = c(
+                                    "Initial" = "initial",
+                                    "Adjusted" = "adjusted",
+                                    "Staggered" = "staggered"
+                                 ),
+                                 selected = "initial"),
+                     downloadButton("downloadAlignedFASTA", "Download Aligned Sequences"),
+                     br(), br(),
+                     downloadButton("downloadAlignmentScores", "Download Alignment Scores"),
+                     br(), br(),
+                     downloadButton("downloadAlignmentPDF", "Download Alignment PDF")
+                     
                   ), #tabPanel
                   mainPanel(
                      verbatimTextOutput("initialAlignmentText"),
@@ -682,7 +744,7 @@ ui <- tagList(
                      verbatimTextOutput("alignmentScoresPreview")
                   ) # end of mainPanel
                ) # end of sidebarLayout
-         
+               
       ), # end of tabpanel for MSA
       
       # Phylogenetic Tree Construction
@@ -696,7 +758,7 @@ ui <- tagList(
                                     "Staggered" = "staggered"
                                  ),
                                  selected = "initial"
-                                 ),
+                     ),
                      selectInput("treeType", "Choose Method for Tree Construction",
                                  choices = c("NJ", "UPGMA", "Parsimony", "Maximum Likelihood")),
                      
@@ -705,7 +767,7 @@ ui <- tagList(
                         selectInput("model", "Choose Substitution Model",
                                     choices = c("N", "TS", "TV", "JC69", "K80", "F81", "K81", "F84", "BH87", "T92", "TN93", "GG95"),
                                     selected = "K80")
-                                    ),
+                     ),
                      
                      conditionalPanel(
                         condition = "input.treeType == 'Maximum Likelihood'",
@@ -718,7 +780,7 @@ ui <- tagList(
                      br(), br(),
                      downloadButton("downloadTree", "Download Tree"),
                      downloadButton("downloadAll", "Download All Outputs")
-                     ),
+                  ),
                   
                   mainPanel(
                      h4("Aligned Sequences Preview"),
@@ -729,123 +791,121 @@ ui <- tagList(
                   )
                   
                ) # end of sidebar layout
-               ), # end of tab panel
+      ), # end of tab panel
       
-   
-         #############
-         # BARCODING #
-         #############   
-         tabPanel(HTML("<span style = 'color:#ffffff;'>Barcoding</span>"),
-            tabsetPanel(
-               tabPanel("Species Identification",
-                        sidebarPanel(
-                           fileInput("refBarcoding", "Upload Aligned Reference Sequences"),
-                           fileInput("queBarcoding", "Upload Aligned Query Sequences"),
-                           helpText("The reference and query sequences should have the same length."),
-                           checkboxInput("kmerSelect", "Use k-mer method?", value = FALSE),
-                           conditionalPanel("input.kmerSelect == false",
-                                            selectInput("barcodingMethod", "Select method to train model and infer membership:",
-                                                        choices = c("fuzzyId", "bpNewTraining", "bpNewTrainingOnly", "bpUseTrained", "Bayesian"),
-                                                        selected = "bpNewTraining")
-                           ),
-                           conditionalPanel("input.kmerSelect == true",
-                                            radioButtons("kmerType", "Choose Method",
-                                                         choices = c("Fuzzy-set Method and kmer", "BP-based Method and kmer")),
-                                            #checkboxInput("kmerFuzzy", "Fuzzy-set Method and kmer", value = FALSE),
-                                            conditionalPanel("input.kmerType == 'Fuzzy-set Method and kmer'",
-                                                             numericInput("kmerValue", "K-mer value", value = 1, min = 0),
-                                                             checkboxInput("optimizationKMER", "Use different kmer length?", value = FALSE)
-                                            ),
-                                            #checkboxInput("kmerBP", "BP-based Method and kmer", value = FALSE),
-                                            conditionalPanel("input.kmerType == 'BP-based Method and kmer'",
-                                                             numericInput("kmerValue", "K-mer value", value = 1, min = 0),
-                                                             checkboxInput("builtModel", "Use built model", value = FALSE),
-                                                             numericInput("lrValue", "Parameter for weight decay", value = 0.00005),
-                                                             numericInput("maxitValue", "Maximum number of iterations", value = 1000000)
-                                            )
-                           ), # end of conditional panel if kmerselect = true
-                           actionButton("identifySpecies", "Identify Species", icon = icon("magnifying-glass"))
-                        ), # end of sidebar Panel
-                        mainPanel(
-                           verbatimTextOutput("identificationResult")
-                        )
-               ), # end of first tab Panel
-               tabPanel("Optimize kmer values",
-                        sidebarPanel(
-                           p("Calculate the optimal kmer value that can be used for relevant calculations."),
-                           fileInput("optimizeKmerRef", "Upload reference dataset"),
-                           numericInput("maxKmer", "Length of maximum kmer value", value = "5", min = 2),
-                           actionButton("calOptimumKmer", "Identify Optimum kmer value", icon = icon("upload"))
-                        ), # end of sidebar panel
-                        mainPanel(
-                           verbatimTextOutput("kmerResult"),
-                           imageOutput("kmerPlot"),
-                           downloadHandler("downloadKmerPlot", "Download Plot")
-                        )
-                        
-               ), # end of second tab panel
-               tabPanel("Barcoding Gap",
-                        sidebarPanel(
-                           fileInput("barcodeRef", "Upload reference dataset"),
-                           selectInput("gapModel", "Choose Distance",
-                                       choices = c("raw", "K80", "euclidean"),
-                                       selected = "raw"),
-                           actionButton("gapBarcodes", "Calculate gap", icon = icon("arrows-left-right-to-line"))
+      
+      #############
+      # BARCODING #
+      #############   
+      tabPanel(HTML("<span style = 'color:#ffffff;'>Barcoding</span>"),
+               tabsetPanel(
+                  tabPanel("Species Identification",
+                           sidebarPanel(
+                              fileInput("refBarcoding", "Upload Aligned Reference Sequences"),
+                              fileInput("queBarcoding", "Upload Aligned Query Sequences"),
+                              helpText("The reference and query sequences should have the same length."),
+                              checkboxInput("kmerSelect", "Use k-mer method?", value = FALSE),
+                              conditionalPanel("input.kmerSelect == false",
+                                               selectInput("barcodingMethod", "Select method to train model and infer membership:",
+                                                           choices = c("fuzzyId", "bpNewTraining", "bpNewTrainingOnly", "bpUseTrained", "Bayesian"),
+                                                           selected = "bpNewTraining")
+                              ),
+                              conditionalPanel("input.kmerSelect == true",
+                                               radioButtons("kmerType", "Choose Method",
+                                                            choices = c("Fuzzy-set Method and kmer", "BP-based Method and kmer")),
+                                               conditionalPanel("input.kmerType == 'Fuzzy-set Method and kmer'",
+                                                                numericInput("kmerValue", "K-mer value", value = 1, min = 0),
+                                                                checkboxInput("optimizationKMER", "Use different kmer length?", value = FALSE)
+                                               ),
+                                               conditionalPanel("input.kmerType == 'BP-based Method and kmer'",
+                                                                numericInput("kmerValue", "K-mer value", value = 1, min = 0),
+                                                                checkboxInput("builtModel", "Use built model", value = FALSE),
+                                                                numericInput("lrValue", "Parameter for weight decay", value = 0.00005),
+                                                                numericInput("maxitValue", "Maximum number of iterations", value = 1000000)
+                                               )
+                              ), # end of conditional panel if kmerselect = true
+                              actionButton("identifySpecies", "Identify Species", icon = icon("magnifying-glass"))
+                           ), # end of sidebar Panel
+                           mainPanel(
+                              verbatimTextOutput("identificationResult")
+                           )
+                  ), # end of first tab Panel
+                  tabPanel("Optimize kmer values",
+                           sidebarPanel(
+                              p("Calculate the optimal kmer value that can be used for relevant calculations."),
+                              fileInput("optimizeKmerRef", "Upload reference dataset"),
+                              numericInput("maxKmer", "Length of maximum kmer value", value = "5", min = 2),
+                              actionButton("calOptimumKmer", "Identify Optimum kmer value", icon = icon("upload"))
+                           ), # end of sidebar panel
+                           mainPanel(
+                              verbatimTextOutput("kmerResult"),
+                              imageOutput("kmerPlot"),
+                              downloadHandler("downloadKmerPlot", "Download Plot")
+                           )
                            
-                        ), # end of sidebar panel
-                        mainPanel(
-                           verbatimTextOutput("barcodingResult"),
-                           imageOutput("BarcodingGapPlot"),
-                           downloadHandler("downloadGapPlot", "Download Barcoding Gap Plot")
-                        )
-               ), #end of third tab panel
-               tabPanel("Evaluate Barcodes",
-                        sidebarPanel(
-                           fileInput("barcode1", "Upload Barcode 1"),
-                           fileInput("barcode2", "Upload Barcode 2"),
-                           numericInput("kmer1", "Length of kmer for barcode 1", value = 5, min = 1),
-                           numericInput("kmer2", "Length of kmer for barcode 2", value = 5, min = 1),
-                           actionButton("evalBarcodes", "Evaluate Barcodes", icon = icon("code-compare"))
-                        ), # end of sidebar panel
-                        mainPanel(
-                           tableOutput("evalBarcodesResult")
-                        )
-               ), #end of third tab panel
-               tabPanel("Species Membership Value (TDR)",
-			               sidebarPanel(
-			                     p("Calculate the TDR2 value"),
-			                     fileInput("oneSpe", "Upload DNA seq from a single query species"),
+                  ), # end of second tab panel
+                  tabPanel("Barcoding Gap",
+                           sidebarPanel(
+                              fileInput("barcodeRef", "Upload reference dataset"),
+                              selectInput("gapModel", "Choose Distance",
+                                          choices = c("raw", "K80", "euclidean"),
+                                          selected = "raw"),
+                              actionButton("gapBarcodes", "Calculate gap", icon = icon("arrows-left-right-to-line"))
+                              
+                           ), # end of sidebar panel
+                           mainPanel(
+                              verbatimTextOutput("barcodingResult"),
+                              imageOutput("BarcodingGapPlot"),
+                              downloadHandler("downloadGapPlot", "Download Barcoding Gap Plot")
+                           )
+                  ), #end of third tab panel
+                  tabPanel("Evaluate Barcodes",
+                           sidebarPanel(
+                              fileInput("barcode1", "Upload Barcode 1"),
+                              fileInput("barcode2", "Upload Barcode 2"),
+                              numericInput("kmer1", "Length of kmer for barcode 1", value = 5, min = 1),
+                              numericInput("kmer2", "Length of kmer for barcode 2", value = 5, min = 1),
+                              actionButton("evalBarcodes", "Evaluate Barcodes", icon = icon("code-compare"))
+                           ), # end of sidebar panel
+                           mainPanel(
+                              tableOutput("evalBarcodesResult")
+                           )
+                  ), #end of third tab panel
+                  tabPanel("Species Membership Value (TDR)",
+                           sidebarPanel(
+                              p("Calculate the TDR2 value"),
+                              fileInput("oneSpe", "Upload DNA seq from a single query species"),
                               fileInput("queSpe", "Upload DNA seq from different samples"),
                               numericInput("bootValue1", "Bootstrap value for query species", value = 10, min = 1),
                               numericInput("bootValue2", "Bootstrap value for reference samples", value = 10, min = 1),
-			                     actionButton("calculateTDR2", "Calculate", icon = icon("calculator"))
-			), # end of sidebar panel
-			mainPanel(
-			   verbatimTextOutput("tdrValues")
-			)
-		) # end of fourth tab panel
-	) # end of first tabset panel
-), # end of tabpanel
+                              actionButton("calculateTDR2", "Calculate", icon = icon("calculator"))
+                           ), # end of sidebar panel
+                           mainPanel(
+                              verbatimTextOutput("tdrValues")
+                           )
+                  ) # end of fourth tab panel
+               ) # end of first tabset panel
+      ), # end of tabpanel
       
       #########################
       # Population Statistics #
       #########################
-   
+      
       tabPanel(HTML("<span style = 'color:#ffffff;'>Population Statistics</span>"),
                tabsetPanel(
                   sidebarPanel("Perform Analysis",
-                           useShinyjs(),
-                           fileInput("popStatsFile", "Upload CSV or XLSX Dataset"),
-                           actionButton("runPopStats", "Analyze", icon = icon("magnifying-glass-chart")),
-                           downloadButton("downloadStatsXLSX", "Download Results (Excel)"),
-                           
-                           hr(),
-                           h4("Example: Population File Format"),
-                           tableOutput("examplePop"),
-                           tags$h4("Sample File"),
-                           tags$ul(
-                              tags$a("Sample file", href = "www/sample.csv", download = NA)
-                           )
+                               useShinyjs(),
+                               fileInput("popStatsFile", "Upload CSV or XLSX Dataset"),
+                               actionButton("runPopStats", "Analyze", icon = icon("magnifying-glass-chart")),
+                               downloadButton("downloadStatsXLSX", "Download Results (Excel)"),
+                               
+                               hr(),
+                               h4("Example: Population File Format"),
+                               tableOutput("examplePop"),
+                               tags$h4("Sample File"),
+                               tags$ul(
+                                  tags$a("Sample file", href = "www/sample.csv", download = NA)
+                               )
                   ), 
                   tabPanel("1 Private Alleles",
                            h4("Private Alleles Summary"),
@@ -854,7 +914,7 @@ ui <- tagList(
                   tabPanel("2 Mean Allelic Richness",
                            h4("Mean Allelic Richness per site"),
                            DT::dataTableOutput("meanallelic")
-                           ),
+                  ),
                   tabPanel("3 Heterozygosity",
                            h4("Observed vs Expected Heterozygosity"),
                            DT::dataTableOutput("heterozygosity_table"),
@@ -893,7 +953,7 @@ ui <- tagList(
       #######
       # PCA #
       #######
-   
+      
       tabPanel(HTML("<span style = 'color:#ffffff;'>Exploratory Analysis</span>"),
                sidebarLayout(
                   sidebarPanel(
@@ -930,7 +990,7 @@ ui <- tagList(
       ######################
       # STRUCTURE Analysis #
       ######################
-   
+      
       tabPanel(
          HTML("<span style='color:#ffffff;'>STRUCTURE Analysis</span>"),
          sidebarLayout(
@@ -982,9 +1042,9 @@ server <- function(input, output, session) {
    
    # timer
    #observe({
-      #invalidateLater(600000, session)  # 5 minutes
-      
-      # set cleanup time by 5 mins
+   #invalidateLater(600000, session)  # 5 minutes
+   
+   # set cleanup time by 5 mins
    #   if (difftime(Sys.time(), lastAction(), units = "secs") > 300) {
    #      # resets
    #      convertedCSV
@@ -996,13 +1056,13 @@ server <- function(input, output, session) {
    #      population_stats(NULL)
    #      hardy_weinberg_stats(NULL)
    #      fst_stats(NULL)
-         
-         # this would reset the ui
+   
+   # this would reset the ui
    #      shinyjs::reset("formPanel")
-         
-         # to clean the files
+   
+   # to clean the files
    #      unlink(tempdir(), recursive = TRUE)
-         
+   
    #      showNotification("Session cleaned due to inactivity.", type = "message")
    #   }
    #})
@@ -1430,7 +1490,7 @@ server <- function(input, output, session) {
          }) # end of try catch 
       })
    })
-         
+   
    
    ## Concordance Analysis
    observe({
@@ -1625,7 +1685,7 @@ server <- function(input, output, session) {
       hasFile <- !is.null(input$forFilter)
       anyFilter <- input$filterIndiv || input$filterVariant || input$filterAllele || input$filterQuality || input$filterHWE || input$filterLD
       shinyjs::toggleState("calcDP", condition = hasFile && anyFilter)
-      })
+   })
    
    output$filterWarning <- renderText({
       if (is.null(input$forFilter)){
@@ -1707,11 +1767,11 @@ server <- function(input, output, session) {
          if (!is.null(input$extraFile1) && length(custom_flags) >=2){
             custom_flag[2] <- shQuote(input$extraFile1$datapath)
          }
-      
+         
          if (!is.null(input$extraFile2) && length(custom_flags) >=4){
             custom_flag[4] <- shQuote(input$extraFile2$datapath)
          }
-      
+         
          plink_cmds <- c(plink_cmds, custom_flags)}
       
       system(paste(plink_cmds, collapse = " "))
@@ -1793,7 +1853,7 @@ server <- function(input, output, session) {
       #aligned <- aligned_data()
       #withMathJax(HTML(msa::msaPrettyPrint(aligned, output="asis", showNames = "left", showLogo = "none",
       #               shadingMode = "similar", showLegend = FALSE, shadingColors = "blues", askForOverwrite = FALSE)))
-      })
+   })
    
    output$adjustedAlignmentText <- renderPrint({
       req(alignment_adjusted())
@@ -1820,11 +1880,11 @@ server <- function(input, output, session) {
                              adjusted = alignment_adjusted(),
                              staggered = alignment_staggered())
          req(alignment) 
-      #writeLines(utils::capture.output(print(alignment)), file)
-      #seqinr::write.fasta(sequences = as.list(alignment), names = getSequence(alignment), file.out = filename)
-      aligned <- msa::msaConvert(alignment, "bios2mds::align")
-      bios2mds::export.fasta(aligned, outfile = file, open = "w")
-         }
+         #writeLines(utils::capture.output(print(alignment)), file)
+         #seqinr::write.fasta(sequences = as.list(alignment), names = getSequence(alignment), file.out = filename)
+         aligned <- msa::msaConvert(alignment, "bios2mds::align")
+         bios2mds::export.fasta(aligned, outfile = file, open = "w")
+      }
    )
    
    output$downloadAlignmentScores <- downloadHandler(
@@ -1839,7 +1899,7 @@ server <- function(input, output, session) {
    output$downloadAlignmentPDF <- downloadHandler(
       filename = function(){#"aligned_seqs.pdf"
          file.path(paste0(directory, "aligned_seqs.pdf"))
-         },
+      },
       content = function(file){
          req(alignment_pdf())
          file.copy(alignment_pdf(), file)
@@ -1958,7 +2018,7 @@ server <- function(input, output, session) {
    )
    
    # BARCODING
-
+   
    # Species identification
    observe({ 
       refReady = !is.null(input$refBarcoding)
@@ -1971,33 +2031,37 @@ server <- function(input, output, session) {
       disable("identifySpecies")
       req(input$refBarcoding)
       req(input$queBarcoding)
-
-         refseq <- ape::as.DNAbin(as.character(input$refBarcoding))
-         queseq <- ape::as.DNAbin(as.character(input$queBarcoding))
+      
+      # read file
+      barcoding_ref <- rphast::read.msa(input$refBarcoding)
+      barcoding_que <- rphast::read.msa(input$queBarcoding)
+      
+      refseq <- ape::as.DNAbin(as.character(barcoding_ref))
+      queseq <- ape::as.DNAbin(as.character(barcoding_que))
+      
+      # If not using kmer method
+      if (input.kmerSelect == "false"){
+         result_identity <- BarcodingR::barcoding.spe.identify(refseq, queseq, method = input$barcodingMethod)
+      }
+      
+      if (input.kmerType == 'Fuzzy-set Method and kmer'){
+         req(input$kmerValue)
+         req(input$optimizationKMER)
          
-         # If not using kmer method
-         if (input.kmerSelect == "false"){
-            result_identity <- BarcodingR::barcoding.spe.identify(refseq, queseq, method = input$barcodingMethod)
-         }
+         result_identity <- BarcodingR::barcoding.spe.identify2(refseq, queseq, kmer = input$kmerValue, optimization = input$optimizationKMER)
          
-         if (input.kmerType == 'Fuzzy-set Method and kmer'){
-            req(input$kmerValue)
-            req(input$optimizationKMER)
-            
-            result_identity <- BarcodingR::barcoding.spe.identify2(refseq, queseq, kmer = input$kmerValue, optimization = input$optimizationKMER)
-            
-         } else if (input.kmerType == 'BP-based Method and kmer') {
-            req(input$kmerValue)
-            req(input$builtModel)
-            req(input$lrValue)
-            req(input$maxitValue)
-            result_identity <- BarcodingR::bbsik(refseq, queseq, kmer = input$kmerValue, UseBuiltModel = input$builtModel, lr = input$lrValue, maxit = input$maxitValue)
-         }
-         
-         output$identificationResult <- renderPrint({
-            req(result_identity)
-            result_identity
-         })
+      } else if (input.kmerType == 'BP-based Method and kmer') {
+         req(input$kmerValue)
+         req(input$builtModel)
+         req(input$lrValue)
+         req(input$maxitValue)
+         result_identity <- BarcodingR::bbsik(refseq, queseq, kmer = input$kmerValue, UseBuiltModel = input$builtModel, lr = input$lrValue, maxit = input$maxitValue)
+      }
+      
+      output$identificationResult <- renderPrint({
+         req(result_identity)
+         result_identity
+      })
    })
    
    # Optimize kmer values
@@ -2010,7 +2074,8 @@ server <- function(input, output, session) {
       disable("calOptimumKmer")
       req(input$optimizeKmerRef)
       
-      kmerFile <- ape::as.DNAbin(as.character(input$optimizeKmerRef))
+      barcoding_ref <- rphast::read.msa(input$optimizeKmerRef)
+      kmerFile <- ape::as.DNAbin(as.character(barcoding_ref))
       optimalKmer <- BarcodingR::optimize.kmer(kmerFile, max.kmer = input$maxKmer)
       
       # download
@@ -2048,7 +2113,8 @@ server <- function(input, output, session) {
       disable("gapBarcodes")
       req(input$barcodeRef)
       
-      refBarcode <- ape::as.DNAbin(as.character(input$barcodeRef))
+      barcoding_ref <- rphast::read.msa(input$barcodeRef)
+      refBarcode <- ape::as.DNAbin(as.character(barcoding_ref))
       gap <- BarcodingR::barcoding.gap(refBarcode, dist = input$gapModel)
       
       # download
@@ -2089,8 +2155,11 @@ server <- function(input, output, session) {
       req(input$barcode1)
       req(input$barcode2)
       
-      barcode1 <- ape::as.DNAbin(as.character(input$barcode1))
-      barcode2 <- ape::as.DNAbin(as.character(input$barcode2))
+      b1 <- rphast::read.msa(input$barcode1)
+      b2 <- rphast::read.msa(input$barcode2)
+      barcode1 <- ape::as.DNAbin(as.character(b1))
+      barcode2 <- ape::as.DNAbin(as.character(b2))
+      
       # convert to dataframe to download
       result <- BarcodingR::barcodes.eval(barcode1, barcode2, kmer1 = kmer1, kmer2 = kmer2)
       
@@ -2115,9 +2184,11 @@ server <- function(input, output, session) {
       req(input$oneSpe)
       req(input$queSpe)
       
-      query <- ape::as.DNAbin(as.character(input$oneSpe))
-      reference <- ape::as.DNAbin(as.character(input$queSpe))
-      #tdr_result <- BarcodingR::TDR2(query, reference, boot = input$bootValue1, boot2 = input$bootValue2)
+      que <- rphast::read.msa(input$oneSpe)
+      ref <- rphast::read.msa(input$queSpe)
+      
+      query <- ape::as.DNAbin(as.character(que))
+      reference <- ape::as.DNAbin(as.character(ref))
       
       # issue with results, it prints and not stores
       output$tdrValues <- renderPrint({
@@ -2290,7 +2361,7 @@ server <- function(input, output, session) {
                fst_stats()$fst_dataframe
             })
             
-
+            
             output$fst_heatmap_plot <- renderImage({
                req(fst_data())
                
@@ -2511,7 +2582,7 @@ server <- function(input, output, session) {
    structure_result <- reactiveVal(NULL)
    qmatrices_result <- reactiveVal(NULL)
    structure_plot_paths <- reactiveVal(NULL)
-
+   
    observeEvent(input$runStructure, {
       disable("runStructure")
       waiter_show(html = spin_fading_circles(), color = "#ffffff")
@@ -2522,7 +2593,7 @@ server <- function(input, output, session) {
          incProgress(0.2, detail = "Loading input file...")
          df <- load_input_file(input$structureFile$datapath)
          fsnps_gen <- clean_input_data_str(df)
-
+         
          
          incProgress(0.4, detail = "Converting to STRUCTURE file...")
          output_dir <- tempdir()
@@ -2539,18 +2610,18 @@ server <- function(input, output, session) {
          #structure_file <- out_path
          
          incProgress(0.6, detail = "Running STRUCTURE analysis...")
-            result <- running_structure(out_path,
-                                        k.range = input$kMin:input$kMax,
-                                        num.k.rep = input$numKRep,
-                                        burnin = input$burnin,
-                                        numreps = input$numreps,
-                                        noadmix = input$noadmix,
-                                        phased = input$phased,
-                                        ploidy = input$ploidy,
-                                        linkage = input$linkage,
-                                        structure_path = "structure/structure.exe",
-                                        output_dir = output_dir)
-            
+         result <- running_structure(out_path,
+                                     k.range = input$kMin:input$kMax,
+                                     num.k.rep = input$numKRep,
+                                     burnin = input$burnin,
+                                     numreps = input$numreps,
+                                     noadmix = input$noadmix,
+                                     phased = input$phased,
+                                     ploidy = input$ploidy,
+                                     linkage = input$linkage,
+                                     structure_path = "structure/structure.exe",
+                                     output_dir = output_dir)
+         
          structure_result(list(
             output_dir = output_dir,
             plot_paths = result$plot.paths
@@ -2560,22 +2631,22 @@ server <- function(input, output, session) {
          qmatrices_result(q_matrices(result$plot.paths))
          
          incProgress(1.0, detail = "Plotting...")
-            populations_df <- fsnps_gen$pop_labels  
-            str_files <- list.files(output_dir, pattern = "_f$", full.names = TRUE)
-            str_data <- lapply(str_files, starmie::loadStructure)
-            
-            plot_paths <- lapply(str_data, function(structure_obj){
-               file_name <- file.path(output_dir, paste0(structure_obj$K, "_plot.png"))
-               gg <- plotQ(structure_obj, populations_df, outfile = file_name)
-               ggplot2::ggsave(file_name, plot = gg, width = 12, height = 10, dpi = 600)
-               file_name
-            })
-            
-            structure_plot_paths(plot_paths)
-            enable("runStructure")
-            waiter_hide()
+         populations_df <- fsnps_gen$pop_labels  
+         str_files <- list.files(output_dir, pattern = "_f$", full.names = TRUE)
+         str_data <- lapply(str_files, starmie::loadStructure)
          
-        
+         plot_paths <- lapply(str_data, function(structure_obj){
+            file_name <- file.path(output_dir, paste0(structure_obj$K, "_plot.png"))
+            gg <- plotQ(structure_obj, populations_df, outfile = file_name)
+            ggplot2::ggsave(file_name, plot = gg, width = 12, height = 10, dpi = 600)
+            file_name
+         })
+         
+         structure_plot_paths(plot_paths)
+         enable("runStructure")
+         waiter_hide()
+         
+         
          output$downloadLogs <- downloadHandler(
             filename = function() {
                paste0("structure_logs_", Sys.Date(), ".zip")
