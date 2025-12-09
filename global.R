@@ -19,8 +19,3 @@ bcftools_path <- Sys.which("bcftools")
 if (bcftools_path == "") bcftools_path <- "/usr/local/bin/bcftools"
 
 
-
-
-#structure_path <- Sys.which("structure")
-#if (structure_path == "") structure_path <- "/usr/local/bin/console/structure"
-#structure_path <- "./structure.exe"

@@ -4,7 +4,6 @@ library(bslib)
 library(shinyjs)
 source("functions.R", local = TRUE)
 source("global.R")
-#shiny::addResourcePath('www', '/srv/shiny-server/restful-forensics/www') # for docker
 
 ui <- tagList(
    useShinyjs(),
@@ -78,14 +77,9 @@ ui <- tagList(
    navbarPage(
       
       title = div(
-         #tags$img(src = "www/logo.png", height = "30px", style = "display: inline-block; vertical-align: middle;"), ############ UNCOMMENT OUT IF USING DOCKER
          tags$img(src = "logo.png", height = "30px", style = "display: inline-block; vertical-align: middle;"),
          tags$span("RESTful Forensics",
-                   style = "font-family: Carme, sans-serif; font-size: 26px; color: #92b2e4; vertical-align: middle; padding-left: 0px;") #,
-         #tags$div(
-         #   style = "position: fixed; bottom: 0, width: 100%; background-color: transparent; padding: 8px; text-align: center; font-size: 10px; color: #666;",
-         #   HTML("&copy; 2025 DNA Analysis Laboratory, Natural Sciences Research Institute, University of the Philippines Diliman. All rights reserved.")
-         #)
+                   style = "font-family: Carme, sans-serif; font-size: 26px; color: #92b2e4; vertical-align: middle; padding-left: 0px;")
       ), # end of title
       
       tabPanel(
@@ -106,11 +100,11 @@ ui <- tagList(
                style = "font-size: 16px; line-height: 1.6;",
                p("This application is a compilation of the work on ancestry informative markers by the DNA Analysis Laboratory with an ongoing effort to expand to other marker types."),
                br(),
-               p("This project is led by Nelvie Fatima Jane Soliven. For inquiries, contact nasoliven@up.edu.ph.")
+               p("This project is led by Nelvie Fatima Jane Soliven. For inquiries, contact nasoliven@up.edu.ph."),
+               tags$img(src = "readme/logo.png", height = 125, width = 300)
             )
          )
       ), # end of tab panel for homepage
-      
       
       
       ## 1. Instructions Tab

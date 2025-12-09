@@ -1,5 +1,5 @@
 # restful-forensics-shinyapp
-The Windows implementation of restful-forensics in RStudio.
+The Windows implementation of restful-forensics in RStudio. To check the dockerized application, see https://github.com/NSRI-DAL-2025-Project/restful-forensics.
 
 For feedback on the tool, please fill up this google form: https://forms.gle/fA62Kwb2Ah2pC12H7
 
