@@ -1,16 +1,18 @@
 # to-do: add a notice that server will disconnect after a certain time
 # to-do: reset file uploads
 library(bslib)
+library(dplyr)
+library(shiny)
 library(shinyjs)
+library(shinycssloaders)
 source("functions.R", local = TRUE)
-source("global.R")
+source("dal_functions.R", local = TRUE)
+source("global.R", local = TRUE)
+
+options(shiny.maxRequestSize = 2000*1024^2)
 
 ui <- tagList(
    useShinyjs(),
-   waiter::waiter_preloader(
-      html = waiter::spin_fading_circles(),
-      color = "rgba(255,255,255,0.6)"
-   ),
    tags$head(
       tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Carme&display=swap"),
       tags$style(HTML("
@@ -24,8 +26,9 @@ ui <- tagList(
             .navbar-nav > li:nth-child(7) > a { background-color: #487aa7 !important; }
             .navbar-nav > li:nth-child(8) > a { background-color: #326f9e !important; }
             .navbar-nav > li:nth-child(9) > a { background-color: #295b8a !important; }
-            .navbar-nav > li:nth-child(10) > a { background-color: #174978 !important; }
-            .navbar-nav > li:nth-child(11) > a { background-color: #003366 !important; }
+            .navbar-nav > li:nth-child(10) > a { background-color: #28547e !important; }
+            .navbar-nav > li:nth-child(11) > a { background-color: #033c75 !important; }
+            .navbar-nav > li:nth-child(12) > a { background-color: #003366 !important; }
       
             .clickable-card {
                 border: 1px solid #ccc;
@@ -101,7 +104,7 @@ ui <- tagList(
                p("This application is a compilation of the work on ancestry informative markers by the DNA Analysis Laboratory with an ongoing effort to expand to other marker types."),
                br(),
                p("This project is led by Nelvie Fatima Jane Soliven. For inquiries, contact nasoliven@up.edu.ph."),
-               tags$img(src = "readme/logo.png", height = 125, width = 300)
+               tags$img(src = "readme/fulllogo.png", height = 125, width = 300)
             )
          )
       ), # end of tab panel for homepage
@@ -119,14 +122,15 @@ ui <- tagList(
                           h4("Convert various genetic data structures to commonly used input files."),
                           
                           div(class = "inner-card",
-                              h5("A. Convert files to CSV and add population info"),
+                              h5("A. Convert files"),
                               p("Input file/s:"), 
                               tags$ul(
                                  tags$li("VCF, BCF, or PLINK (.bed, .bim, .fam) files."),
-                                 tags$li("(Optional) Population data in XLSX or CSV")                          
+                                 tags$li("(Optional) Population data (XLSX/CSV/TXT)."),
+                                 tags$li("Optional) Reference sequence in FASTA format (for VCF to FASTA conversion)"),
+                                 tags$li("(Optional) Marker information (for CSV to VCF conversion) with the following columns: [1] SNP, [2] CHR, [3] POS, [4] Genetic distance, [5] REF Allele [6] ALT Allele")
                               ),
-                              p("Parameter/s: Metadata on sample population"),
-                              p("Expected output file/s: CSV file.")
+                              p("Expected output file/s: VCF, PLINK, or CSV file.")
                           ),
                           div(class = "inner-card",
                               h5("B. Convert ForenSeq UAS outputs to wide format"),
@@ -136,19 +140,14 @@ ui <- tagList(
                               p("This section builds upon the work of Ms. Maeviviene Sosing as part of the Filipino Genomes Research Program 2"),
                           ),
                           div(class = "inner-card",
-                              h5("C. Convert VCF files to FASTA"),
-                              p("Input file/s: VCF file"),
-                              p("Expected output file/s: FASTA file.")
-                          ), 
-                          div(class = "inner-card",
-                              h5("D. Convert CSV or XLSX files to a SNIPPER-compatible file"),
+                              h5("C. Convert CSV or XLSX files to a SNIPPER-compatible file"),
                               p("Input file/s: CSV or XLSX file."),
                               p("Parameter/s: (optional) Target population name for classification"),
                               p("Expected output file/s: XLSX file."),
                               p("SNIPPER tool for sample classification: https://mathgene.usc.es/snipper/index.php")
                           ),
                           div(class = "inner-card",
-                              h5("E. Convert CSV files to STRUCTURE files."),
+                              h5("D. Convert CSV files to STRUCTURE files."),
                               p("Input file/s: CSV file with marker and population data."),
                               p("Parameter/s: User's operating system (for STRUCTURE input compatibility)"),
                               p("Expected output file/s:"),
@@ -350,7 +349,16 @@ ui <- tagList(
                           br(),
                           p("Input file: CSV or XLSX file"),
                           p("Expected output file: Zipped qmatrices, individual files, and PNG plots")                          
-                      ))
+                      )),
+                  
+                  div(class = "clickable-card",
+                      div(class = "card-header", "🪪 Classification"),
+                      div(class = "card-body",
+                          h4("Classify individuals using Naive Bayes from the e1071 and caret R packages."),
+                           p("Input file/s: CSV file"),
+                           p("Expected output file: XLSX file")
+                          )
+                  ) # end of div for classification
                ) # end of fluidpage
                
       ), # end of tab panel 
@@ -359,66 +367,137 @@ ui <- tagList(
       tabPanel(
          title = HTML("<span style = 'color:#ffffff;'>File Conversion</span>"),
          tabsetPanel(
-            
-            # Subtab 1: Convert to CSV
-            tabPanel("Convert files to CSV",
+            tabPanel("Convert Files",
                      useShinyjs(),
                      sidebarLayout(
                         sidebarPanel(
-                           radioButtons("inputType", "Choose Input File Type",
-                                        choices = c("VCF file" = "vcf", "BCF file" = "bcf", "PLINK files (.bed/.bim/.fam)" = "plink")),
+                           radioButtons("inputType1", "Choose starting file type",
+                                        choices = c("VCF file" = "vcf1", "BCF file" = "bcf1", "PLINK files (.bed/.bim/.fam)" = "plink1", "CSV file" = "csv1")),
                            
                            conditionalPanel(
-                              condition = "input.inputType == 'vcf'",
-                              fileInput("vcfFile", "Upload VCF File")
-                           ),
-                           # added 4 Aug (missed)
+                              condition = "input.inputType1 == 'vcf1'",
+                              fileInput("VCFFile", "Upload VCF File"),
+                              radioButtons("inputType2", "Choose final file type",
+                                           choices = c("PLINK files (.bed/.bim/.fam)" = "plink2", "CSV file" = "csv2", "FASTA file" = "fasta")),
+                              
+                              conditionalPanel(
+                                 condition = "input.inputType2 == 'fasta'",
+                                 fileInput("FASTARef", "Reference sequence in FASTA format.")
+                              ),
+                              
+                              conditionalPanel(
+                                 condition = "input.inputType2 == 'csv2'",
+                                 radioButtons("poptype", "Do samples come from a single population?",
+                                              choices = c("Yes" = "single", "No" = "multiplepop")),
+                                 conditionalPanel(
+                                    condition = "input.poptype == 'multiplepop'",
+                                    fileInput("multiplepop", "Input reference file with sample ID and population"),
+                                    helpText("*Accepts XLSX and CSV files")
+                                 ),
+                                 
+                                 conditionalPanel(
+                                    condition = "input.poptype == 'single'",
+                                    textAreaInput("typePop", "Enter population", rows = 1)
+                                 )
+                              )
+                           ), 
+                           
                            conditionalPanel(
-                              condition = "input.inputType == 'bcf'",
-                              fileInput("bcfFile", "Upload BCF File")
+                              condition = "input.inputType1 == 'bcf1'",
+                              fileInput("BCFFile", "Upload BCF File"),
+                              radioButtons("inputType2", "Choose final file type",
+                                           choices = c("VCF file" = "vcf2", "PLINK files (.bed/.bim/.fam)" = "plink2", "CSV file" = "csv2")),
+                              
+                              conditionalPanel(
+                                 condition = "input.inputType2 == 'csv2'",
+                                 radioButtons("poptype", "Do samples come from a single population?",
+                                              choices = c("Yes" = "single", "No" = "multiplepop")),
+                                 conditionalPanel(
+                                    condition = "input.poptype == 'multiplepop'",
+                                    fileInput("multiplepop", "Input reference file with sample ID and population"),
+                                    helpText("*Accepts XLSX and CSV files")
+                                 ),
+                                 
+                                 conditionalPanel(
+                                    condition = "input.poptype == 'single'",
+                                    textAreaInput("typePop", "Enter population", rows = 1)
+                                 )
+                              )
                            ),
                            
                            conditionalPanel(
-                              condition = "input.inputType == 'plink'",
+                              condition = "input.inputType1 == 'plink1'",
                               fileInput("bedFile", "Upload BED File"),
                               fileInput("bimFile", "Upload BIM File"),
-                              fileInput("famFile", "Upload FAM File")
+                              fileInput("famFile", "Upload FAM File"),
+                              radioButtons("inputType2", "Choose final file type",
+                                           choices = c("VCF file" = "vcf2", "CSV file" = "csv2")),
+                              
+                              conditionalPanel(
+                                 condition = "input.inputType2 == 'csv2'",
+                                 radioButtons("poptype", "Do samples come from a single population?",
+                                              choices = c("Yes" = "single", "No" = "multiplepop")),
+                                 conditionalPanel(
+                                    condition = "input.poptype == 'multiplepop'",
+                                    fileInput("multiplepop", "Input reference file with sample ID and population"),
+                                    helpText("*Accepts XLSX and CSV files")
+                                 ),
+                                 
+                                 conditionalPanel(
+                                    condition = "input.poptype == 'single'",
+                                    textAreaInput("typePop", "Enter population", rows = 1)
+                                 )
+                              )
                            ),
-                           
-                           radioButtons("poptype", "Do samples come from a single population?",
-                                        choices = c("Yes" = "single", "No" = "multiplepop")),
                            
                            conditionalPanel(
-                              condition = "input.poptype == 'multiplepop'",
-                              fileInput("multiplepop", "Input reference file with sample ID and population"),
-                              helpText("*Accepts XLSX and CSV files")
+                              condition = "input.inputType1 == 'csv1'",
+                              p("This feature automatically converts a CSV file to VCF"),
+                              fileInput("CSVFile", "Upload CSV File"),
+                              fileInput("lociMetaFile", "Upload loci/marker information"),
+                              radioButtons("poptypeCSV", "Do samples come from a single population?",
+                                           choices = c("Yes" = "single", "No" = "multiplepop")),
+                              
+                              conditionalPanel(
+                                 condition = "input.poptypeCSV == 'multiplepop'",
+                                 fileInput("multiplepop", "Input reference file with sample ID and population"),
+                                 helpText("*Accepts XLSX and CSV files")
+                              ),
+                              
+                              conditionalPanel(
+                                 condition = "input.poptypeCSV == 'single'",
+                                 textAreaInput("typePop", "Enter population", rows = 1)
+                              )
                            ),
-                           
-                           conditionalPanel(
-                              condition = "input.poptype == 'single'",
-                              textAreaInput("typePop", "Enter population", rows = 1)
-                           ),
-                           
-                           actionButton("convertCSV", "Convert File to CSV", icon = icon("file-csv"))
-                           
-                        ),
+                        actionButton("ConvertFILES", "Convert files", icon = icon("file-csv"))
+                        ), # end of sidebar panel
                         mainPanel(
-                           tableOutput("previewTable"),
                            fluidRow(
                               column(6,
-                                     h5("This is a sample reference file. Only the first two columns (sample and population information) are used."),
+                                     h5("To convert to a CSV file with population metadata:"),
+                                     h5("This is a sample reference file. Only the first two columns are used."),
                                      tableOutput("exampleRefCSV")),
                               column(6,
-                                     tags$h4("Sample File"),
-                                     tags$ul(
-                                        tags$a("Sample VCF file", href = "www/sample_hgdp.vcf", download = NA)
-                                     )  
+                                     h5("For CSV to VCF conversion, a separate file on marker information is needed."),
+                                     h5("See the following formats:"),
+                                     h5("Required CSV format:"),
+                                     tableOutput("exampleCSVFile"),
+                                     h5("Required marker info format:"),
+                                     tableOutput("exampleMarkerInfo")
                               )
                            ), # end of fluidRow
-                           downloadButton("downloadConvertedCSV", "Download Converted CSV")
-                        ) # end of main panel
-                     )
-            ),
+                           tags$h4("Sample File"),
+                           tags$ul(
+                              tags$a("Sample VCF file", href = "www/sample_hgdp.vcf", download = NA)
+                           ),
+                           tableOutput("previewTable") %>% withSpinner(color = "blue"),
+                           downloadButton("downloadConvertedVCF", "Download Converted VCF"),
+                           downloadButton("downloadConvertedCSV", "Download Converted CSV"),
+                           downloadButton("downloadConvertedFASTA", "Download Converted FASTA"),
+                           downloadButton("downloadConvertedPLINK", "Download Converted PLINK files")
+                        )
+                     ) # end of sidebar layout
+            ), # end of tabpanel
             
             tabPanel("Widen ForenSeq UAS files",
                      useShinyjs(),
@@ -435,7 +514,7 @@ ui <- tagList(
                         ),
                         mainPanel(
                            h4("Preview of Output"),
-                           tableOutput("previewTableUAS"),
+                           tableOutput("previewTableUAS") %>% withSpinner(color = "blue"),
                            fluidRow(
                               column(6,
                                      h5("Sample input file. All alleles of available SNPs per sample are listed in a long format."),
@@ -450,25 +529,6 @@ ui <- tagList(
                         ) #end of mainpanel
                      )
             ), #end of tabpanel
-            
-            tabPanel("VCF to FASTA",
-                     useShinyjs(),
-                     sidebarLayout(
-                        sidebarPanel(
-                           fileInput("vcfFile", "Upload VCF file"),
-                           fileInput("refFasta", "Upload reference file genome"),
-                           actionButton("converttoFasta", "Convert to FASTA", icon = icon("file-invoice"))
-                        ), # end of sidebarPanel
-                        mainPanel(
-                           verbatimTextOutput("fastaPreview"),
-                           conditionalPanel(
-                              condition = "output.readyFasta",
-                              downloadButton("downloadFasta", "Download FASTA file")
-                           )
-                        ) # end of mainpanel
-                     ) # end of sidebarLayout
-                     
-            ), # end of tabPanel for VCF to fasta
             
             tabPanel("Convert to SNIPPER-analysis ready file",
                      useShinyjs(),
@@ -485,7 +545,7 @@ ui <- tagList(
                         ),
                         mainPanel(
                            h4("Preview of Converted SNIPPER Data"),
-                           tableOutput("previewTableSNIPPER"),
+                           tableOutput("previewTableSNIPPER") %>% withSpinner(color = "blue"),
                            fluidRow(
                               column(6,
                                      h5("Sample input file."),
@@ -519,11 +579,11 @@ ui <- tagList(
                            fluidRow(
                               column(6,
                                      h5("Revised input file"),
-                                     tableOutput("revisedCSV") # REVISE
+                                     tableOutput("revisedCSV")
                               ),
                               column(6,
                                      h5("Preview of str file"),
-                                     tableOutput("strFile") # REVISE
+                                     tableOutput("strFile")
                               )
                            ),
                            br(), br(),
@@ -621,10 +681,10 @@ ui <- tagList(
                                  ),
                                  hr(),
                                  h4("Concordance Summary Table"),
-                                 tableOutput("concordanceResults"),
+                                 tableOutput("concordanceResults") %>% withSpinner(color = "blue"),
                                  hr(),
                                  h4("Concordance Plot"),
-                                 plotOutput("concordancePlot", height = "600px"),
+                                 plotOutput("concordancePlot", height = "600px") %>% withSpinner(color = "blue"),
                                  hr(),
                                  downloadButton("downloadConcordance", "Download Concordance Results"),
                                  downloadButton("downloadConcordancePlot", "Download Plot")
@@ -691,8 +751,8 @@ ui <- tagList(
                   mainPanel(
                      verbatimTextOutput("plinkCommandPreview"),
                      h4("Depth of Coverage Plots"),
-                     imageOutput("depthMarkerPlot"),
-                     imageOutput("depthSamplePlot"),
+                     imageOutput("depthMarkerPlot") %>% withSpinner(color = "blue"),
+                     imageOutput("depthSamplePlot") %>% withSpinner(color = "blue"),
                      br(),
                      downloadButton("downloadFilteredFile", "Download Filtered File"),
                      downloadButton("downloadDepthPlots", "Download Plots")
@@ -708,12 +768,11 @@ ui <- tagList(
       tabPanel(HTML("<span style = 'color:#ffffff;'> Multiple Sequence Alignment</span>"),
                sidebarLayout(
                   sidebarPanel(
-                     #useShinyjs(),
                      fileInput("fastaFile", "Upload zipped FASTA files"),
                      radioButtons("substitutionMatrix", "Choose Substitution Matrix for MSA",
                                   choices = c("ClustalW" = "ClustalW", "ClustalOmega" = "ClustalOmega", "MUSCLE" = "Muscle")),
-                     br(),
                      actionButton("runMSA", "Align", icon = icon("align-justify")),
+                     br(),
                      selectInput("msaDownloadType", "Choose alignment (FASTA and PDF) version to download:",
                                  choices = c(
                                     "Initial" = "initial",
@@ -729,13 +788,13 @@ ui <- tagList(
                      
                   ), #tabPanel
                   mainPanel(
-                     verbatimTextOutput("initialAlignmentText"),
+                     verbatimTextOutput("initialAlignmentText") %>% withSpinner(color = "blue"),
                      br(),
-                     verbatimTextOutput("adjustedAlignmentText"),
+                     verbatimTextOutput("adjustedAlignmentText") %>% withSpinner(color = "blue"),
                      br(),
-                     verbatimTextOutput("staggeredAlignmentText"),
+                     verbatimTextOutput("staggeredAlignmentText") %>% withSpinner(color = "blue"),
                      br(),
-                     verbatimTextOutput("alignmentScoresPreview")
+                     verbatimTextOutput("alignmentScoresPreview") %>% withSpinner(color = "blue")
                   ) # end of mainPanel
                ) # end of sidebarLayout
                
@@ -777,11 +836,12 @@ ui <- tagList(
                   ),
                   
                   mainPanel(
-                     h4("Aligned Sequences Preview"),
-                     verbatimTextOutput("treeAlignmentPreview"),
-                     br(),
+                     #h4("Aligned Sequences Preview"),
+                     #verbatimTextOutput("treeAlignmentPreview") %>% withSpinner(color = "blue"),
+                     #br(),
                      h4("Phylogenetic Tree"),
-                     uiOutput("treeImage")
+                     p("This tab uses the multiple sequence alignment performed in the previous tab."),
+                     uiOutput("treeImage") %>% withSpinner(color = "blue")
                   )
                   
                ) # end of sidebar layout
@@ -821,7 +881,7 @@ ui <- tagList(
                               actionButton("identifySpecies", "Identify Species", icon = icon("magnifying-glass"))
                            ), # end of sidebar Panel
                            mainPanel(
-                              verbatimTextOutput("identificationResult")
+                              verbatimTextOutput("identificationResult") %>% withSpinner(color = "blue")
                            )
                   ), # end of first tab Panel
                   tabPanel("Optimize kmer values",
@@ -832,8 +892,8 @@ ui <- tagList(
                               actionButton("calOptimumKmer", "Identify Optimum kmer value", icon = icon("upload"))
                            ), # end of sidebar panel
                            mainPanel(
-                              verbatimTextOutput("kmerResult"),
-                              imageOutput("kmerPlot"),
+                              verbatimTextOutput("kmerResult") %>% withSpinner(color = "blue"),
+                              imageOutput("kmerPlot") %>% withSpinner(color = "blue"),
                               downloadHandler("downloadKmerPlot", "Download Plot")
                            )
                            
@@ -848,8 +908,8 @@ ui <- tagList(
                               
                            ), # end of sidebar panel
                            mainPanel(
-                              verbatimTextOutput("barcodingResult"),
-                              imageOutput("BarcodingGapPlot"),
+                              verbatimTextOutput("barcodingResult") %>% withSpinner(color = "blue"),
+                              imageOutput("BarcodingGapPlot") %>% withSpinner(color = "blue"),
                               downloadHandler("downloadGapPlot", "Download Barcoding Gap Plot")
                            )
                   ), #end of third tab panel
@@ -862,7 +922,7 @@ ui <- tagList(
                               actionButton("evalBarcodes", "Evaluate Barcodes", icon = icon("code-compare"))
                            ), # end of sidebar panel
                            mainPanel(
-                              tableOutput("evalBarcodesResult")
+                              tableOutput("evalBarcodesResult") %>% withSpinner(color = "blue")
                            )
                   ), #end of third tab panel
                   tabPanel("Species Membership Value (TDR)",
@@ -875,7 +935,7 @@ ui <- tagList(
                               actionButton("calculateTDR2", "Calculate", icon = icon("calculator"))
                            ), # end of sidebar panel
                            mainPanel(
-                              verbatimTextOutput("tdrValues")
+                              verbatimTextOutput("tdrValues") %>% withSpinner(color = "blue")
                            )
                   ) # end of fourth tab panel
                ) # end of first tabset panel
@@ -903,42 +963,42 @@ ui <- tagList(
                   ), 
                   tabPanel("1 Private Alleles",
                            h4("Private Alleles Summary"),
-                           uiOutput("privateAllelePlot")
+                           DT::dataTableOutput("privateAlleleTable") %>% withSpinner(color = "blue")
                   ),
                   tabPanel("2 Mean Allelic Richness",
                            h4("Mean Allelic Richness per site"),
-                           DT::dataTableOutput("meanallelic")
+                           DT::dataTableOutput("meanallelic") %>% withSpinner(color = "blue")
                   ),
                   tabPanel("3 Heterozygosity",
                            h4("Observed vs Expected Heterozygosity"),
-                           DT::dataTableOutput("heterozygosity_table"),
+                           DT::dataTableOutput("heterozygosity_table") %>% withSpinner(color = "blue"),
                            hr(),
                            h4("Heterozygosity Plot"),
-                           imageOutput("heterozygosity_plot"),
+                           imageOutput("heterozygosity_plot") %>% withSpinner(color = "blue"),
                            downloadButton("downloadHeterozygosityPlot", "Download Plot")
                   ),
                   tabPanel("4 Inbreeding Coefficients",
                            h4("Inbreeding Coefficient by Population"),
-                           DT::dataTableOutput("inbreeding_table")
+                           DT::dataTableOutput("inbreeding_table") %>% withSpinner(color = "blue")
                   ),
                   tabPanel("5 Allele Frequencies",
                            h4("Allele Frequency Table"),
-                           DT::dataTableOutput("allele_freq_table")
+                           DT::dataTableOutput("allele_freq_table") %>% withSpinner(color = "blue")
                   ),
                   tabPanel("6 Hardy-Weinberg Equilibrium",
                            h4("HWE P-value Summary"),
-                           uiOutput("hwe_summary"),
+                           uiOutput("hwe_summary") %>% withSpinner(color = "blue"),
                            h4("Population-wise HWE Chi-Square Table"),
-                           DT::dataTableOutput("hwe_chisq_table")
+                           DT::dataTableOutput("hwe_chisq_table") %>% withSpinner(color = "blue")
                   ),
                   tabPanel("7 Fst Values",
                            h4("Pairwise Fst Matrix"),
-                           uiOutput("fstMatrixUI"),  
+                           uiOutput("fstMatrixUI") %>% withSpinner(color = "blue"),
                            h4("Tidy Pairwise Fst Data"),
-                           DT::dataTableOutput("fstDfTable"),
+                           DT::dataTableOutput("fstDfTable") %>% withSpinner(color = "blue"),
                            hr(),
                            h4("Fst Heatmap"),
-                           imageOutput("fst_heatmap_plot", width = "100%") 
+                           imageOutput("fst_heatmap_plot", width = "100%") %>% withSpinner(color = "blue")
                            
                   )
                )
@@ -955,9 +1015,12 @@ ui <- tagList(
                      checkboxInput("useDefaultColors", "Use Default Colors and Labels", TRUE),
                      conditionalPanel(
                         condition = "!input.useDefaultColors",
-                        fileInput("pcaLabels", "Upload PCA Labels"),
-                        fileInput("colorPalette", "Upload Color Palette")
+                        fileInput("pcaLabels", "Upload PCA Labels (TXT)"),
+                        fileInput("colorPalette", "Upload Color Palette (TXT)"),
+                        fileInput("shapeList", "Upload desired point shapes (TXT)"),
+                        p("The order of the colors would match the order of PCA labels")
                      ),
+                     br(),
                      numericInput("pcX", "PC Axis X", value = 1, min = 1),
                      numericInput("pcY", "PC Axis Y", value = 2, min = 1),
                      actionButton("runPCA", "Run PCA Analysis", icon = icon("play"))
@@ -976,7 +1039,6 @@ ui <- tagList(
                      hr(),
                      plotOutput("pcaPlot"),
                      downloadButton("downloadPCAPlot", "Download PCA Plot")
-                     #hr(),
                   )
                )
       ), # end of tabpanel
@@ -1009,9 +1071,8 @@ ui <- tagList(
                   tags$a("Sample file", href = "www/sample.csv", download = NA)
                ),
                h4("STRUCTURE Visualization"),
-               imageOutput("structurePlotPreview"),
-               br(),
                p("NOTE: The plots are expected to take some time to load."),
+               imageOutput("structurePlotPreview") %>% withSpinner(color = "blue"),
                br(), br(),
                p("Some functions were revised and adapted from the strataG and dartR packages such as 'gl.run.structure', '.structureParseQmat', 'structureRead', and 'utils.structure.evanno'"),
                h3("References"),
@@ -1023,6 +1084,28 @@ ui <- tagList(
             ) # end of mainpanel
          )
       ), #end of tabpanel
+      
+      tabPanel(HTML("<span style = 'color:#ffffff;'> Classification</span>"),
+               sidebarLayout(
+                  sidebarPanel(
+                     fileInput("forPredFile", "Upload CSV file"),
+                     actionButton("runNaiveBayes", "Classify", icon = icon("align-justify")),
+                     downloadButton("downloadClassification", "Download Results")
+                  ),
+                  mainPanel(
+                     h4("Prediction table"),
+                     verbatimTextOutput("predictionTableResult") %>% withSpinner(color = "blue"),
+                     br(),
+                     h4("Statistics by Class"),
+                     verbatimTextOutput("statbyClassResult") %>% withSpinner(color = "blue"),
+                     br(),
+                     h4("Overall Statistics"),
+                     verbatimTextOutput("overallStatResult") %>% withSpinner(color = "blue")
+                  ) # end of mainPanel
+               ) # end of sidebarLayout
+               
+      ), # end of tabpanel for Classification
+      
       p("© 2025 DNA Analysis Laboratory, Natural Sciences Research Institute, University of the Philippines Diliman. All rights reserved."),
       div(
          style = "position: fixed; bottom: 0, width: 100%; background-color: transparent; padding: 8px; text-align: center; font-size: 10px; color: #666;"
@@ -1031,43 +1114,16 @@ ui <- tagList(
 )
 # TO ADD
 server <- function(input, output, session) {
-   
-   #lastAction <- reactiveVal(Sys.time())
-   
-   # timer
-   #observe({
-   #invalidateLater(600000, session)  # 5 minutes
-   
-   # set cleanup time by 5 mins
-   #   if (difftime(Sys.time(), lastAction(), units = "secs") > 300) {
-   #      # resets
-   #      convertedCSV
-   #      convertedSNIPPER
-   #      convertedUAS
-   #      concordanceResult(NULL)
-   #      concordancePlotPath(NULL)
-   #      fsnps_gen(NULL)
-   #      population_stats(NULL)
-   #      hardy_weinberg_stats(NULL)
-   #      fst_stats(NULL)
-   
-   # this would reset the ui
-   #      shinyjs::reset("formPanel")
-   
-   # to clean the files
-   #      unlink(tempdir(), recursive = TRUE)
-   
-   #      showNotification("Session cleaned due to inactivity.", type = "message")
-   #   }
-   #})
-   
-   
-   ## Store plots for viewing and downloading
-   plots <- reactiveValues(pca = NULL, het = NULL, fst = NULL)
-   status <- reactiveVal("Waiting for input...")
-   
+
    # FILE CONVERSION #
+   convertedVCF <- reactiveVal(NULL)
+   convertedFASTA <- reactiveVal(NULL)
    convertedCSV <- reactiveVal(NULL)
+   convertedPLINK <- reactiveVal(NULL)
+   
+   observe({
+      toggleState("ConvertFILES", !is.null(input$VCFFile) || !is.null(input$BCFFile) || !is.null(input$CSVFile) || (!is.null(input$bedFile) && !is.null(input$bimFile) && !is.null(input$famFile)))
+   })
    
    output$exampleRefCSV <- renderTable({
       data.frame(
@@ -1077,172 +1133,128 @@ server <- function(input, output, session) {
       )
    })
    
-   observe({
-      file_ready <- FALSE
-      pop_ready <- FALSE
-      
-      # Check file inputs
-      if (input$inputType == "vcf") {
-         file_ready <- !is.null(input$vcfFile)
-      } else if (input$inputType == "plink") {
-         file_ready <- !is.null(input$bedFile) &&
-            !is.null(input$bimFile) &&
-            !is.null(input$famFile)
-      } else if (input$inputType == "bcf") {
-         file_ready <- !is.null(input$bcfFile)
-      }
-      
-      # Check population input
-      if (input$poptype == "multiplepop") {
-         pop_ready <- !is.null(input$multiplepop)
-      } else if (input$poptype == "single") {
-         pop_ready <- nchar(trimws(input$typePop)) > 0
-      }
-      
-      # Enable or disable convert button
-      if (file_ready && pop_ready) {
-         shinyjs::enable("convertCSV")
-      } else {
-         shinyjs::disable("convertCSV")
-      }
+   output$exampleCSVFile <- renderTable({
+      data.frame(
+         Sample.Name = c("sample1", "sample2", "sample3", "sample4", "..."),
+         Population = c("Malaysia", "Mexico", "Greece", "South Korea", "..."),
+         rs01 = c("G/T", "G/A", "C/A", "A/A", "..."),
+         rs02 = c("C/C", "C/C", "G/C", "G/G", "..." ),
+         "..." = c("...", "...", "...", "...", "...")
+      )
    })
    
-   observeEvent(input$convertCSV, {
-      req(input$convertCSV)
+   output$exampleMarkerInfo <- renderTable({
+      data.frame(
+         SNP = c("rs01", "rs02", "rs03", "rs04", "..."),
+         chromosome = c("chr1", "chr4", "chr5", "chr5", "..."),
+         position = c("1004", "90986", "5768", "9384982", "..."),
+         genetic_distance = c("0", "0", "0", "0", "..."),
+         ref_allele = c("A", "T", "G", "G", "C"),
+         alt_allele = c("T", "A", "C", "C", "G")
+      )
+   })
+   
+   
+   output.dir <- tempdir()
+   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+   outputName <- paste0("converted_", timestamp, ".csv")
+   
+   observeEvent(input$ConvertFILES, {
+      req(input$ConvertFILES)
+      showPageSpinner()
+      Sys.sleep(1.5)
+      disable("ConvertFILES")
       
-      #lastAction(Sys.time())
-      
-      disable("convertCSV")
-      waiter_show(html = spin_fading_circles(), color = "#ffffff")
-      
-      outputDir <- tempdir()
-      timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-      outputName <- paste0("converted_", timestamp, ".csv")
-      
-      
-      # Set reference input
       refValue <- if (input$poptype == "multiplepop") {
          input$multiplepop$datapath
       } else {
          input$typePop
       }
       
-      if (input$inputType == "vcf") {
-         ext <- tools::file_ext(input$vcfFile$name)
-         if (ext %in% c("vcf", "gz")) {
-            vcfPath <- input$vcfFile$datapath
-            
-            csv_result <- vcftocsv(vcf = vcfPath, ref = refValue)
-            convertedCSV(csv_result)
-         } else {
-            showNotification("Unsupported VCF format. Please upload a .vcf or .vcf.gz file.", type = "error")
-            enable("convertCSV")
-            return()
+      
+      if (input$inputType2 == "vcf2") {
+         if (input$inputType1 == "plink1") {
+            converted.file <- plink_to_vcf(input$bedFile$datapath, input$bimFile$datapath, input$famFile$datapath, output.dir = output.dir)
+         } else if (input$inputType1 == "bcf1") {
+            converted.file <- bcf_to_vcf(input$BCFFile$datapath, output.dir = output.dir, plink_path = plink_path)
+         } else if (input$inputType1 == "csv1") {
+            file2 <- csv_to_gentibble(input$CSVFile$datapath, loci.meta = input$lociMetaFile$datapath)
+            converted.file <- tidypopgen::gt_as_vcf(file2, file = "tovcf.vcf")
          }
          
-      } else if (input$inputType == "bcf") {
-         temp_output <- file.path(outputDir, "bcftovcf")
-         command <- stringr::str_c(
-            plink_path, " --bcf ", input$bcfFile$datapath,
-            " --const-fid 0 --cow --keep-allele-order --allow-no-sex --allow-extra-chr",
-            " --recode vcf --out ", temp_output
+         convertedVCF(converted.file)
+         
+         #change filename
+         output$downloadConvertedVCF <- downloadHandler(
+            filename = function() { "tovcf.vcf"},
+            content = function(file){
+               file.copy(convertedVCF(), file)
+            }
          )
-         
-         exit_code <- system(command)
-         if (exit_code != 0){
-            showNotification("Plink conversion failed", type = "error")
-            enable("convertCSV")
-            return()
-         }
-         
-         vcfPath <- paste0(temp_output, ".vcf")
-         csv_result <- vcftocsv(vcf = vcfPath, ref = refValue)
-         convertedCSV(csv_result)
-         
-      } else if (input$inputType == "plink") {
-         bed <- input$bedFile$datapath
-         bim <- input$bimFile$datapath
-         fam <- input$famFile$datapath
-         
-         outputVCF <- file.path(outputDir, "plink2vcf")
-         command <- stringr::str_c(
-            plink_path, " --bed ", bed,
-            " --bim ", bim, " --fam ", fam,
-            " --const-fid 0 --cow --keep-allele-order --allow-no-sex --allow-extra-chr",
-            " --recode vcf --out ", outputVCF
-         )
-         
-         exit_code <- system(command)
-         if (exit_code != 0){
-            showNotification("Plink conversion failed", type = "error")
-            enable("convertCSV")
-            return()
-         }
-         
-         vcfPath <- paste0(outputVCF, ".vcf")
-         csv_result <- vcftocsv(vcf = vcfPath, ref = refValue)
-         convertedCSV(csv_result)
       }
       
-      enable("convertCSV")
-      
-      output$downloadConvertedCSV <- downloadHandler(
-         filename = function() { outputName },
-         content = function(file) {
-            readr::write_csv(convertedCSV(), file)
+      if (input$inputType1 == "vcf1" && input$inputType2 == "fasta") {
+         converted.file <- vcf_to_fasta(input$VCFFile$datapath, input$FASTARef$datapath, bcftools_path = bcftools_path, output.dir = output.dir)
+         
+         convertedFASTA(converted.file)
+         output$downloadConvertedFASTA <- downloadHandler(
+            filename = function() { "consensus.fa"},
+            content = function(file){
+               file.copy(convertedFASTA(), file)
+            }
+         )
+      }
+
+      if (input$inputType2 == "plink2"){
+         if (input$inputType1 == "vcf1"){
+            converted.file <- convert_to_plink(input$VCFFile$datapath, output.dir = output.dir, plink_path = plink_path) # need to double check if reactive value is valid for file path
+         } else if (input$inputType1 == "bcf1") {
+            converted.file <- convert_to_plink(input$BCFFile$datapath, output.dir = output.dir, plink_path = plink_path)
          }
-      )
+         
+         convertedPLINK(converted.file)
+         # double check if it works
+         output$downloadConvertedPLINK <- downloadHandler(
+            filename = function() { "convertedtoPLINK.zip"},
+            content = function(file){
+               # read in all files in the temp dir
+               data_files <- list.files(path = output.dir, pattern = "^converted_to_plink.", full.names = TRUE)
+               zip::zipr(zipfile = file, files = data_files)
+            },
+            contentType = "application/zip"
+         )
+      } # end of plink as target
       
-      output$previewTable <- renderTable({
-         req(convertedCSV())
-         head(convertedCSV(), 10)
-      })
-      
-      waiter_hide()
+      if (input$inputType2 == "csv2") {
+         if (input$inputType1 == "vcf1"){
+            csv_file <- vcf_to_csv(input$VCFFile$datapath, ref = refValue, output.dir = output.dir)
+         } else if (input$inputType1 == "plink1") {
+            file2 <- plink_to_vcf(input$bedFile$datapath, input$bimFile$datapath, input$famFile$datapath, output.dir = output.dir)
+            csv_file <- vcf_to_csv(file.path(file2), ref = refValue, output.dir = output.dir)
+         } else if (input$inputType1 == "bcf1") {
+            file2 <- bcf_to_vcf(input$BCFFile$datapath, output.dir = output.dir)
+            csv_file <- vcf_to_csv(file.path(file2), ref = refValue, output.dir = output.dir)
+         }
+         convertedCSV(csv_file)
+         output$downloadConvertedCSV <- downloadHandler(
+            filename = function() { outputName },
+            content = function(file) {
+               readr::write_csv(convertedCSV(), file)
+            }
+         )
+      } # end of if input2 = csv
+
+      enable("ConvertFILES")
+      hidePageSpinner()
    }) # end of observeEvent
    
    
-   # CONVERT TO FASTA #
-   
-   observe({
-      fasta_ready <- !is.null(input$vcfFile)
-      shinyjs::toggleState("converttoFasta", condition = fasta_ready)
+   # to remove
+   output$previewTable <- renderTable({
+      req(convertedCSV())
+      head(convertedCSV(), 10)
    })
-   
-   observeEvent(input$converttoFasta, {
-      req(input$vcfFile, input$refFasta)
-      
-      disable("converttoFasta")
-      temp_dir <- tempdir()
-      
-      waiter_show(html = spin_fading_circles(), color = "#ffffff")
-      
-      fasta_path <- vcf_to_fasta(
-         vcf_file = input$vcfFile$datapath,
-         reference = input$refFasta$datapath,
-         bcftools_path = bcftools_path,
-         directory = temp_dir
-      )
-      
-      output$downloadFasta <- downloadHandler(
-         filename = function() { "consensus.fa"},
-         content = function(file){
-            file.copy(fasta_path, file)
-         }
-      )
-      
-      output$readyFasta <- reactive({ file.exists(fasta_path)})
-      outputOptions(output, "readyFasta", suspendWhenHidden = FALSE)
-      
-      output$fastaPreview <- renderText({
-         req(file.exists(fasta_path))
-         paste(readLines(fasta_path, n = 10), collapse = "\n")
-      })
-      
-      shinyjs::enable("converttoFasta")
-      waiter_hide()
-   }) # end of observe event convert to FASTA
-   
+
    
    ### For SNIPPER
    output$exampleTableSnipper <- renderTable({
@@ -1285,10 +1297,11 @@ server <- function(input, output, session) {
    })
    
    observeEvent(input$convertBtn, {
-      #lastAction(Sys.time())
+      showPageSpinner()
+      Sys.sleep(1.5)
+      hidePageSpinner()
       
       disable("convertBtn")
-      waiter_show(html = spin_fading_circles(), color = "#ffffff")
       
       inputPath <- input$convertFile$datapath
       refPath <- input$refFile$datapath
@@ -1304,13 +1317,12 @@ server <- function(input, output, session) {
          
          snipper.file <- tryCatch({
             
-            tosnipper(input = inputPath,
+            to_snipper(input = inputPath,
                       references = refPath,
                       target.pop = targetSet,
                       population.name = targetName,
                       markers = numMarkers)
             
-            waiter_hide()
          }, error = function(e){
             showNotification(paste("Conversion failed:", e$message), type = "error")
             NULL
@@ -1319,24 +1331,23 @@ server <- function(input, output, session) {
          if (!is.null(snipper.file)) {
             convertedSNIPPER(snipper.file)
             enable("convertBtn")
-            
-            output$downloadConverted <- downloadHandler(
-               filename = function() { outputName },
-               content = function(file) {
-                  openxlsx::write.xlsx(convertedSNIPPER(), file)
-               }
-            )
-            
-            output$previewTableSNIPPER <- renderTable({
-               req(convertedSNIPPER())
-               head(convertedSNIPPER(), 10)
-            })
          }
          
       })
       
    }) # end of observe Event
    
+   output$downloadConverted <- downloadHandler(
+      filename = function() { outputName },
+      content = function(file) {
+         openxlsx::write.xlsx(convertedSNIPPER(), file)
+      }
+   )
+   
+   output$previewTableSNIPPER <- renderTable({
+      req(convertedSNIPPER())
+      head(convertedSNIPPER(), 10)
+   })
    
    
    ### UAS to CSV
@@ -1355,15 +1366,16 @@ server <- function(input, output, session) {
       shinyjs::toggleState("run_uas2csv", condition = zip_ready)
    })
    
+   temp_dir <- tempdir()
+   
    observeEvent(input$run_uas2csv, {
-      #lastAction(Sys.time())
-      
-      disable("run_uas2csv")
-      waiter_show(html = spin_fading_circles(), color = "#ffffff")
-      
       req(input$uas_zip)
       
-      temp_dir <- tempdir()
+      showPageSpinner()
+      Sys.sleep(1.5)
+      
+      disable("run_uas2csv")
+      
       input_path <- file.path(temp_dir, input$uas_zip$name)
       file.copy(input$uas_zip$datapath, input_path, overwrite = TRUE)
       
@@ -1378,41 +1390,38 @@ server <- function(input, output, session) {
       
       withProgress(message = "Converting file...", value = 0, {
          tryCatch({
-            widened.file <- uas2csv(files = input_path,
+            widened.file <- uas_to_csv(files = input_path,
                                     population = ref_value,
                                     reference = use_reference,
                                     dir = temp_dir)
             convertedUAS(widened.file)
             
             enable("run_uas2csv")
-            
-            outputName <- "01_merged_typed_data.csv"
-            
-            output$downloadUAScsv <- downloadHandler(
-               filename = function() {
-                  outputName
-               },
-               content = function(file) {
-                  readr::write_csv(convertedUAS(), file)
-               }
-            )
-            
-            output$previewTableUAS <- renderTable({
-               req(convertedUAS())
-               head(convertedUAS(), 10)  # Preview top 10 rows
-            })
-            
-            waiter_hide()
             showNotification("Conversion complete!", type = "message")
+            
          }, error = function(e) {
             showNotification(paste("Error:", e$message), type = "error")
             enable("run_uas2csv")
          })
       })
-      
+      hidePageSpinner()
    }) # end of observe Event
    
+   outputName <- "01_merged_typed_data.csv"
    
+   output$downloadUAScsv <- downloadHandler(
+      filename = function() {
+         outputName
+      },
+      content = function(file) {
+         readr::write_csv(convertedUAS(), file)
+      }
+   )
+   
+   output$previewTableUAS <- renderTable({
+      req(convertedUAS())
+      head(convertedUAS(), 10)  # Preview top 10 rows
+   })
    
    # CSV TO STR #
    shinyjs::disable("downloadrevised")
@@ -1427,10 +1436,12 @@ server <- function(input, output, session) {
    str_file <- reactiveVal(NULL)
    
    observeEvent(input$csv2str, {
+      showPageSpinner()
+      Sys.sleep(1.5)
+      
       disable("csv2str")
       shinyjs::disable("downloadrevised")
       shinyjs::disable("downloadSTRfile")
-      waiter_show(html = spin_fading_circles(), color = "#ffffff")
       
       withProgress(message = "Analyzing files...", value = 0, {
          tryCatch({
@@ -1442,49 +1453,53 @@ server <- function(input, output, session) {
             strconvert(genind$fsnps_gen)
             
             directory <- tempdir()
-            str_path <- to_structure_file(strconvert(), directory, system = input$systemFile)
+            str_path <- revise_structure_file(strconvert(), directory, system = input$systemFile)
             str_file(str_path)
-            
-            output$revisedCSV <- DT::renderDataTable({
-               req(csv_revised())
-               csv_revised()
-            }, options = list(pageLength = 10, scrollX = TRUE))
-            
-            # read the str file
-            output$strFile <- DT::renderDataTable({
-               req(str_file())
-               str_lines <- readLines(str_file(), n = 20)
-               str_df <- data.frame(Line = seq_along(str_lines), Content = str_lines)
-               str_df
-            }, options = list(pageLength = 10, scrollX = TRUE))
             
             shinyjs::enable("downloadrevised")
             shinyjs::enable("downloadSTRfile")
             
-            output$downloadrevised <- downloadHandler(
-               filename = function() {"revised_input.csv"},
-               content = function(file) {
-                  req(csv_revised())
-                  readr::write_csv(csv_revised(), file)
-               }
-            )
-            
-            output$downloadSTRfile <- downloadHandler(
-               filename = function() { "structure_file.str"},
-               content = function(file){
-                  req(str_file())
-                  file.copy(str_path, file)
-               }
-            )
          }, error = function(e) {
             showNotification(paste("Error during STRUCTURE conversion", e$message), type = "error", duration = 20)
          }, finally = {
             enable("csv2str")
-            waiter_hide()
          }) # end of try catch 
       })
+      shinyjs::enable("downloadrevised")
+      shinyjs::enable("downloadSTRfile")
+      shinyjs::enable("csv2str")
+      
+      hidePageSpinner()
    })
    
+   output$revisedCSV <- DT::renderDataTable({
+      req(csv_revised())
+      csv_revised()
+   }, options = list(pageLength = 10, scrollX = TRUE))
+   
+   # read the str file
+   output$strFile <- DT::renderDataTable({
+      req(str_file())
+      str_lines <- readLines(str_file(), n = 20)
+      str_df <- data.frame(Line = seq_along(str_lines), Content = str_lines)
+      str_df
+   }, options = list(pageLength = 10, scrollX = TRUE))
+   
+   output$downloadrevised <- downloadHandler(
+      filename = function() {"revised_input.csv"},
+      content = function(file) {
+         req(csv_revised())
+         readr::write_csv(csv_revised(), file)
+      }
+   )
+   
+   output$downloadSTRfile <- downloadHandler(
+      filename = function() { "structure_file.str"},
+      content = function(file){
+         req(str_file())
+         file.copy(str_file(), file) # double check if reactive object works
+      }
+   )
    
    ## Concordance Analysis
    observe({
@@ -1495,10 +1510,10 @@ server <- function(input, output, session) {
    concordancePlotPath <- reactiveVal(NULL)
    
    observeEvent(input$compareBtn, {
-      #lastAction(Sys.time())
+      showPageSpinner()
+      Sys.sleep(1.5)
       
       disable("compareBtn")
-      waiter_show(html = spin_fading_circles(), color = "#ffffff")
       
       withProgress(message = "Analyzing files...", value = 0, {
          tryCatch({
@@ -1509,51 +1524,50 @@ server <- function(input, output, session) {
             file1_path <- input$concordanceFile1$datapath
             file2_path <- input$concordanceFile2$datapath
             
-            result <- concordance(file1_path, file2_path, haplotypes = haplo_flag)
+            result <- calc_concordance(file1_path, file2_path, haplotypes = haplo_flag)
+            plot <- plot_concordance(result)
             
             enable("compareBtn")
             
-            concordanceResult(result$results)
-            concordancePlotPath(result$plot)
-            
-            output$concordanceResults <- renderTable({
-               req(concordanceResult())
-               concordanceResult()
-            })
-            
-            output$concordancePlot <- renderPlot({
-               req(concordancePlotPath())
-               concordancePlotPath()
-            })
+            concordanceResult(result)
+            concordancePlotPath(plot)
             
             showNotification("Concordance analysis complete, rendering outputs.", type = "message", duration = 30)
             print(Sys.time())
-            
-            output$downloadConcordance <- downloadHandler(
-               filename = function() {"concordance.csv"},
-               content = function(file) {
-                  readr::write_csv(concordanceResult(), file)
-               }
-            )
-            
-            output$downloadConcordancePlot <- downloadHandler(
-               filename = function() {
-                  paste0("concordance_plot_", Sys.Date(), ".png")
-               },
-               content = function(file) {
-                  req(concordancePlotPath())
-                  ggsave(file, plot = concordancePlotPath(), width = 8, height = 6, dpi = 600)
-                  
-               }, contentType = "image/png"
-            )
-            
-            waiter_hide()
          }, error = function(e) {
             showNotification(paste("Error during analysis:", e$message), type = "error", duration = 10)
          })
       }) # end of withprogress
-      
+      hidePageSpinner()
    }) # end of observe event
+   
+   output$concordanceResults <- renderTable({
+      req(concordanceResult())
+      concordanceResult()
+   })
+   
+   output$concordancePlot <- renderPlot({
+      req(concordancePlotPath())
+      concordancePlotPath()
+   })
+   
+   output$downloadConcordance <- downloadHandler(
+      filename = function() {"concordance.csv"},
+      content = function(file) {
+         readr::write_csv(concordanceResult(), file)
+      }
+   )
+   
+   output$downloadConcordancePlot <- downloadHandler(
+      filename = function() {
+         paste0("concordance_plot_", Sys.Date(), ".png")
+      },
+      content = function(file) {
+         req(concordancePlotPath())
+         ggsave(file, plot = concordancePlotPath(), width = 8, height = 6, dpi = 600)
+         
+      }, contentType = "image/png"
+   )
    
    ## MARKER EXTRACTION
    output$exampleRSID <- renderTable({
@@ -1601,6 +1615,9 @@ server <- function(input, output, session) {
    observeEvent(input$extractBtn, {
       disable("extractBtn")
       req(input$markerFile)
+      
+      showPageSpinner()
+      Sys.sleep(1.5)
       
       withProgress(message = "Extracting markers...", value = 0, {
          tryCatch({
@@ -1650,14 +1667,13 @@ server <- function(input, output, session) {
             showNotification("VCF file successfully extracted and ready for download!", type = "message")
             enable("extractBtn")
             shinyjs::enable("downloadExtracted")
-            waiter_hide()
          }, error = function(e) {
             showNotification(paste("Error:", e$message), type = "error")
             enable("extractBtn")
          })
          
       })
-      
+      hidePageSpinner()
    })
    output$downloadExtracted <- downloadHandler(
       filename = function() { "final_merged.zip" },
@@ -1703,14 +1719,18 @@ server <- function(input, output, session) {
          updateCheckboxInput(inputId = "enableDP", value = FALSE)
          shinyjs::disable("enableDP")
       }
+
    })
    
+   temp_dir <- tempdir()
    depth_outputs <- reactiveVal(NULL)
    filtered_plink_file <- reactiveVal(NULL)
    
    observeEvent(input$calcDP, {
       req(input$forFilter)
-      temp_dir <- tempdir()
+      showPageSpinner()
+      Sys.sleep(1.5)
+   
       vcf_path <- input$forFilter$datapath
       ref_path <- if (!is.null(input$highlightRef)) input$highlightRef$datapath else NULL
       palette <-  if (!is.null(input$colorPalette)) input$colorPalette else NULL
@@ -1780,6 +1800,7 @@ server <- function(input, output, session) {
          paste("plink", paste(plink_cmds, collapse = " "))
       })
       
+      hidePageSpinner()
    }) # end of observe events
    
    output$depthMarkerPlot <- renderImage({
@@ -1826,6 +1847,8 @@ server <- function(input, output, session) {
    
    observeEvent(input$runMSA, {
       req(input$fastaFile)
+      showPageSpinner()
+      Sys.sleep(1.5)
       
       fasta_data(read_fasta(input$fastaFile$datapath, directory = directory))
       aligned <- msa_results(fasta_data(), algorithm = input$substitutionMatrix, directory = directory)
@@ -1838,7 +1861,7 @@ server <- function(input, output, session) {
       shinyjs::enable("downloadAlignedFASTA")
       shinyjs::enable("downloadAlignmentScores")
       shinyjs::enable("downloadAlignmentPDF")
-      
+      hidePageSpinner()
    }) # end of observe event for run msa
    
    output$initialAlignmentText <- renderPrint({
@@ -1908,9 +1931,9 @@ server <- function(input, output, session) {
    
    observeEvent(input$buildTree, {
       req(aligned_data())
-      
       disable("buildTree")
-      waiter_show()
+      showPageSpinner()
+      Sys.sleep(1.5)
       
       withProgress(message = "Building phylogenetic tree...", value = 0, {
          tryCatch({
@@ -1957,8 +1980,9 @@ server <- function(input, output, session) {
          }) # end of try catch
          
          enable("buildTree")
-         waiter_hide()
       }) # end of with progress
+      
+      hidePageSpinner()
    }) # end of observe event tree
    
    output$treeImage <- renderUI({
@@ -2021,41 +2045,54 @@ server <- function(input, output, session) {
       toggleState("identifySpecies", refReady && queReady)
    })
    
+   resultIdentity <- reactiveVal(NULL)
+   refseq <- reactiveVal(NULL)
+   queseq <- reactiveVal(NULL)
+   
    observeEvent(input$identifySpecies, {
       disable("identifySpecies")
+      showPageSpinner()
+      Sys.sleep(1.5)
+
       req(input$refBarcoding)
       req(input$queBarcoding)
       
       # read file
-      barcoding_ref <- rphast::read.msa(input$refBarcoding)
-      barcoding_que <- rphast::read.msa(input$queBarcoding)
+      # 13 Jan 2026: added "guess.format.msa" and "$datapath" for input files
+      barcoding_ref <- rphast::read.msa(input$refBarcoding$datapath, format = guess.format.msa(input$refBarcoding$datapath, method = "content"))
+      barcoding_que <- rphast::read.msa(input$queBarcoding$datapath, format = guess.format.msa(input$refBarcoding$datapath, method = "content"))
       
-      refseq <- ape::as.DNAbin(as.character(barcoding_ref))
-      queseq <- ape::as.DNAbin(as.character(barcoding_que))
+      ref_seq <- ape::as.DNAbin(as.character(barcoding_ref))
+      que_seq <- ape::as.DNAbin(as.character(barcoding_que))
+      refseq(ref_seq)
+      queseq(que_seq)
       
       # If not using kmer method
       if (input.kmerSelect == "false"){
-         result_identity <- BarcodingR::barcoding.spe.identify(refseq, queseq, method = input$barcodingMethod)
+         result_identity <- BarcodingR::barcoding.spe.identify(refseq(), queseq(), method = input$barcodingMethod)
       }
       
       if (input.kmerType == 'Fuzzy-set Method and kmer'){
          req(input$kmerValue)
          req(input$optimizationKMER)
          
-         result_identity <- BarcodingR::barcoding.spe.identify2(refseq, queseq, kmer = input$kmerValue, optimization = input$optimizationKMER)
+         result_identity <- BarcodingR::barcoding.spe.identify2(refseq(), queseq(), kmer = input$kmerValue, optimization = input$optimizationKMER)
          
       } else if (input.kmerType == 'BP-based Method and kmer') {
          req(input$kmerValue)
          req(input$builtModel)
          req(input$lrValue)
          req(input$maxitValue)
-         result_identity <- BarcodingR::bbsik(refseq, queseq, kmer = input$kmerValue, UseBuiltModel = input$builtModel, lr = input$lrValue, maxit = input$maxitValue)
+         result_identity <- BarcodingR::bbsik(refseq(), queseq(), kmer = input$kmerValue, UseBuiltModel = input$builtModel, lr = input$lrValue, maxit = input$maxitValue)
       }
       
-      output$identificationResult <- renderPrint({
-         req(result_identity)
-         result_identity
-      })
+      resultIdentity(result_identity)
+      hidePageSpinner()
+   })
+   
+   output$identificationResult <- renderPrint({
+      req(resultIdentity())
+      resultIdentity()
    })
    
    # Optimize kmer values
@@ -2064,38 +2101,46 @@ server <- function(input, output, session) {
       toggleState("calOptimumKmer", fileReady)
    })
    
+   kmerFile <- reactiveVal(NULL)
+   optimalKmer <- reactiveVal(NULL)
+   
    observeEvent(input$calOptimumKmer, {
       disable("calOptimumKmer")
       req(input$optimizeKmerRef)
+      showPageSpinner()
+      Sys.sleep(1.5)
+
+      barcoding_ref <- rphast::read.msa(input$optimizeKmerRef$datapath, format = rphast::guess.format.msa(input$optimizeKmerRef$datapath, method = "content"))
+      kmer_File <- ape::as.DNAbin(as.character(barcoding_ref))
+      optimal_Kmer <- BarcodingR::optimize.kmer(kmerFile, max.kmer = input$maxKmer)
+      kmerFile(kmer_File)
+      optimalKmer(optimal_Kmer)
       
-      barcoding_ref <- rphast::read.msa(input$optimizeKmerRef)
-      kmerFile <- ape::as.DNAbin(as.character(barcoding_ref))
-      optimalKmer <- BarcodingR::optimize.kmer(kmerFile, max.kmer = input$maxKmer)
-      
-      # download
-      output$kmerResult <- renderPrint({
-         req(optimalKmer)
-         as.data.frame(optimalKmer)
-      })
-      
-      output$kmerPlot <- renderImage({
-         req(kmerFile)
-         req(input$maxKmer)
-         BarcodingR::optimize.kmer(kmerFile, max.kmer = input$maxKmer)
-      }, deleteFile = FALSE)
-      
-      output$downloadKmerPlot <- downloadHandler(
-         filename = function(){
-            paste0("optimum_kmer_", Sys.Date(), ".png")
-         },
-         content = function(file){
-            req(kmerFile)
-            req(input$maxKmer)
-            BarcodingR::optimize.kmer(kmerFile, max.kmer = input$maxKmer)
-         }, contentType = "image/png"
-      )
-      
+      hidePageSpinner()
    }) # end of observe event
+   
+   # download
+   output$kmerResult <- renderPrint({
+      req(optimalKmer())
+      as.data.frame(optimalKmer())
+   })
+   
+   output$kmerPlot <- renderImage({
+      req(kmerFile())
+      req(input$maxKmer)
+      BarcodingR::optimize.kmer(kmerFile(), max.kmer = input$maxKmer)
+   }, deleteFile = FALSE)
+   
+   output$downloadKmerPlot <- downloadHandler(
+      filename = function(){
+         paste0("optimum_kmer_", Sys.Date(), ".png")
+      },
+      content = function(file){
+         req(kmerFile())
+         req(input$maxKmer)
+         BarcodingR::optimize.kmer(kmerFile(), max.kmer = input$maxKmer)
+      }, contentType = "image/png"
+   )
    
    # barcoding gap
    observe({
@@ -2103,39 +2148,47 @@ server <- function(input, output, session) {
       toggleState("gapBarcodes", gapReady)
    })
    
+   refBarcode <- reactiveVal(NULL)
+   barcodeGap <- reactiveVal(NULL)
+   
    observeEvent(input$gapBarcodes, {
       disable("gapBarcodes")
       req(input$barcodeRef)
+      showPageSpinner()
+      Sys.sleep(1.5)
       
-      barcoding_ref <- rphast::read.msa(input$barcodeRef)
-      refBarcode <- ape::as.DNAbin(as.character(barcoding_ref))
+      barcoding_ref <- rphast::read.msa(input$barcodeRef$datapath, format = rphast::guess.format.msa(input$barcodeRef$datapath, method = "content"))
+      ref_Barcode <- ape::as.DNAbin(as.character(barcoding_ref))
       gap <- BarcodingR::barcoding.gap(refBarcode, dist = input$gapModel)
-      
-      # download
-      output$barcodingResult <- renderPrint({
-         req(gap)
-         as.data.frame(gap)
-      })
-      
-      output$BarcodingGapPlot <- renderImage({
-         req(refBarcode)
-         req(input$gapModel)
-         BarcodingR::barcoding.gap(refseq, dist = input$gapModel)
-      }, deleteFile = FALSE)
-      
-      output$downloadGapPlot <- downloadHandler(
-         filename = function(){
-            paste0("barcoding_gap_", Sys.Date(), ".png")
-         },
-         content = function(file){
-            req(refBarcode)
-            req(input$gapModel)
-            BarcodingR::barcoding.gap(refBarcode, dist = input$gapModel)
-         }, contentType = "image/png"
-      )
-      
-      
+      refBarcode(ref_Barcode)
+      barcodeGap(gap)
+      hidePageSpinner()
    }) # end of observe event
+   
+   # download
+   output$barcodingResult <- renderPrint({
+      req(barcodeGap())
+      as.data.frame(barcodeGap())
+   })
+   
+   output$BarcodingGapPlot <- renderImage({
+      req(refBarcode())
+      req(refseq())
+      req(input$gapModel)
+      BarcodingR::barcoding.gap(refseq(), dist = input$gapModel)
+   }, deleteFile = FALSE)
+   
+   output$downloadGapPlot <- downloadHandler(
+      filename = function(){
+         paste0("barcoding_gap_", Sys.Date(), ".png")
+      },
+      content = function(file){
+         req(refBarcode())
+         req(input$gapModel)
+         BarcodingR::barcoding.gap(refBarcode(), dist = input$gapModel)
+      }, contentType = "image/png"
+   )
+   
    
    # barcodes eval
    observe({ 
@@ -2144,26 +2197,31 @@ server <- function(input, output, session) {
       toggleState("evalBarcodes", barcode1 && barcode2)
    })
    
+   resultBarcodes <- reactiveVal(NULL)
+   
    observeEvent(input$evalBarcodes, {
       disable("evalBarcodes")
       req(input$barcode1)
       req(input$barcode2)
+      showPageSpinner()
+      Sys.sleep(1.5)
       
-      b1 <- rphast::read.msa(input$barcode1)
-      b2 <- rphast::read.msa(input$barcode2)
+      b1 <- rphast::read.msa(input$barcode1$datapath, format = rphast::guess.format.msa(input$barcode1$datapath, method = "content"))
+      b2 <- rphast::read.msa(input$barcode2$datapath, format = rphast::guess.format.msa(input$barcode2$datapath, method = "content"))
       barcode1 <- ape::as.DNAbin(as.character(b1))
       barcode2 <- ape::as.DNAbin(as.character(b2))
       
       # convert to dataframe to download
       result <- BarcodingR::barcodes.eval(barcode1, barcode2, kmer1 = kmer1, kmer2 = kmer2)
-      
-      output$evalBarcodesResult <- renderTable({
-         req(result)
-         result2 <- as.data.frame(result)
-         result2
-      })
-      
+      resultBarcodes(result)
+      hidePageSpinner()
    }) # end of observe event
+   
+   output$evalBarcodesResult <- renderTable({
+      req(resultBarcodes())
+      result2 <- as.data.frame(resultBarcodes())
+      result2
+   })
    
    # tdr2
    
@@ -2173,28 +2231,35 @@ server <- function(input, output, session) {
       toggleState("calculateTDR2", file1Ready && file2Ready)
    })
    
+   queTDR <- reactiveVal(NULL)
+   refTDR <- reactiveVal(NULL)
+   
    observeEvent(input$calculateTDR2, {
       disable(calculateTDR2)
       req(input$oneSpe)
       req(input$queSpe)
+      showPageSpinner()
+      Sys.sleep(1.5)
       
-      que <- rphast::read.msa(input$oneSpe)
-      ref <- rphast::read.msa(input$queSpe)
+      que <- rphast::read.msa(input$oneSpe$datapath, format = rphast::guess.format.msa(input$oneSpe$datapath, method = "content"))
+      ref <- rphast::read.msa(input$queSpe$datapath, format = rphast::guess.format.msa(input$queSpe$datapath, method = "content"))
       
       query <- ape::as.DNAbin(as.character(que))
       reference <- ape::as.DNAbin(as.character(ref))
       
-      # issue with results, it prints and not stores
-      output$tdrValues <- renderPrint({
-         req(query)
-         req(reference)
-         req(input$bootValue1)
-         req(input$bootValue2)
-         BarcodingR::TDR2(query, reference, boot = input$bootValue1, boot2 = input$bootValue2)
-      })
+      queTDR(query)
+      refTDR(reference)
+      hidePageSpinner()
    })
    
-   ###
+   # issue with results, it prints and not stores
+   output$tdrValues <- renderPrint({
+      req(queTDR())
+      req(refTDR())
+      req(input$bootValue1)
+      req(input$bootValue2)
+      BarcodingR::TDR2(queTDR(), refTDR(), boot = input$bootValue1, boot2 = input$bootValue2)
+   })
    
    
    # POP STAT
@@ -2213,13 +2278,21 @@ server <- function(input, output, session) {
       shinyjs::toggleState("runPopStats", condition = file_ready)
    })
    
+   privAlleles <- reactiveVal(NULL)
+   popStats <- reactiveVal(NULL)
+   hardyWeinberg <- reactiveVal(NULL)
+   fstStats <- reactiveVal(NULL)
+   fstData <- reactiveVal(NULL)
+   
+   statsMatrix <- reactiveVal(NULL)
+   hwMatrix <- reactiveVal(NULL)
+   fstMatrix <- reactiveVal(NULL)
+   
    observeEvent(input$runPopStats, {
-      #lastAction(Sys.time())
-      
       disable("runPopStats")
-      waiter_show(html = spin_fading_circles(), color = "#ffffff")
-      
       req(input$popStatsFile)
+      showPageSpinner()
+      Sys.sleep(1.5)
       
       fsnps_gen <- reactive({
          req(input$popStatsFile)
@@ -2237,196 +2310,184 @@ server <- function(input, output, session) {
             
             priv_alleles <- poppr::private_alleles(fsnps_gen())
             if (is.null(priv_alleles)) priv_alleles <- list(message = "No private alleles detected")
-            
-            output$privateAlleleTable <- DT::renderDataTable({
-               as.data.frame(priv_alleles)
-            }, options = list(pageLength = 10, scrollX = TRUE))
+            privAlleles(priv_alleles)
             
             incProgress(0.6, detail = "Computing population statistics...")
-            population_stats <- reactive({
-               req(fsnps_gen())
-               compute_population_stats(fsnps_gen())
-            })
-            
-            output$meanallelic <- DT::renderDataTable({
-               population_stats()$mar_list
-            })
-            
-            # heterozygosity
-            output$heterozygosity_table <- DT::renderDataTable({
-               population_stats()$heterozygosity
-            })
-            
-            output$heterozygosity_plot <- renderImage({
-               req(population_stats()$heterozygosity)
-               
-               plot_path <- plot_heterozygosity(
-                  Het_fsnps_df = population_stats()$heterozygosity,
-                  out_dir = tempdir()
-               )
-               
-               list(
-                  src = plot_path,
-                  contentType = "image/png",
-                  alt = "Heterozygosity Plot",
-                  width = "100%"
-               )
-            }, deleteFile = TRUE)
-            
-            output$inbreeding_table <- DT::renderDataTable({
-               population_stats()$inbreeding_coeff
-            })
-            
-            output$ttest_table <- DT::renderDataTable({
-               population_stats()$ttest
-            })
-            
-            output$allele_freq_table <- DT::renderDataTable({
-               population_stats()$allele_frequencies
-            }, options = list(scrollX = TRUE))
-            
-            #output$privateAllelePlot <- renderUI({
-            #   if (is.list(priv_alleles) && "message" %in% names(priv_alleles)) {
-            #      tags$div(style = "color:gray; font-style:italic; margin-top:10px;",
-            #               priv_alleles$message)
-            #   } else {
-            #      # Display as a nicely formatted table
-            #      DT::dataTableOutput("privateAlleleTable")
-            #   }
-            #})
+            population_stats <- compute_pop_stats(fsnps_gen())
+            popStats(population_stats)
             
             ## HWE
             incProgress(0.8, detail = "Running HWE and FST calculations...")
-            hardy_weinberg_stats <- reactive({
-               req(fsnps_gen())
-               compute_hardy_weinberg(fsnps_gen())
-            })
-            
-            output$hwe_summary <- renderUI({
-               pvals <- hardy_weinberg_stats()$hw_summary
-               tagList(
-                  h4("HWE P-values across loci"),
-                  verbatimTextOutput("hwe_summary_text")
-               )
-            })
-            
-            output$hwe_summary_text <- renderText({
-               paste0("P-values: ", paste(round(hardy_weinberg_stats()$hw_summary, 4), collapse = ", "))
-            })
-            
-            output$hwe_chisq_table <- DT::renderDataTable({
-               hardy_weinberg_stats()$hw_dataframe
-            }, options = list(scrollX = TRUE))
+            hardy_weinberg_stats <- compute_hwe(fsnps_gen())
+            hardyWeinberg(hardy_weinberg_stats)
             
             ## FST
             incProgress(1.0, detail = "Still running HWE and FST calculations...")
             
-            fst_stats <- reactive({
-               req(fsnps_gen())
-               compute_fst(fsnps_gen())
-            })
+            fst_stats <- compute_fst(fsnps_gen())
+            fstStats(fst_stats)
             
-            fst_data <- reactive({
-               req(fst_stats())
-               fst_stats()$fst_dataframe
-            })
+            
+            fst_data <- fstStats()$fst_dataframe
+            fstData(fst_data)
             
             showNotification("Rendering outputs, this might take some time...", type = "message", duration = 30)
             print(Sys.time())
-            
-            output$fstMatrixUI <- renderUI({
-               fst <- fst_stats()$fsnps_fst_matrix
-               if (is.list(fst) && "message" %in% names(fst)) {
-                  tags$p(style = "color:gray;", fst$message)
-               } else {
-                  DT::dataTableOutput("fstMatrixTable")
-               }
-            })
-            
-            output$fstMatrixTable <- DT::renderDataTable({
-               matrix_data <- matrix(unlist(fst_stats()$fst_matrix),
-                                     nrow = sqrt(length(fst_stats()$fst_matrix)),
-                                     byrow = TRUE)
-               rownames(matrix_data) <- colnames(matrix_data) <- attr(fsnps_gen(), "pop.names")
-               as.data.frame(matrix_data)
-            }, options = list(scrollX = TRUE))
-            
-            output$fstDfTable <- DT::renderDataTable({
-               fst_stats()$fst_dataframe
-            })
-            
-            
-            output$fst_heatmap_plot <- renderImage({
-               req(fst_data())
-               
-               plot_path <- plot_fst_heatmap(
-                  fst_df = fst_data(),
-                  out_dir = tempdir()
-               )
-               
-               list(
-                  src = plot_path,
-                  contentType = "image/png",
-                  alt = "FST Heatmap",
-                  width = "100%"
-               )
-            }, deleteFile = TRUE)
-            
-            
+ 
             enable("runPopStats")
-            
-            # download heterozygosity plot
-            output$downloadHeterozygosityPlot <- downloadHandler(
-               filename = function() {
-                  "heterozygosity_plot.png"
-               },
-               content = function(file) {
-                  plot_path <- plot_heterozygosity(
-                     Het_fsnps_df = population_stats()$heterozygosity,
-                     out_dir = tempdir()
-                  )
-                  file.copy(plot_path, file)
-               }
-            )
-            
-            output$downloadFstHeatmap <- downloadHandler(
-               filename = function() {
-                  "fst_heatmap.png"
-               },
-               content = function(file) {
-                  plot_path <- plot_fst_heatmap_static(
-                     fst_df = fst_data(),
-                     out_dir = tempdir()
-                  )
-                  file.copy(plot_path, file)
-               }
-            )
-            
-            ## download all results
-            stats_matrix <- compute_population_stats(fsnps_gen())
-            hw_matrix <- compute_hardy_weinberg(fsnps_gen())
-            fst_matrix <- compute_fst(fsnps_gen())
-            
-            output$downloadStatsXLSX <- downloadHandler(
-               filename = function() {
-                  timestamp <- format(Sys.time(), "%Y%m%d_%H%M")
-                  paste0("population-statistics-results_", timestamp, ".xlsx")
-               },
-               content = function(file) {
-                  req(stats_matrix, hw_matrix, fst_matrix)
-                  path <- export_results(priv_alleles, stats_matrix, hw_matrix, fst_matrix, dir = tempdir())
-                  
-                  file.copy(path, file)
-                  #openxlsx::write.xlsx(path, file = filename)
-               }
-            )
-            waiter_hide()
          }, error = function(e) {
             showNotification(paste("Population stats error:", e$message), type = "error")
             enable("runPopStats")
          })
+         
+         stats_matrix <- compute_pop_stats(fsnps_gen())
+         hw_matrix <- compute_hwe(fsnps_gen())
+         fst_matrix <- compute_fst(fsnps_gen())
+         
+         statsMatrix(stats_matrix)
+         hwMatrix(hw_matrix)
+         fstMatrix(fst_matrix)
       }) #end of withProgress
+      
+      hidePageSpinner()
    })
+   
+   output$privateAlleleTable <- DT::renderDataTable({
+      as.data.frame(privAlleles())
+   }, options = list(pageLength = 10, scrollX = TRUE))
+   
+   output$meanallelic <- DT::renderDataTable({
+      popStats()$mar_list
+   })
+   
+   # heterozygosity
+   output$heterozygosity_table <- DT::renderDataTable({
+      popStats()$heterozygosity
+   })
+   
+   output$heterozygosity_plot <- renderImage({
+      req(popStats()$heterozygosity)
+      
+      plot_path <- plot_heterozygosity(
+         Het_fsnps_df = popStats()$heterozygosity,
+         out_dir = tempdir()
+      )
+      
+      list(
+         src = plot_path,
+         contentType = "image/png",
+         alt = "Heterozygosity Plot",
+         width = "100%"
+      )
+   }, deleteFile = TRUE)
+   
+   output$inbreeding_table <- DT::renderDataTable({
+      popStats()$inbreeding_coeff
+   })
+   
+   output$ttest_table <- DT::renderDataTable({
+      popStats()$ttest
+   })
+   
+   output$allele_freq_table <- DT::renderDataTable({
+      popStats()$allele_frequencies
+   }, options = list(scrollX = TRUE))
+   
+   output$hwe_summary <- renderUI({
+      pvals <- hardyWeinberg()$hw_summary
+      tagList(
+         h4("HWE P-values across loci"),
+         verbatimTextOutput("hwe_summary_text")
+      )
+   })
+   
+   output$hwe_summary_text <- renderText({
+      paste0("P-values: ", paste(round(hardyWeinberg()$hw_summary, 4), collapse = ", "))
+   })
+   
+   output$hwe_chisq_table <- DT::renderDataTable({
+      hardyWeinberg()$hw_dataframe
+   }, options = list(scrollX = TRUE))
+   
+   output$fstMatrixUI <- renderUI({
+      fst <- fstStats()$fsnps_fst_matrix
+      if (is.list(fst) && "message" %in% names(fst)) {
+         tags$p(style = "color:gray;", fst$message)
+      } else {
+         DT::dataTableOutput("fstMatrixTable")
+      }
+   })
+   
+   output$fstMatrixTable <- DT::renderDataTable({
+      matrix_data <- matrix(unlist(fstStats()$fst_matrix),
+                            nrow = sqrt(length(fstStats()$fst_matrix)),
+                            byrow = TRUE)
+      rownames(matrix_data) <- colnames(matrix_data) <- attr(fsnps_gen(), "pop.names")
+      as.data.frame(matrix_data)
+   }, options = list(scrollX = TRUE))
+   
+   output$fstDfTable <- DT::renderDataTable({
+      fstStats()$fst_dataframe
+   })
+   
+   
+   output$fst_heatmap_plot <- renderImage({
+      req(fstData())
+      
+      plot_path <- plot_fst(
+         fst_df = fstData(),
+         out_dir = tempdir()
+      )
+      
+      list(
+         src = plot_path,
+         contentType = "image/png",
+         alt = "FST Heatmap",
+         width = "100%"
+      )
+   }, deleteFile = TRUE)
+   
+   # download heterozygosity plot
+   output$downloadHeterozygosityPlot <- downloadHandler(
+      filename = function() {
+         "heterozygosity_plot.png"
+      },
+      content = function(file) {
+         plot_path <- plot_heterozygosity(
+            Het_fsnps_df = popStats()$heterozygosity,
+            out_dir = tempdir()
+         )
+         file.copy(plot_path, file)
+      }
+   )
+   
+   output$downloadFstHeatmap <- downloadHandler(
+      filename = function() {
+         "fst_heatmap.png"
+      },
+      content = function(file) {
+         plot_path <- plot_fst(
+            fst_df = fstData(),
+            out_dir = tempdir()
+         )
+         file.copy(plot_path, file)
+      }
+   )
+   
+   ## download all results
+   output$downloadStatsXLSX <- downloadHandler(
+      filename = function() {
+         timestamp <- format(Sys.time(), "%Y%m%d_%H%M")
+         paste0("population-statistics-results_", timestamp, ".xlsx")
+      },
+      content = function(file) {
+         req(statsMatrix(), hwMatrix(), fstMatrix(), privAlleles())
+         path <- export_pop_results(privAlleles(), statsMatrix(), hwMatrix(), fstMatrix(), dir = tempdir())
+         
+         file.copy(path, file)
+         #openxlsx::write.xlsx(path, file = filename)
+      }
+   )
    
    
    # PCA
@@ -2445,21 +2506,20 @@ server <- function(input, output, session) {
       
       hasLabelsFile <- !is.null(input$pcaLabels)
       hasColorFile <- !is.null(input$colorPalette)
+      hasShapesFile <- !is.null(input$shapeList)
       
       usingDefaults <- input$useDefaultColors
       
-      readyForPCA <- hasDataFile && (usingDefaults || (hasLabelsFile && hasColorFile))
+      readyForPCA <- hasDataFile && (usingDefaults || (hasLabelsFile && hasColorFile && hasShapesFile))
       
       toggleState("runPCA", readyForPCA)
    })
    
    observeEvent(input$runPCA, {
-      #lastAction(Sys.time())
-      
       disable("runPCA")
-      waiter_show(html = spin_fading_circles(), color = "#ffffff")
-      
       req(input$pcaFile)
+      showPageSpinner()
+      Sys.sleep(1.5)
       
       withProgress(message = "Running PCA...", {
          tryCatch({
@@ -2473,27 +2533,31 @@ server <- function(input, output, session) {
             # Read custom labels/colors if needed
             labels <- NULL
             colors <- NULL
+            shapes <- NULL
             
             if (!input$useDefaultColors) {
                req(input$pcaLabels, input$colorPalette)
                
                labels <- readLines(input$pcaLabels$datapath)
                colors <- readLines(input$colorPalette$datapath)
+               shapes <- readLines(input$shapeList$datapath)
                
                # Optional: trim whitespace, ensure length match
                labels <- trimws(labels)
                colors <- trimws(colors)
+               shapes <- trimws(shapes)
                
-               if (length(labels) != length(colors)) {
-                  stop("Mismatch between number of labels and colors.")
+               if (length(labels) != length(colors) && length(labels) != length(shapes)) {
+                  stop("Mismatch between number of labels and colors/shapes.")
                }
             }
             
-            labels_colors <- get_colors_labels(
+            labels_colors <- get_labels(
                fsnps_gen = fsnps_gen,
                use_default = input$useDefaultColors,
                input_labels = labels,
-               input_colors = colors
+               input_colors = colors,
+               input_shapes = shapes
             )
             
             incProgress(0.6, detail = "Computing PCA...")
@@ -2521,13 +2585,13 @@ server <- function(input, output, session) {
                )
             })
             
-            waiter_hide()
             enable("runPCA")
          }, error = function(e) {
             showNotification(paste("PCA Error:", e$message), type = "error")
             enable("runPCA")
          })
       })
+      hidePageSpinner()
    })
    
    output$downloadbarPlot <- downloadHandler(
@@ -2576,32 +2640,27 @@ server <- function(input, output, session) {
    structure_result <- reactiveVal(NULL)
    qmatrices_result <- reactiveVal(NULL)
    structure_plot_paths <- reactiveVal(NULL)
+   output_dir <- tempdir()
+   out_path <- file.path(output_dir, "structure_input.str")
    
    observeEvent(input$runStructure, {
       disable("runStructure")
-      waiter_show(html = spin_fading_circles(), color = "#ffffff")
-      
       req(input$structureFile)
+      showPageSpinner()
+      Sys.sleep(1.5)
       
       withProgress(message = "Running STRUCTURE analysis...", {
          incProgress(0.2, detail = "Loading input file...")
          df <- load_input_file(input$structureFile$datapath)
          fsnps_gen <- clean_input_data_str(df)
          
-         
          incProgress(0.4, detail = "Converting to STRUCTURE file...")
-         output_dir <- tempdir()
-         dir.create(output_dir, showWarnings = FALSE)
-         out_path <- file.path(output_dir, "structure_input.str")
-         
+
          structure_df <- to_structure(fsnps_gen$fsnps_gen, include_pop = TRUE)
          structure_df[] <- lapply(structure_df, function(col) as.numeric(as.character(col)))
          
          write.table(structure_df, file = out_path, quote = FALSE, sep = " ",
                      row.names = FALSE, col.names = FALSE)
-         
-         #cat("STRUCTURE input preview:\n", paste(readLines(out_path, n = 5), collapse = "\n"))
-         #structure_file <- out_path
          
          incProgress(0.6, detail = "Running STRUCTURE analysis...")
          result <- running_structure(out_path,
@@ -2638,89 +2697,141 @@ server <- function(input, output, session) {
          
          structure_plot_paths(plot_paths)
          enable("runStructure")
-         waiter_hide()
          
-         
-         output$downloadLogs <- downloadHandler(
-            filename = function() {
-               paste0("structure_logs_", Sys.Date(), ".zip")
-            },
-            content = function(file) {
-               log_files <- list.file(output_dir, pattern = "_log$", full.names = TRUE)
-               if (length(log_files) == 0) return(NULL)
-               zip::zipr(zipfile = file, files = log_files)
-            },
-            contentType = "application/zip"
-         )
-         
-         output$downloadFOutputs <- downloadHandler(
-            filename = function() {
-               paste0("structure_outputs_", Sys.Date(), ".zip")
-            },
-            content = function(file) {
-               f_files <- list.files(output_dir, pattern = "_f$", full.names = TRUE)
-               if (length(f_files) == 0) return(NULL)
-               zip::zipr(zipfile = file, files = f_files)
-            },
-            contentType = "application/zip"
-         )
-         
-         output$downloadQMatrixTxtZip <- downloadHandler(
-            filename = function() {
-               paste0("q_matrices_", Sys.Date(), ".zip")
-            },
-            content = function(file) {
-               req(qmatrix_zip_path())
-               temp_dir <- tempfile()
-               dir.create(temp_dir)
-               lapply(names(qmatrices_result()), function(name){
-                  matrix_data <- qmatrices_result()[[name]]
-                  if (!is.data.frame(matrix_data)) return(NULL)
-                  write.table(matrix_data, file = file.path(temp_dir, paste0(name, ".txt")),
-                              row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
-               })
-               zip::zipr(zipfile = file, files = list.files(temp_dir, full.names = TRUE))
-            },
-            contentType = "application/zip"
-         )
-         
-         output$downloadStructurePlots <- downloadHandler(
-            filename = function() {
-               paste0("structure_plots_", Sys.Date(), ".zip")
-            },
-            content = function(file) {
-               req(structure_plot_paths())
-               zip::zipr(zipfile = file, files = structure_plot_paths())
-            },
-            contentType = "application/zip"
-         )
-         
-         output$structurePlotPreview <- renderImage({
-            req(structure_plot_paths())
-            list(
-               src = structure_plots()[[1]],
-               contentType = "image/png",
-               alt = "STRUCTURE Plot Preview",
-               width = "100%"
-            )
-         }, deleteFile = FALSE)
-         
-         output$downloadButtons <- renderUI({
-            req(structure_plot_paths(), qmatrices_result(), structure_result())
-            tagList(
-               downloadButton("downloadLogs", "Download Log Files (.zip)"),
-               br(), br(),
-               downloadButton("downloadFOutputs", "Download STRUCTURE _f Files (.zip)"),
-               br(), br(),
-               downloadButton("downloadQMatrixTxtZip", "Download Q Matrices (.zip)"),
-               br(), br(),
-               downloadButton("downloadStructurePlots", "Download STRUCTURE Plots (.zip)")
-            )
-         })
       }) # end of with progress
       
-      
+      hidePageSpinner()
    }) # end of observe event for structure
+   
+   output$downloadLogs <- downloadHandler(
+      filename = function() {
+         paste0("structure_logs_", Sys.Date(), ".zip")
+      },
+      content = function(file) {
+         log_files <- list.file(output_dir, pattern = "_log$", full.names = TRUE)
+         if (length(log_files) == 0) return(NULL)
+         zip::zipr(zipfile = file, files = log_files)
+      },
+      contentType = "application/zip"
+   )
+   
+   output$downloadFOutputs <- downloadHandler(
+      filename = function() {
+         paste0("structure_outputs_", Sys.Date(), ".zip")
+      },
+      content = function(file) {
+         f_files <- list.files(output_dir, pattern = "_f$", full.names = TRUE)
+         if (length(f_files) == 0) return(NULL)
+         zip::zipr(zipfile = file, files = f_files)
+      },
+      contentType = "application/zip"
+   )
+   
+   output$downloadQMatrixTxtZip <- downloadHandler(
+      filename = function() {
+         paste0("q_matrices_", Sys.Date(), ".zip")
+      },
+      content = function(file) {
+         req(qmatrix_zip_path())
+         temp_dir <- tempfile()
+         dir.create(temp_dir)
+         lapply(names(qmatrices_result()), function(name){
+            matrix_data <- qmatrices_result()[[name]]
+            if (!is.data.frame(matrix_data)) return(NULL)
+            write.table(matrix_data, file = file.path(temp_dir, paste0(name, ".txt")),
+                        row.names = FALSE, col.names = FALSE, quote = FALSE, sep = "\t")
+         })
+         zip::zipr(zipfile = file, files = list.files(temp_dir, full.names = TRUE))
+      },
+      contentType = "application/zip"
+   )
+   
+   output$downloadStructurePlots <- downloadHandler(
+      filename = function() {
+         paste0("structure_plots_", Sys.Date(), ".zip")
+      },
+      content = function(file) {
+         req(structure_plot_paths())
+         zip::zipr(zipfile = file, files = structure_plot_paths())
+      },
+      contentType = "application/zip"
+   )
+   
+   output$structurePlotPreview <- renderImage({
+      req(structure_plot_paths())
+      list(
+         src = structure_plots()[[1]],
+         contentType = "image/png",
+         alt = "STRUCTURE Plot Preview",
+         width = "100%"
+      )
+   }, deleteFile = FALSE)
+   
+   output$downloadButtons <- renderUI({
+      req(structure_plot_paths(), qmatrices_result(), structure_result())
+      tagList(
+         downloadButton("downloadLogs", "Download Log Files (.zip)"),
+         br(), br(),
+         downloadButton("downloadFOutputs", "Download STRUCTURE _f Files (.zip)"),
+         br(), br(),
+         downloadButton("downloadQMatrixTxtZip", "Download Q Matrices (.zip)"),
+         br(), br(),
+         downloadButton("downloadStructurePlots", "Download STRUCTURE Plots (.zip)")
+      )
+   })
+   
+   # Prediction #
+   observe({
+      file_ready <- !is.null(input$forPredFile)
+      shinyjs::toggleState("runNaiveBayes", condition = file_ready)
+   })
+   
+   predResults <- reactiveVal(NULL)
+   
+   observeEvent(input$runNaiveBayes, {
+      disable("runNaiveBayes")
+      req(input$forPredFile)
+      
+      showPageSpinner()
+      Sys.sleep(1.5)
+      
+      result <- calculate_naive_bayes(input$forPredFile$datapath)
+      predResults(result)
+      
+      hidePageSpinner()
+   }) # end of observe event
+   
+   output$predictionTableResult <- renderPrint({
+      req(predResults())
+      predResults()$predTable
+   })
+   
+   output$statbyClassResult <- renderPrint({
+      req(predResults())
+      predResults()$otherStat
+   })
+   
+   output$overallStatResult <- renderPrint({
+      req(predResults())
+      predResults()$predStat
+   })
+   
+   output$downloadClassification <- downloadHandler(
+      filename = function(){
+         timestamp <- format(Sys.time(), "%Y%m%d_%H%M")
+         paste0("classification-results_", timestamp, ".xlsx")
+      },
+      content = function(file){
+         dataset = list(
+            "Table" = as.data.frame(predResults()$predTable),
+            "Stats per Class" = as.data.frame(predResults()$otherStat),
+            "Overall Stats" = as.data.frame(predResults()$predStat)
+         )
+         
+         openxlsx::write.xlsx(datasets, file = file)
+      }
+   )
+   
    
 }
 
