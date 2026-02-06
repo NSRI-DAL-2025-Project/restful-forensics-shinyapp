@@ -787,6 +787,10 @@ ui <- tagList(
                                   choices = c("ClustalW" = "ClustalW", "ClustalOmega" = "ClustalOmega", "MUSCLE" = "Muscle")),
                      actionButton("runMSA", "Align", icon = icon("align-justify")),
                      br(),
+                     h5("Sample Files"),
+                     tags$ul(
+                        tags$a("Sample zipped FASTA file", href = "www/lactobacillus/lacto2.zip", download = NA)),
+                     br(),
                      selectInput("msaDownloadType", "Choose alignment (FASTA and PDF) version to download:",
                                  choices = c(
                                     "Initial" = "initial",
