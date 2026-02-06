@@ -223,6 +223,12 @@ To explore STRUCTURE v2.3.4: https://web.stanford.edu/group/pritchardlab/structu
 **Known Issue/s**: Takes a significant amount of time to load the results (zipped files and plots).
 
 
+### 🪪 Classification  
+
+Classify individuals using Naive Bayes from the e1071 and caret R packages.
+It accepts a CSV/XLSX file with sample, population, and genotype information. 
+
+
 
 ### References
 [1] Petit, R.J., El Mousadik, A., and Pons, O. (1998). Identifying populations for conservation on the basis of genetic markers. Conservation Biology, 12:844-855  

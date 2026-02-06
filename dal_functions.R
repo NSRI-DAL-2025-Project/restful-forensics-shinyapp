@@ -439,6 +439,7 @@ convert_to_genind <- function(file) {
    
    return(fsnps_gen)
 }
+
 #==========================
 # Clean Data
 clean_input_data <- function(file) {
@@ -602,117 +603,234 @@ to_snipper <- function(input,
 #
 # Last revised 31 October 2025
 #============================
-extract_markers <- function(input.file, 
+extract_markers <- function(input_type,
+                           input.file = NULL, 
                             snps.list = NULL, 
                             pos.list = NULL, 
                             bed.file = NULL, 
                             bim.file = NULL, 
-                            fam.file = NULL, 
-                            plink_args = NULL,
-                            output.dir = output.dir, 
-                            merged.file = file,
-                            plink_path = plink_path) {
+                            fam.file = NULL,
+                            output.dir, 
+                            merged.file,
+                            plink_path) {
    
    if (!dir.exists(output.dir)) {
       dir.create(output.dir, recursive = TRUE)
    }
    
    plink_files_given <- !is.null(bed.file) || !is.null(bim.file) || !is.null(fam.file)
-   input_given <- !is.null(input.file)
+   vcf_given <- !is.null(input.file)
    
-   if (plink_files_given && input_given){
+   if (plink_files_given && vcf_given){
       stop("Please provide either a single input file (VCF/VCF.GZ/BCF) or PLINK files (bed, bim, fam)")
    }
    
-   if (!plink_files_given) {
-      path_file <- convert_to_plink(input.file, output.dir)
-      bed.file <- list.files(output.dir, pattern = "\\.bed$", full.names = TRUE)
-      bim.file <- list.files(output.dir, pattern = "\\.bim$", full.names = TRUE)
-      fam.file <- list.files(output.dir, pattern = "\\.fam$", full.names = TRUE)
+   if (!is.null(snps.list)) {
+      return(extract_by_ID(snps.list, input_type, input.file,
+                           bed.file, bim.file, fam.file,
+                           output.dir, merged.file, plink_path))
+   } else if (!is.null(pos.list)){
+      return(extract_by_pos(pos.list, input_type, input.file,
+                            bed.file, bim.file, fam.file,
+                            output.dir, merged.file, plink_path))
+   } else {
+      stop("Provide SNPs name (rsID) or list of POS")
    }
-   
-   extracted_file <- extraction(snps.list, 
-                                pos.list, 
-                                bed.file, 
-                                bim.file, 
-                                fam.file, 
-                                plink_args,
-                                output.dir, 
-                                merged.file,
-                                plink_path)
-   return(extracted_file)
 }
 
-extraction <- function(snps.list = NULL, 
-                       pos.list = NULL, 
-                       bed.file = NULL, 
-                       bim.file = NULL, 
-                       fam.file = NULL, 
-                       plink_args = NULL,
-                       output.dir, 
-                       merged.file,
-                       plink_path) {
+
+extract_by_ID <- function(snps.list, input_type, input.file,
+                          bed.file, bim.file, fam.file,
+                          output.dir, merged.file,
+                          plink_path) {
    
-   args <- if (!is.null(plink_args)) paste(plink_args, collapse = " ") else ""
+   file_extracted <- file.path(output.dir, merged.file)
    
-   if (!is.null(snps.list)) {
-      file_extracted <- file.path(output.dir, merged.file)
-      
-      cmd_args <- c("--bed", bed.file, "--bim", bim.file, "--fam", fam.file,
-                    "--const-fid", "0", "--cow", "--extract", snps.list,
-                    plink_args, "--keep-allele-order", "--allow-no-sex",
-                    "--allow-extra-chr", "--recode", "vcf", "--out", file_extracted)
-      system2(plink_path, args = cmd_args)
-      final_vcf <- paste0(file_extracted, ".vcf")
-      
-   } else if (!is.null(pos.list)) {
-      command_list <- lapply(seq_len(nrow(pos.list)), function(i) {
-         chr_num <- pos.list[i, 1]
-         start_bp <- pos.list[i, 2]
-         end_bp <- pos.list[i, 3]
-         
-         filename_base <- paste0("chr", chr_num, "_", start_bp - 1)
-         output_file <- file.path(output.dir, paste0(filename_base, ".vcf"))
-         
-         cmd_args <- c("--bed", bed.file, "--bim", bim.file, "--fam", fam.file, 
-                       "--cow", "--chr ", chr_num,
-                       "--from-bp", start_bp,
-                       "--to-bp", end_bp,
-                       args,
-                       "--recode", "vcf", "--keep-allele-order", "--out ", output_file)
-         system2(plink_path, args = cmd_args)
-      })
-      final_vcf <- merge_vcf_files(output.dir, merged.file)
+   if (input_type %in% c("vcf", "bcf")){
+      cmd <- paste(
+         shQuote(plink_path),
+         paste0("--", input_type), shQuote(input.file),
+         "--extract", shQuote(snps.list),
+         "--keep-allele-order --allow-no-sex --allow-extra-chr --recode vcf --out", shQuote(file_extracted)
+      )
    } else {
-      stop("Either `snps.list` or `pos.list` must be provided.")
+      cmd <- paste(
+         shQuote(plink_path),
+         "--bed", shQuote(bed.file),
+         "--bim", shQuote(bim.file),
+         "--fam", shQuote(fam.file),
+         "--extract", shQuote(snps.list),
+         "--keep-allele-order --allow-no-sex --allow-extra-chr --recode vcf --out", shQuote(file_extracted)
+      )
    }
+   system(cmd)
+   return(paste0(file_extracted, ".vcf"))
+}
+
+
+extract_by_pos <- function(pos.list, 
+                           input_type,
+                           input.file,
+                           bed.file, bim.file, fam.file,
+                           output.dir, 
+                           merged.file,
+                           plink_path){
+   
+   for (i in seq_len(nrow(pos.list))){
+      chr_num <- pos.list[i, 2]
+      start_bp <- pos.list[i, 3]
+      
+      filename_base <- paste0("chr", chr_num, "_", start_bp - 1)
+      output_file <- file.path(output.dir, filename_base)
+      
+      if (input_type %in% c("vcf", "bcf")){
+         cmd <- paste(
+            shQuote(plink_path),
+            paste0("--", input_type), shQuote(input.file),
+            "--chr", chr_num,
+            "--from-bp", start_bp,
+            "--to-bp", start_bp,
+            "--keep-allele-order --allow-extra-chr --recode vcf",
+            "--out", shQuote(output_file)
+         )
+      } else {
+         cmd <- paste(
+            shQuote(plink_path),
+            "--bed", shQuote(bed.file),
+            "--bim", shQuote(bim.file),
+            "--fam", shQuote(fam.file),
+            "--chr", chr_num,
+            "--from-bp", start_bp,
+            "--to-bp", start_bp,
+            "--keep-allele-order --allow-extra-chr --recode vcf",
+            "--out", shQuote(output_file)
+         )
+      }
+      system(cmd)
+   }
+   final_vcf <- merge_vcf_files(output.dir, merged.file)
    return(final_vcf)
 }
 
-# Extraction of those without rsID
-extract_position <- function(bed.file, bim.file, fam.file, pos.list = position, plink_path = plink_path){
-   command_list <- lapply(seq_len(nrow(pos.list)), function(i) {
-      chr_num <- pos.list[i, 1]
-      start_bp <- pos.list[i, 2]
-      end_bp <- pos.list[i, 3]
+
+extract_POStoID <- function(pos.list,
+                            input_type,
+                            input.file = NULL,
+                            bed.file = NULL, 
+                            bim.file = NULL, 
+                            fam.file = NULL,
+                            output.dir,
+                            plink_path){
+   
+   # generate a text file outside
+   list_plink <- file.path(output.dir, "plink_files.txt")
+   list_ID_names <- file.path(output.dir, "ID_names.txt")
+   
+   if (file.exists(list_plink)) file.remove(list_plink)
+   if (file.exists(list_ID_names)) file.remove(list_ID_names)
+   
+   for (i in seq_len(nrow(pos.list))) {
+      rsID <- pos.list[i, 1]
+      chr_num <- pos.list[i, 2]
+      start_bp <- pos.list[i, 3]
       
+      # 1. Extraction
       filename_base <- paste0("chr", chr_num, "_", start_bp - 1)
-      output_file <- file.path(output.dir, paste0(filename_base))
+      output_file <- file.path(output.dir, filename_base)
       
-      cmd_args <- c("--bed", bed.file, "--bim", bim.file, "--fam", fam.file, 
-                    "--cow", "--chr ", chr_num,
-                    "--from-bp", start_bp,
-                    "--to-bp", end_bp,
-                    args,
-                    "--make-bed", "--out ", output_file)
-      system2(plink_path, args = cmd_args)
+      if (input_type %in% c("vcf", "bcf")) {
+         extract_args <- paste(
+            shQuote(plink_path),
+            paste0("--", input_type), shQuote(input.file),
+            "--cow",
+            "--chr", chr_num,
+            "--from-bp", start_bp,
+            "--to-bp", start_bp,
+            "--make-bed",
+            "--out", shQuote(output_file)
+         )
+      } else {
+         extract_args <- paste(
+            shQuote(plink_path),
+            "--bed", shQuote(bed.file),
+            "--bim", shQuote(bim.file),
+            "--fam", shQuote(fam.file),
+            "--cow",
+            "--chr", chr_num,
+            "--from-bp", start_bp,
+            "--to-bp", start_bp,
+            "--make-bed",
+            "--out", shQuote(output_file)
+         )
+      }
+      system(extract_args)
+
       
-      # run the next time
-   })
+      # 2. Adding rsID
+      bed_file <- paste0(output_file, ".bed")
+      bim_file <- paste0(output_file, ".bim")
+      fam_file <- paste0(output_file, ".fam")
+      
+      if (!file.exists(bed_file)){
+         warning("PLINK did not produce expected files for ", rsID)
+         next
+      }
+      
+      revised <- file.path(output.dir, rsID)
+      add_rsid <- paste(
+         shQuote(plink_path),
+         "--bed", shQuote(bed_file),
+         "--bim", shQuote(bim_file),
+         "--fam", shQuote(fam_file),
+         "--set-missing-var-ids @:#", rsID,
+         "--make-bed",
+         "--out", shQuote(revised)
+      )
+      message("Running: ", add_rsid)
+      system(add_rsid)
+      
+      # 2.1. Generate files
+      plink_lines <- paste(paste0(revised, ".bed"),
+                           paste0(revised, ".bim"),
+                           paste0(revised, ".fam"),
+                           sep = "\t"
+                           )
+      write(plink_lines, file = list_plink, append = TRUE)
+      
+      # 2.2 Append rsID to ID names
+      rsid_line <- paste0("chr", chr_num, ":", start_bp, ":", rsID, "\t", rsID)
+      write(rsid_line, file = list_ID_names, append = TRUE)
+   }
    
+   # 3. Merge PLINK files
+   merged_file <- file.path(output.dir, "merged")
+   merged_plink <- paste(
+      shQuote(plink_path),
+      "--merge-list", shQuote(list_plink),
+      "--recode vcf",
+      "--keep-allele-order",
+      "--out", shQuote(merged_file)
+      )
+   message("Running: ", merged_plink)
+   system(merged_file)
    
+   # 4. Rename rsID
+   input_vcf <- paste0(merged_file, ".vcf")
+   corrected_ID <- file.path(output.dir, "renamed_ID")
+   updated_plink <- paste(
+      shQuote(plink_path),
+      "--vcf", shQuote(input_vcf),
+      "--update-name", shQuote(list_ID_names),
+      "--recode vcf",
+      "--out", shQuote(corrected_ID)
+   )
+   system(updated_plink)
    
+   return(paste0(corrected_ID, ".vcf"))
 }
+
+
+
 
 #============================
 # CONCORDANCE ANALYSIS
@@ -1125,8 +1243,8 @@ get_labels <- function(fsnps_gen, use_default, input_labels = NULL, input_colors
    if (use_default) {
       labels <- levels(as.factor(fsnps_gen@pop))
       n <- as.integer(length(labels))
-      colors <- RColorBrewer::brewer.pal(n, name = "Set1")
-      shapes <- 21 # rep  c()
+      colors <- RColorBrewer::brewer.pal(min(n, 9), name = "Set1")
+      shapes <- rep(21:25, length.out = n)
    } else {
       labels <- input_labels
       colors <- input_colors
@@ -1171,50 +1289,25 @@ plot_pca <- function(ind_coords, centroid, percent, labels_colors, width = 8, he
    # Plot
    plot <- ggplot(ind_coords, aes(x = ind_coords[[paste0("PC", pc_x)]],
                                   y = ind_coords[[paste0("PC", pc_y)]],
-                                  #fill = Site,
-                                  color = Site,
+                                  fill = Site,
                                   shape = Site)) +
       geom_hline(yintercept = 0) +
       geom_vline(xintercept = 0) +
-      geom_point(size = 3, show.legend = FALSE) + # shape is changed
+      geom_point(aes(shape = Site, fill = Site), color = "black", size = 3, show.legend = FALSE) + # shape is changed
       geom_label_repel(data = centroid,
                        aes(x = centroid[[paste0("PC", pc_x)]],
                            y = centroid[[paste0("PC", pc_y)]],
                            label = Site,
-                           color = Site),
+                           fill = Site),
+                       color = "black",
                        size = 4, show.legend = FALSE) +
       scale_fill_manual(values = labels_colors$colors) +
-      scale_color_manual(values = labels_colors$colors) +
+      #scale_color_manual(values = labels_colors$colors) +
       scale_shape_manual(values = labels_colors$shapes) +
       labs(x = xlab, y = ylab) +
       ggtheme
    
    return(plot)
-}
-
-# for removal
-explore_pca <- function(input, default.colors.labels = TRUE, pca.labels = NULL, color.palette = NULL, set.size = FALSE, width = NULL, height = NULL, add.pc = FALSE, add.pc.x = NULL, add.pc.y = NULL) {
-   file <- load_csv_xlsx_files(input)
-   file <- clean_input_data(file)
-   
-   fsnps_gen <- convert_to_genind(file)
-   pca_results <- compute_pca(fsnps_gen)
-   labels_colors <- get_colors_labels(fsnps_gen, default.colors.labels, pca.labels, color.palette)
-   
-   if (set.size) {
-      if (is.null(width) || is.null(height)) {
-         stop("If set.size is TRUE, both width and height must be provided.")
-      }
-   } else {
-      width <- 8
-      height <- 8
-   }
-   
-   plot_pca(pca_results$ind_coords, pca_results$centroid, pca_results$percent, labels_colors, filename = "pca.png", width = width, height = height, pc_x = 1, pc_y = 2)
-   
-   if (add.pc) {
-      plot_pca(pca_results$ind_coords, pca_results$centroid, pca_results$percent, labels_colors, filename = "pca2.png", width = width, height = height, pc_x = add.pc.x, pc_y = add.pc.y)
-   }
 }
 
 #============================

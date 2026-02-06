@@ -469,7 +469,16 @@ ui <- tagList(
                                  textAreaInput("typePop", "Enter population", rows = 1)
                               )
                            ),
-                        actionButton("ConvertFILES", "Convert files", icon = icon("file-csv"))
+                        actionButton("ConvertFILES", "Convert files", icon = icon("file-csv")),
+                        hr(),
+                        h4("Sample Files"),
+                        tags$ul(
+                           tags$a("A. Sample VCF file", href = "www/sample_hgdp.vcf", download = NA),
+                           br(),
+                           tags$a("B. Sample CSV file (for VCF conversion)", href = "www/sample.csv", download = NA),
+                           br(),
+                           tags$a("C. Sample marker metadata file (for CSV-VCF conversion)", href = "www/marker_info.csv", download = NA)
+                        )
                         ), # end of sidebar panel
                         mainPanel(
                            fluidRow(
@@ -486,15 +495,11 @@ ui <- tagList(
                                      tableOutput("exampleMarkerInfo")
                               )
                            ), # end of fluidRow
-                           tags$h4("Sample File"),
-                           tags$ul(
-                              tags$a("Sample VCF file", href = "www/sample_hgdp.vcf", download = NA)
-                           ),
                            tableOutput("previewTable") %>% withSpinner(color = "blue"),
-                           downloadButton("downloadConvertedVCF", "Download Converted VCF"),
-                           downloadButton("downloadConvertedCSV", "Download Converted CSV"),
-                           downloadButton("downloadConvertedFASTA", "Download Converted FASTA"),
-                           downloadButton("downloadConvertedPLINK", "Download Converted PLINK files")
+                           uiOutput("downloadVCF_UI"),
+                           uiOutput("downloadCSV_UI"),
+                           uiOutput("downloadFASTA_UI"),
+                           uiOutput("downloadPLINK_UI")
                         )
                      ) # end of sidebar layout
             ), # end of tabpanel
@@ -552,13 +557,7 @@ ui <- tagList(
                                      tableOutput("exampleTableSnipper")),
                               column(6, 
                                      h5("Sample reference file"),
-                                     tableOutput("exampleRefSnipper")),
-                              column(6,
-                                     tags$h4("Downloadable Sample"),
-                                     tags$ul(
-                                        tags$a("Sample file", href = "www/sample.csv", download = NA)
-                                     )  
-                              )
+                                     tableOutput("exampleRefSnipper"))
                            ) # end of fluidRow
                         ) # end of mainpanel
                      )
@@ -606,9 +605,22 @@ ui <- tagList(
                               sidebarPanel(
                                  tabPanel("Marker Extraction",
                                           fluidPage(
-                                             fileInput("markerFile", "Upload Genotype (VCF, BCF or PLINK) File"),
+                                             radioButtons("inputFileType", "A. Input file format",
+                                                          choices = c("VCF/VCF.GZ/BCF", "PLINK"), inline = TRUE),
                                              
-                                             radioButtons("markerType", "Choose Marker Type",
+                                             conditionalPanel(
+                                                condition = "input.inputFileType == 'VCF/VCF.GZ/BCF'",
+                                                fileInput("markerFile", "Upload Genotype (VCF, VCF.GZ, or BCF File)")
+                                             ),
+                                             
+                                             conditionalPanel(
+                                                condition = "input.inputFileType == 'PLINK'",
+                                                fileInput("bedFile", "PLINK BED file"),
+                                                fileInput("bimFile", "PLINK BIM file"),
+                                                fileInput("famFile", "PLINK FAM file")
+                                             ),
+
+                                             radioButtons("markerType", "B. Choose Marker Type",
                                                           choices = c("rsid", "pos"), inline = TRUE),
                                              
                                              conditionalPanel(
@@ -627,22 +639,18 @@ ui <- tagList(
                                              
                                              conditionalPanel(
                                                 condition = "input.markerType == 'pos'",
-                                                fileInput("markerList2", "Upload POS List (.csv, .xlsx)")
-                                             ),
-                                             
-                                             fileInput("bedFile", "PLINK BED file (optional)"),
-                                             fileInput("bimFile", "PLINK BIM file (optional)"),
-                                             fileInput("famFile", "PLINK FAM file (optional)"),
-                                             textAreaInput("plink_args",
-                                                           label = "Additional PLINK Arguments",
-                                                           placeholder = "--maf 0.05 --geno 0.1",
-                                                           rows = 3,
-                                                           width = "100%"),
-                                             helpText("See https://www.cog-genomics.org/plink/ for options."),
-                                             
-                                             actionButton("extractBtn", "Run Marker Extraction", icon = icon("play"))
-                                             
-                                          )
+                                                fileInput("markerList2", "Upload POS List (.csv, .xlsx)"),
+                                                checkboxInput("addRSID", "C. Add marker information/rsID to VCF (output) file?", value = FALSE),
+                                                helpText("Some files have no rsID information. Check the box to add rsID to output file")
+                                                ),
+                                             actionButton("extractBtn", "Run Marker Extraction", icon = icon("play")),
+                                             h4("Sample Files"),
+                                             tags$ul(
+                                                tags$a("A. Sample VCF file", href = "www/sample_hgdp.vcf", download = NA),
+                                                br(),
+                                                tags$a("B. Sample marker metadata file (to generate rsID names)", href = "www/marker_info.csv", download = NA)
+                                             )
+                                             )
                                  )
                               ),
                               mainPanel(
@@ -669,7 +677,13 @@ ui <- tagList(
                                  fileInput("concordanceFile1", "Upload File A"),
                                  fileInput("concordanceFile2", "Upload File B"),
                                  checkboxInput("isHaplotype", "Treat data as haplotypes", value = FALSE),
-                                 actionButton("compareBtn", "Run Concordance Analysis", icon = icon("play"))
+                                 actionButton("compareBtn", "Run Concordance Analysis", icon = icon("play")),
+                                 h4("Sample Files"),
+                                 tags$ul(
+                                    tags$a("Sample CSV file (1)", href = "www/sample1_for.concordance.csv", download = NA),
+                                    br(),
+                                    tags$a("Sample CSV file (2)", href = "www/sample1_for.concordance.csv", download = NA)
+                                 )
                               ),
                               mainPanel(
                                  h4("Example Input Formats"),
@@ -958,7 +972,7 @@ ui <- tagList(
                                tableOutput("examplePop"),
                                tags$h4("Sample File"),
                                tags$ul(
-                                  tags$a("Sample file", href = "www/sample.csv", download = NA)
+                                  tags$a("Sample CSV file", href = "www/sample.csv", download = NA)
                                )
                   ), 
                   tabPanel("1 Private Alleles",
@@ -1063,13 +1077,13 @@ ui <- tagList(
                numericInput("ploidy", "Ploidy Level", value = 2),
                checkboxInput("linkage", "Use Linkage Model", value = FALSE),
                actionButton("runStructure", "Run STRUCTURE", icon = icon("play")),
+               tags$h4("Download Sample File"),
+               tags$ul(
+                  tags$a("Sample CSV file", href = "www/sample.csv", download = NA)
+               ),
                uiOutput("downloadButtons")
             ),
             mainPanel(
-               tags$h4("Download Sample File"),
-               tags$ul(
-                  tags$a("Sample file", href = "www/sample.csv", download = NA)
-               ),
                h4("STRUCTURE Visualization"),
                p("NOTE: The plots are expected to take some time to load."),
                imageOutput("structurePlotPreview") %>% withSpinner(color = "blue"),
@@ -1090,6 +1104,10 @@ ui <- tagList(
                   sidebarPanel(
                      fileInput("forPredFile", "Upload CSV file"),
                      actionButton("runNaiveBayes", "Classify", icon = icon("align-justify")),
+                     tags$h4("Download Sample File"),
+                     tags$ul(
+                        tags$a("Sample CSV file", href = "www/sample.csv", download = NA)
+                     ),
                      downloadButton("downloadClassification", "Download Results")
                   ),
                   mainPanel(
@@ -1254,6 +1272,28 @@ server <- function(input, output, session) {
       req(convertedCSV())
       head(convertedCSV(), 10)
    })
+   
+   output$downloadVCF_UI <- renderUI({
+      req(convertedVCF())
+      downloadButton("downloadConvertedVCF", "Download Converted VCF")
+   })
+   
+   output$downloadCSV_UI <- renderUI({
+      req(convertedCSV())
+      downloadButton("downloadConvertedCSV", "Download Converted CSV")
+   })
+   
+   output$downloadFASTA_UI <- renderUI({
+      req(convertedFASTA())
+      downloadButton("downloadConvertedFASTA", "Download Converted FASTA")
+   })
+   
+   output$downloadPLINK_UI <- renderUI({
+      req(convertedPLINK())
+      downloadButton("downloadConvertedPLINK", "Download Converted PLINK")
+   })
+   
+   
 
    
    ### For SNIPPER
@@ -1578,9 +1618,9 @@ server <- function(input, output, session) {
    
    output$examplePOS <- renderTable({
       data.frame(
-         Chromosome = c("1", "2", "..."),
-         Start_BP = c("104500", "205300", "..."),
-         End_BP = c("104700", "205700", "...")
+         rsID = c("rs01", "rs04", "..."),
+         chromosome = c("1", "2", "..."),
+         position = c("104500", "205300", "...")
       )
    })
    
@@ -1594,12 +1634,11 @@ server <- function(input, output, session) {
       )
    })
    
-   
    # START MARKER EXTRACTION
    extracted_file <- reactiveVal(NULL)
-   shinyjs::disable("downloadExtracted")
+   
    observe({
-      isFileUploaded <- !is.null(input$markerFile)
+      isFileUploaded <- !is.null(input$markerFile) || (!is.null(input$bedFile) && !is.null(input$bimFile) && !is.null(input$famFile))
       
       isRSIDReady <- input$markerType == "rsid" && (
          (input$rsidInputType == "manual" && nzchar(input$typedRSIDs)) ||
@@ -1614,10 +1653,10 @@ server <- function(input, output, session) {
    
    observeEvent(input$extractBtn, {
       disable("extractBtn")
-      req(input$markerFile)
-      
       showPageSpinner()
       Sys.sleep(1.5)
+      
+      temp_dir <- tempdir()
       
       withProgress(message = "Extracting markers...", value = 0, {
          tryCatch({
@@ -1632,37 +1671,48 @@ server <- function(input, output, session) {
             } else NULL
             
             pos_list <- if (input$markerType == "pos" && !is.null(input$markerList2)) {
-               ext <- tools::file_ext(input$markerList2$name)
-               if (ext == "csv") read.csv(input$markerList2$datapath, header = FALSE)
-               else if (ext %in% c("xlsx", "xls")) readxl::read_excel(input$markerList2$datapath, col_names = FALSE)
-               else {
-                  showNotification("Invalid file type", type = "error")
-                  return(NULL)
+               load_csv_xlsx_files(input$markerList2$datapath)
+            } else NULL
+            
+            addSNPinfo <- !is.null(input$addRSID)
+            
+            input_type <- if (!is.null(input$markerFile)){
+               if (grepl("\\.bcf$", input$markerFile$name, ignore.case = TRUE)) {
+                  "bcf"
+               } else if (grepl("\\.vcf.gz$", input$markerFile$name, ignore.case = TRUE)) {
+                  "vcf"
+               } else {
+                  stop("Unsupported input file format.")
                }
-            } else NULL
+            } else {
+               "plink"
+            }
             
-            
-            # load other parameters
-            plink_args <- if (!is.null(input$plink_args) && nzchar(input$plink_args)) {
-               strsplit(input$plink_args, "\\s+")[[1]]
-            } else NULL
-            
-            
-            temp_dir <- tempdir()
-            
-            extracted_markers <- extract_markers(
-               input.file  = input$markerFile$datapath,
-               snps.list = snps_list,
-               pos.list = pos_list,
-               bed.file = input$bedFile$datapath,
-               bim.file = input$bimFile$datapath,
-               fam.file = input$famFile$datapath,
-               plink_args = plink_args,
-               output.dir  = temp_dir,
-               merged.file = "final_merged.vcf",
-               plink_path  = plink_path
-            )
-            
+            if (addSNPinfo) {
+               extracted_markers <- extract_POStoID(
+                  pos.list = pos_list,
+                  input_type = input_type,
+                  input.file = if (input_type %in% c("vcf", "bcf")) input$markerFile$datapath else NULL,
+                  bed.file = input$bedFile$datapath,
+                  bim.file = input$bimFile$datapath,
+                  fam.file = input$famFile$datapath,
+                  output.dir  = temp_dir,
+                  plink_path  = plink_path
+               )
+            } else {
+               extracted_markers <- extract_markers(
+                  input_type = input_type,
+                  input.file  = if (input_type %in% c("vcf", "bcf")) input$markerFile$datapath else NULL,
+                  snps.list = snps_list,
+                  pos.list = pos_list,
+                  bed.file = input$bedFile$datapath,
+                  bim.file = input$bimFile$datapath,
+                  fam.file = input$famFile$datapath,
+                  output.dir  = temp_dir,
+                  merged.file = "final_merged.vcf",
+                  plink_path  = plink_path
+               )
+            }
             extracted_file(extracted_markers)
             showNotification("VCF file successfully extracted and ready for download!", type = "message")
             enable("extractBtn")
@@ -1671,17 +1721,16 @@ server <- function(input, output, session) {
             showNotification(paste("Error:", e$message), type = "error")
             enable("extractBtn")
          })
-         
       })
       hidePageSpinner()
    })
    output$downloadExtracted <- downloadHandler(
-      filename = function() { "final_merged.zip" },
+      filename = function() { "final_merged.vcf" },
       content = function(file) {
          req(extracted_file())
          file.copy(extracted_file(), file)
       },
-      contentType = "text/plain"
+      contentType = "text/vcf"
    )
    
    #############
