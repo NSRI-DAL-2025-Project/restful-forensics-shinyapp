@@ -1,9 +1,14 @@
 source("global.R")
+source("functions.R")
 #===========================
 # UNPACK COMPRESSED FILES
 #===========================
 
 unpack_input_file <- function(files, output.dir = output.dir){
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(tools, utils, install = TRUE)
    
    if(!file.exists(files)){
       stop("File does not exist in the working directory")
@@ -40,6 +45,11 @@ unpack_input_file <- function(files, output.dir = output.dir){
 #============================
 
 convert_to_plink <- function(input.file, output.dir, plink_path = plink_path) {
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(tools, install = TRUE)
+   
    file_extension <- tools::file_ext(input.file)
    output_file <- file.path(output.dir, "converted_to_plink")
    
@@ -66,10 +76,10 @@ bcf_to_vcf <- function(input.file, output.dir, plink_path = plink_path){
    output_file <- file.path(output.dir, "tovcf")
    
    if (file_extension == "bcf"){
-      command <- stringr::str_c(
-         plink_path, " --bcf ", input.file,
-         " --const-fid 0 --cow --keep-allele-order --allow-no-sex --allow-extra-chr",
-         " --recode vcf --out ", output_file
+      command <- paste(
+         plink_path, "--bcf", input.file,
+         "--const-fid 0 --keep-allele-order --allow-no-sex --allow-extra-chr",
+         "--recode vcf --out", output_file
       )
       system(command)
    } else {
@@ -84,13 +94,11 @@ bcf_to_vcf <- function(input.file, output.dir, plink_path = plink_path){
 plink_to_vcf <- function(bed.file, bim.file, fam.file, output.dir, plink_path = plink_path){
    output_file <- file.path(output.dir, "tovcf")
    
-   command <- stringr::str_c(
-      plink_path, " --bed ", bed.file,
-      " --bim ", bim.file, " --fam ", fam.file,
-      " --const-fid 0 --cow --keep-allele-order --allow-no-sex --allow-extra-chr",
-      " --recode vcf --out ", outputVCF
+   command <- paste(
+      plink_path, "--bed", bed.file, "--bim", bim.file, "--fam", fam.file,
+      "--const-fid 0 --keep-allele-order --allow-no-sex --allow-extra-chr",
+      "--recode vcf --out", outputVCF
    )
-   
    system(command)
    return(output_file)
 }
@@ -101,10 +109,9 @@ plink_to_vcf <- function(bed.file, bim.file, fam.file, output.dir, plink_path = 
 vcf_to_fasta <- function(vcf_file, reference, bcftools_path, output.dir){
    output_file <- file.path(output.dir, "consensus.fa")
    
-   cmd <-  stringr::str_c(
-      bcftools_path, "consensus -f ", reference, " ", vcf_file, " -o ", output_file
+   cmd <-  paste(
+      bcftools_path, "consensus -f", reference, vcf_file, "-o", output_file
    )
-   
    system(cmd)
    return(output_file)
    
@@ -117,7 +124,10 @@ vcf_to_fasta <- function(vcf_file, reference, bcftools_path, output.dir){
 # Description: Generates a dataframe with markers as columns
 
 load_vcf_files <- function(files, output.dir = NULL){
-   library(dplyr)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(tools, vcfR, janitor, tibble, utils, dplyr, install = TRUE)
    
    if (tools::file_ext(vcf) == "vcf") {
       vcf_object <- vcfR::read.vcfR(vcf, verbose = FALSE)
@@ -171,6 +181,11 @@ merge_vcf_files <- function(output.dir = output.dir, merged.file) {
 
 # Load CSV/XLSX files
 load_csv_xlsx_files <- function(input) {
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(tools, readr, readxl, install = TRUE)
+   
    if (tools::file_ext(input) == "csv") {
       return(readr::read_csv(input))
    } else if (tools::file_ext(input) == "xlsx") {
@@ -195,8 +210,10 @@ load_csv_xlsx_files <- function(input) {
 #============================
 
 vcf_to_csv <- function(files, ref = NULL, output.dir = NULL) {
-   library(dplyr)
-   library(purrr)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, tools,  install = TRUE) # double check where purrr is needed
    
    extension <- tools::file_ext(files)
    
@@ -219,7 +236,7 @@ vcf_to_csv <- function(files, ref = NULL, output.dir = NULL) {
       ref_data <- ref_data %>%
          rename(Sample = 1, Population = 2)
       ref_data <- ref_data[,1:2]
-      final_df <- left_join(raw_file, ref_data, by = "Sample")
+      final_df <- dplyr::left_join(raw_file, ref_data, by = "Sample")
    } else if (is.character(ref)) {
       final_df$Population <- ref
    } else {
@@ -245,7 +262,10 @@ vcf_to_csv <- function(files, ref = NULL, output.dir = NULL) {
 # Note that the strand where the ref and alt are based are compatible with the data on the CSV copy
 
 to_binary <- function(df, markers = marker.file){ # marker.file requires txt/csv [1] rsID [2] REF [3] ALT
-   library(dplyr)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, tidyselect,  install = TRUE) 
    
    df <- as.data.frame(df)
    rownames(df) <- paste(df[,1], "id", sep = "_")
@@ -286,7 +306,10 @@ to_binary <- function(df, markers = marker.file){ # marker.file requires txt/csv
 # CSV to tidypopgen's gen_tibble object
 # Assumes matrix is a data frame
 csv_to_gentibble <- function(file, loci.meta = loci.meta){
-   library(dplyr)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, tidypopgen,  install = TRUE)
    
    df <- load_csv_xlsx_files(file)
    meta <- df[,1:2]
@@ -315,8 +338,10 @@ csv_to_gentibble <- function(file, loci.meta = loci.meta){
 # UAS Files to CSV
 
 uas_to_csv <- function(files = files, population = pop_file, reference = FALSE, output.dir = output.dir){
-   library(dplyr)
-   library(purrr)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, purrr, readxl, stats, tidyr,  install = TRUE)
    
    if (!file.exists(files)){
       stop("File does not exist in the working directory")
@@ -384,7 +409,10 @@ uas_to_csv <- function(files = files, population = pop_file, reference = FALSE, 
 #==========================
 # Convert to Genind
 convert_to_genind_str <- function(file) {
-   library(dplyr) 
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, adegenet, install = TRUE)
    
    file <- file %>%
       rename(Ind = 1, Pop = 2)
@@ -418,6 +446,10 @@ convert_to_genind_str <- function(file) {
 }
 
 convert_to_genind <- function(file) {
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, adegenet, install = TRUE)
    
    file <- file %>%
       rename(Ind = 1, Pop = 2)
@@ -443,7 +475,10 @@ convert_to_genind <- function(file) {
 #==========================
 # Clean Data
 clean_input_data <- function(file) {
-   library(dplyr)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, install = TRUE)
    
    file1 <- lapply(file, function(x) gsub("|", "/", x, fixed = TRUE))
    file1 <- as.data.frame(file)
@@ -465,6 +500,10 @@ clean_input_data <- function(file) {
 # To STRUCTURE
 
 revise_structure_file <- function(file, output.dir, system = "Windows"){
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(poppr, install = TRUE)
    
    fsnps_gen_sub <- poppr::popsub(file)
    path <- file.path(output.dir, "structure_file.str")
@@ -496,8 +535,10 @@ to_snipper <- function(input,
                       target.pop = TRUE,
                       population.name = NULL,
                       markers = snps){
-   library(dplyr)
-   library(purrr)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, purrr, tools, plyr, install = TRUE)
    
    file_extension <- tools::file_ext(input)
    
@@ -592,7 +633,6 @@ to_snipper <- function(input,
    merged3 <- rbind(NA, merged3)
    
    return(merged3)
-   
 }
 
 #============================
@@ -742,7 +782,6 @@ extract_POStoID <- function(pos.list,
          extract_args <- paste(
             shQuote(plink_path),
             paste0("--", input_type), shQuote(input.file),
-            "--cow",
             "--chr", chr_num,
             "--from-bp", start_bp,
             "--to-bp", start_bp,
@@ -755,7 +794,6 @@ extract_POStoID <- function(pos.list,
             "--bed", shQuote(bed.file),
             "--bim", shQuote(bim.file),
             "--fam", shQuote(fam.file),
-            "--cow",
             "--chr", chr_num,
             "--from-bp", start_bp,
             "--to-bp", start_bp,
@@ -764,7 +802,6 @@ extract_POStoID <- function(pos.list,
          )
       }
       system(extract_args)
-
       
       # 2. Adding rsID
       bed_file <- paste0(output_file, ".bed")
@@ -830,8 +867,6 @@ extract_POStoID <- function(pos.list,
 }
 
 
-
-
 #============================
 # CONCORDANCE ANALYSIS
 # 
@@ -844,7 +879,11 @@ extract_POStoID <- function(pos.list,
 
 
 calc_concordance <- function(file1, file2, haplotypes = FALSE){
-   library(dplyr)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, janitor, tibble, purrr, tidyselect, QurvE, install = TRUE)
+   
    
    if(!file.exists(file1)){
       stop("First file does not exist in the working directory")
@@ -906,6 +945,12 @@ calc_concordance <- function(file1, file2, haplotypes = FALSE){
    
    if(haplotypes == TRUE){
       print("Assuming the data are haplotypes.")
+      merged <- merged %>% mutate(across(tidyselect::everything(), ~ case_when(
+         . == "A" ~ "A/A",
+         . == "T" ~ "T/T",
+         . == "C" ~ "C/C",
+         . == "G" ~ "G/G",
+         TRUE ~ .x)))
    } else if(haplotypes == FALSE){
       merged <- merged %>% mutate(across(tidyselect::everything(), ~ case_when(
          . == "A" ~ "A/A",
@@ -935,7 +980,10 @@ calc_concordance <- function(file1, file2, haplotypes = FALSE){
 }
 
 plot_concordance <- function(dataframe){
-   library(ggplot2)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ggplot2, tidyr, forcats, install = TRUE)
    
    concordance <- bind_cols(dataframe %>%
                                tidyr::gather(var, val, -matches("(.x$|ID)")) %>%
@@ -981,7 +1029,6 @@ plot_concordance <- function(dataframe){
                                   "#fb7a8e",
                                   "#1f2f98"
       ))
-   
    return(list(
       results = concordance,
       plot = plot_conc 
@@ -1004,7 +1051,10 @@ depth_from_vcf <- function(vcf,
                            width = 10, 
                            height = 8, 
                            dpi = 300){
-   library(dplyr)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, vcfR, tidyr, ggplot2, install = TRUE)
    
    vcf.file <- vcfR::read.vcfR(vcf)
    depth <- vcfR::extract.gt(vcf.file, element = "DP", as.numeric = TRUE)
@@ -1056,10 +1106,10 @@ depth_from_vcf <- function(vcf,
 }
 
 compute_pop_stats <- function(fsnps_gen) {
-   library(dplyr)
-   library(ade4)
-   library(adegenet)
-   devtools::source_url("https://raw.githubusercontent.com/Tom-Jenkins/utility_scripts/master/TJ_genind2genepop_function.R")
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, ade4, adegenet, hierfstat, tidyr, install = TRUE)
    
    mar_matrix <- hierfstat::allelic.richness(hierfstat::genind2hierfstat(fsnps_gen))$Ar %>%
       apply(MARGIN = 2, FUN = mean) %>%
@@ -1089,6 +1139,9 @@ compute_pop_stats <- function(fsnps_gen) {
    allele_freqs <- t(adegenet::makefreq(fsnps_gpop, quiet = FALSE, missing = NA)) %>%
       as.data.frame()
    
+   # To-do: Ae
+   # General formula: ae <- 1 / (1 - He)
+   
    return(list(
       mar_list = mar_list,
       heterozygosity = heterozygosity_df,
@@ -1099,6 +1152,10 @@ compute_pop_stats <- function(fsnps_gen) {
 }
 
 compute_hwe <- function(fsnps_gen) {
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(pegas, tibble, adegenet, install = TRUE)
    # Hardy-Weinberg Equilibrium (List for export)
    fsnps_hwe <- as.numeric(round(pegas::hw.test(fsnps_gen, B = 1000), 6)) 
    
@@ -1118,6 +1175,11 @@ compute_hwe <- function(fsnps_gen) {
 
 
 compute_fst <- function(fsnps_gen) {
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(hierfstat, tibble, tidyr, install = TRUE)
+   
    # Pairwise Fst matrix using Weir & Cockerham 1984 method
    fst_matrix_raw <- hierfstat::genet.dist(fsnps_gen, method = "WC84") %>%
       round(3)
@@ -1140,7 +1202,11 @@ compute_fst <- function(fsnps_gen) {
 
 
 plot_heterozygosity <- function(Het_fsnps_df, out_dir) {
-   library(ggplot2)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ggplot2, install = TRUE)
+
    out_path <- file.path(out_dir, "heterozygosity_plot.png")
    
    Het_fsnps_df$Variable <- as.factor(Het_fsnps_df$Variable)
@@ -1160,7 +1226,11 @@ plot_heterozygosity <- function(Het_fsnps_df, out_dir) {
 }
 
 plot_fst <- function(fst_df, out_dir) {
-   library(ggplot2)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ggplot2, install = TRUE)
+
    out_path <- file.path(out_dir, "fst_heatmap.png")
    
    p <- ggplot(fst_df, aes(x = Site1, y = Site2, fill = Fst, label = round(Fst, 3))) +
@@ -1176,13 +1246,17 @@ plot_fst <- function(fst_df, out_dir) {
          axis.text = element_text(face = "bold"),
          axis.text.x = element_text(angle = 45, hjust = 1)
       )
-   
    ggsave(out_path, plot = p, width = 8, height = 6, dpi = 300)
    return(out_path)
 }
 
 
 export_pop_results <- function(stats_matrix, hw_matrix, fst_matrix, dir = tempdir()) {
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(openxlsx, install = TRUE)
+   
    timestamp <- format(Sys.time(), "%Y%m%d_%H%M")
    out_file <- file.path(dir, paste0("population-statistics-results_", timestamp, ".xlsx"))
    
@@ -1212,9 +1286,10 @@ export_pop_results <- function(stats_matrix, hw_matrix, fst_matrix, dir = tempdi
 #============================
 
 compute_pca <- function(fsnps_gen) {
-   library(ade4)
-   library(adegenet)
-   library(stats)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ade4, adegenet, stats, install = TRUE)
    
    x <- tab(fsnps_gen, NA.method = "mean")
    set.seed(9999)
@@ -1237,8 +1312,10 @@ compute_pca <- function(fsnps_gen) {
 }
 
 get_labels <- function(fsnps_gen, use_default, input_labels = NULL, input_colors = NULL, input_shapes = NULL) {
-   library(ade4)
-   library(adegenet)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ade4, adegenet, RColorBrewer, install = TRUE)
    
    if (use_default) {
       labels <- levels(as.factor(fsnps_gen@pop))
@@ -1264,9 +1341,10 @@ get_labels <- function(fsnps_gen, use_default, input_labels = NULL, input_colors
 }
 
 plot_pca <- function(ind_coords, centroid, percent, labels_colors, width = 8, height = 8, pc_x = 1, pc_y = 2) {
-   library(ggplot2)
-   library(ggrepel)
-   library(stats)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ggplot2, ggrepel, install = TRUE)
    
    # Ensure data frames
    if (!is.data.frame(ind_coords)) ind_coords <- as.data.frame(ind_coords)
@@ -1302,7 +1380,6 @@ plot_pca <- function(ind_coords, centroid, percent, labels_colors, width = 8, he
                        color = "black",
                        size = 4, show.legend = FALSE) +
       scale_fill_manual(values = labels_colors$colors) +
-      #scale_color_manual(values = labels_colors$colors) +
       scale_shape_manual(values = labels_colors$shapes) +
       labs(x = xlab, y = ylab) +
       ggtheme
@@ -1321,7 +1398,10 @@ plot_pca <- function(ind_coords, centroid, percent, labels_colors, width = 8, he
 #============================
 
 clean_input_data_str <- function(file) {
-   library(dplyr)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, adegenet, install = TRUE)
    
    file <- clean_input_data(file)
    
@@ -1397,6 +1477,11 @@ q_matrices <- function(dir){
 # READING FASTA FILES
 
 read_fasta <- function(zipped, directory){
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(utils, BiocManager, Biostrings, try.bioconductor = TRUE, install = TRUE)
+   
    utils::unzip(zipped, 
                 files = NULL, 
                 list = FALSE, 
@@ -1413,6 +1498,11 @@ read_fasta <- function(zipped, directory){
 # ALIGNMENT
 
 msa_results <- function(files, algorithm, directory){
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(BiocManager, pwalign, seqinr, msa, DECIPHER, Biostrings, try.bioconductor = TRUE, install = TRUE)
+   
    # Creating Substitution Matrix
    personal_matrix <- pwalign::nucleotideSubstitutionMatrix(match = 1, mismatch = 0, baseOnly = FALSE, type = "DNA")
    gap_penalty <- -2
@@ -1449,8 +1539,10 @@ msa_results <- function(files, algorithm, directory){
 }
 
 build_nj_tree <- function(alignment, outgroup = NULL, seed = 123, model = model){
-   library(ape)
-   library(ggtree)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ape, ggtree, install = TRUE)
    
    bins <- ape::as.DNAbin(alignment)
    distance <- ape::dist.dna(bins, model = model)
@@ -1496,7 +1588,10 @@ build_nj_tree <- function(alignment, outgroup = NULL, seed = 123, model = model)
 }
 
 build_upgma_tree <- function(alignment, outgroup = NULL, seed =123, model = model){
-   library(ape)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ape, ggtree, install = TRUE)
    
    bins <- ape::as.DNAbin(alignment)
    distance <- ape::dist.dna(bins, model = model)
@@ -1544,8 +1639,10 @@ build_upgma_tree <- function(alignment, outgroup = NULL, seed =123, model = mode
 
 
 build_max_parsimony <- function(alignment, outgroup = NULL, seed = 123, directory){
-   library(phangorn)
-   library(ape)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ape, phangorn, install = TRUE)
    
    bins <- ape::as.DNAbin(alignment)
    phy <- phangorn::phyDat(bins, type = "DNA")
@@ -1576,8 +1673,10 @@ build_ml_tree <- function(alignment,
                           seed = 123, 
                           bs_reps = 100,
                           directory){
-   library(phangorn)
-   library(ape)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ape, phangorn, install = TRUE)
    
    bins <- ape::as.DNAbin(alignment)
    phy <- phyDat(bins, type = "DNA")
@@ -1617,8 +1716,10 @@ build_ml_tree <- function(alignment,
 ##################
 
 calculate_naive_bayes <- function(file){
-   library(e1071)
-   library(caret)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, tidyr, e1071, caret, install = TRUE)
    
    data_fsnps <- load_csv_xlsx_files(file)
    data_fsnps <- data_fsnps %>%

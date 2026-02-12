@@ -155,8 +155,11 @@ to_structure <- function(genind_obj,
 ) {
    #out_path <- file.path(dir, file)
    # Get basic info
-   library(ade4)
-   library(adegenet)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ade4, adegenet, install = TRUE)
+
    ind <- adegenet::indNames(genind_obj)
    pop <- if (include_pop) as.character(genind_obj@pop) else rep(1, length(ind))
    ploidy <- max(genind_obj@ploidy)
@@ -185,6 +188,10 @@ to_structure <- function(genind_obj,
 ## Directly from the dartR package, revised sections with comments
 .structureParseQmat <- function (q.mat.txt, 
                                  pops) {
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(purrr, stats, dplyr, install = TRUE)
    
    q.mat.txt <- sub("[*]+", "", q.mat.txt)
    q.mat.txt <- sub("[(]", "", q.mat.txt)
@@ -220,6 +227,10 @@ to_structure <- function(genind_obj,
 ## Directly from the dartR package, revised sections with comments
 structureRead <- function(file,
                           pops = NULL) {
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(purrr, stats, install = TRUE)
    
    if (!file.exists(file)) {
       stop(error(paste("the file '", file, "' can't be found.", 
@@ -342,6 +353,11 @@ structureRead <- function(file,
 ## Directly from the dartR package, revised sections with comments
 utils.structure.evanno <- function (sr, plot = TRUE) 
 {
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ggplot2, purrr, grid, gridExtra, install = TRUE)
+   
    if (!"structure.result" %in% class(sr)) {
       stop(error("'sr' is not a result from 'structure.run'."))
    }
@@ -451,6 +467,10 @@ running_structure <- function(input_file,
                               output_dir = dir #,
                               #plot_dir = file.path(output_dir, "evanno_plots")
 ){
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(tools, grDevices, install = TRUE)
    
    # Validate K range
    if (length(k.range) < 2) stop("Provide at least two K values for Evanno analysis.")
@@ -639,8 +659,11 @@ running_structure <- function(input_file,
 # Plot STRUCTURE
 # Adapted from the "starmiee" package
 plotQ <- function(qmat, populations_df, outfile = outfile) {
-   library(ggplot2)
-   library(ggrepel)
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(ggplot2, ggrepel, stats, install = TRUE)
+
    # Revised to be compatible with large list of matrices
    facet = FALSE
    K <- qmat$K

@@ -1,5 +1,5 @@
 # restful-forensics-shinyapp
-The Windows implementation of restful-forensics in RStudio. To check the dockerized application, see https://github.com/NSRI-DAL-2025-Project/restful-forensics.
+The Windows implementation of restful-forensics in RStudio. To check the dockerized application, see https://github.com/NSRI-DAL-2025-Project/rstudio-shiny-verse-opencpu-dependencies-restful-forensics.
 
 For feedback on the tool, please fill up this google form: https://forms.gle/fA62Kwb2Ah2pC12H7
 
@@ -10,14 +10,14 @@ For feedback on the tool, please fill up this google form: https://forms.gle/fA6
 Clone the repository. Make sure that git is installed.
 
 ```         
-git clone https://github.com/NSRI-DAL-2025-Project/restful-forensics.git
+git clone https://github.com/NSRI-DAL-2025-Project/restful-forensics-shinyapp.git
 ```
 
 ### Using RStudio
 
 -   Under File \> New Project \> Version Control \> Git
 -   Under Repository URL, paste:
-    "<https://github.com/NSRI-DAL-2025-Project/restful-forensics.git>"
+    "<https://github.com/NSRI-DAL-2025-Project/restful-forensics-shinyapp.git>"
 
 Open the "app.R" file and click the "Run App" button on the top right
 corner of the source panel. ![](www/readme/runapp.png)

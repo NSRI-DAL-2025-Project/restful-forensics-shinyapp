@@ -275,9 +275,7 @@ ui <- tagList(
                               h5("B. Optimize kmer values"),
                               p("Input file/s: Aligned sequences of the reference dataset (FASTA)"),
                               p("Parameter/s: Length of maximum kmer value"),
-                              p("Expected output file: Kmer plot"),
-                              br(),
-                              p("This section builds upon the work of Ms. Maeviviene Sosing as part of the Filipino Genomes Research Program 2"),
+                              p("Expected output file: Kmer plot")
                           ),
                           div(class = "inner-card",
                               h5("C. Barcoding Gap"),
