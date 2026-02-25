@@ -34,7 +34,6 @@ unpack_input_file <- function(files, output.dir = output.dir){
       } else {
          stop("Not a zipped file. Accepted are zipped (.zip) and tar (.tar) files")
       }
-      
       return(list(data_path = data_path, data_files = data_files))
    }
 }

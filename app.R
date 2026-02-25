@@ -1191,6 +1191,9 @@ server <- function(input, output, session) {
          input$typePop
       }
       
+      # add section to identify which is NOT null na input file type,
+      # identify if the extension is zipped
+      
       
       if (input$inputType2 == "vcf2") {
          if (input$inputType1 == "plink1") {
@@ -1749,9 +1752,7 @@ server <- function(input, output, session) {
    })
    
    output$filterWarning <- renderText({
-      if (is.null(input$forFilter)){
-         "Please upload a VCF file."
-      } else if (!(input$filterIndiv || input$filterVariant || input$filterAllele || input$filterQuality || input$filterHWE || input$filterLD)){
+      if (!(input$filterIndiv || input$filterVariant || input$filterAllele || input$filterQuality || input$filterHWE || input$filterLD)){
          "Please select at least one filtering option."
       } else {
          ""

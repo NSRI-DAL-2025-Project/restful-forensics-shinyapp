@@ -26,7 +26,6 @@ Note: Some functionalities require a Linux OS. A Windows-compatible
 version will be linked here once available.
 
 
-
 ## II. Features
 
 This application is used for the pre-processing of standard genetic data
