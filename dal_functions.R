@@ -1118,8 +1118,9 @@ compute_pop_stats <- function(fsnps_gen) {
    basic_fsnps <- hierfstat::basic.stats(fsnps_gen, diploid = TRUE)
    Ho <- apply(basic_fsnps$Ho, 2, mean, na.rm = TRUE) %>% round(2)
    He <- apply(basic_fsnps$Hs, 2, mean, na.rm = TRUE) %>% round(2)
-   heterozygosity_df <- data.frame(Population = names(Ho), Ho, He) %>%
-      tidyr::pivot_longer(cols = c("Ho", "He"), names_to = "Variable", values_to = "Value")
+   inv_het <- 1 / (1-He) %>% round(3)
+   heterozygosity_df <- data.frame(Population = names(Ho), Ho = Ho, He = He, Ae = inv_het) %>%
+      tidyr::pivot_longer(cols = c("Ho", "He", "Ae"), names_to = "Variable", values_to = "Value")
    
    # T-Test between Heterozygosities
    ttest_df <- data.frame(
@@ -1140,6 +1141,7 @@ compute_pop_stats <- function(fsnps_gen) {
    
    # To-do: Ae
    # General formula: ae <- 1 / (1 - He)
+   
    
    return(list(
       mar_list = mar_list,

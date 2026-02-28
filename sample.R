@@ -28,7 +28,7 @@ ui <- dashboardPage(
          menuItem("Data Processing", tabName = "DataProcess", icon = icon("diagram-project"), startExpanded = TRUE,
                   menuSubItem("📑 DNA Barcoding", tabName = "DNABarcoding"),
                   menuSubItem("📝 Forensic Summary Statistics", tabName = "PopStatistics"),
-                  menuSubItem("🔍 Exploratory Analysis", tabName = "PCA"),
+                  menuSubItem("🔍 Exploratory Analysis", tabName = "PCAtab"),
                   menuSubItem("📊 Population Structure Analysis", tabName = "PopStructure"),
                   menuSubItem("🪪 Forensic Ancestry Inference", tabName = "Classification")
          ), # End of menu item for data processing
@@ -697,50 +697,75 @@ ui <- dashboardPage(
                           ), # end of first tabPanel
                           
                           tabPanel("Optimize kmer values",
-                             fluidRow(
-                                tabBox(
-                                   fileInput("optimizeKmerRef", "Upload reference dataset"),
-                                   numericInput("maxKmer", "Length of maximum kmer value", value = "5", min = 2),
-                                   actionButton("calOptimumKmer", "Identify Optimum kmer value", icon = icon("upload"))
-                                ),
-                                tabBox(
-                                   h5("Calculate the optimal kmer values"),
-                                   p("Input file/s: Aligned sequences of the reference dataset (FASTA)"),
-                                   p("Parameter/s: Length of maximum kmer value"),
-                                   p("Expected output file: Kmer plot")
-                                ),
-                                tabBox(
-                                   verbatimTextOutput("kmerResult") %>% withSpinner(color = "blue"),
-                                   imageOutput("kmerPlot") %>% withSpinner(color = "blue"),
-                                   downloadHandler("downloadKmerPlot", "Download Plot") 
-                                )
-                             )
+                                   fluidRow(
+                                      box(
+                                         title = "Optimization Options",
+                                         width = 6,
+                                         fileInput("optimizeKmerRef", "Upload reference dataset"),
+                                         numericInput("maxKmer", "Length of maximum kmer value", value = 5, min = 2),
+                                         actionButton("calOptimumKmer", "Identify Optimum kmer value", icon = icon("upload"))
+                                      ),
+                                      tabBox(
+                                         title = "Instructions",
+                                         width = 6,
+                                         tabPanel("Overview",
+                                                  h5("Calculate the optimal kmer values"),
+                                                  p("Input file/s: Aligned sequences of the reference dataset (FASTA)"),
+                                                  p("Parameter/s: Length of maximum kmer value"),
+                                                  p("Expected output file: Kmer plot")
+                                         )
+                                      )
+                                   ),
+                                   fluidRow(
+                                      tabBox(
+                                         title = "Results",
+                                         width = 12,
+                                         tabPanel("Outputs",
+                                                  verbatimTextOutput("kmerResult") %>% withSpinner(color = "blue"),
+                                                  imageOutput("kmerPlot") %>% withSpinner(color = "blue"),
+                                                  downloadButton("downloadKmerPlot", "Download Plot")
+                                         )
+                                      )
+                                   )
                           ),
+                          
                           tabPanel("Barcoding Gap",
-                             fluidRow(
-                                tabBox(
-                                   fileInput("barcodeRef", "Upload reference dataset"),
-                                   selectInput("gapModel", "Choose Distance",
-                                               choices = c("raw", "K80", "euclidean"),
-                                               selected = "raw"),
-                                   actionButton("gapBarcodes", "Calculate gap", icon = icon("arrows-left-right-to-line"))
-                                ),
-                                tabBox(
-                                   h5("Calculate the barcoding gap"),
-                                   p("Input file: VCF file"),
-                                   p("Parameter/s: Distance (raw, K80, euclidean)"),
-                                   p("Expected output file: Barcoding gap plot")
-                                ),
-                                tabBox(
-                                   verbatimTextOutput("barcodingResult") %>% withSpinner(color = "blue"),
-                                   imageOutput("BarcodingGapPlot") %>% withSpinner(color = "blue"),
-                                   downloadHandler("downloadGapPlot", "Download Barcoding Gap Plot")
-                                )
-                             )
+                                   fluidRow(
+                                      box(
+                                         title = "Gap Calculation Options",
+                                         width = 6,
+                                         fileInput("barcodeRef", "Upload reference dataset"),
+                                         selectInput("gapModel", "Choose Distance",
+                                                     choices = c("raw", "K80", "euclidean"),
+                                                     selected = "raw"),
+                                         actionButton("gapBarcodes", "Calculate gap", icon = icon("arrows-left-right-to-line"))
+                                      ),
+                                      tabBox(
+                                         title = "Instructions",
+                                         width = 6,
+                                         tabPanel("Overview",
+                                                  h5("Calculate the barcoding gap"),
+                                                  p("Input file: VCF file"),
+                                                  p("Parameter/s: Distance (raw, K80, euclidean)"),
+                                                  p("Expected output file: Barcoding gap plot")
+                                         )
+                                      )
+                                   ),
+                                   fluidRow(
+                                      tabBox(
+                                         title = "Results",
+                                         width = 12,
+                                         tabPanel("Outputs",
+                                                  verbatimTextOutput("barcodingResult") %>% withSpinner(color = "blue"),
+                                                  imageOutput("BarcodingGapPlot") %>% withSpinner(color = "blue"),
+                                                  downloadButton("downloadGapPlot", "Download Barcoding Gap Plot")
+                                         )
+                                      )
+                                   )
                           ),
                           tabPanel("Evaluate Barcodes",
                              fluidRow(
-                                tabBox(
+                                box(
                                    fileInput("barcode1", "Upload Barcode 1"),
                                    fileInput("barcode2", "Upload Barcode 2"),
                                    numericInput("kmer1", "Length of kmer for barcode 1", value = 5, min = 1),
@@ -759,7 +784,7 @@ ui <- dashboardPage(
                           ),
                           tabPanel("Species Membership Value (TDR)",
                              fluidRow(
-                                tabBox(
+                                box(
                                    p("Calculate the TDR2 value"),
                                    fileInput("oneSpe", "Upload DNA seq from a single query species"),
                                    fileInput("queSpe", "Upload DNA seq from different samples"),
@@ -781,7 +806,220 @@ ui <- dashboardPage(
                     )
                  ) # end of tabsetPanel
                  ), # end of tab item for 
-         tabItem(tabName = "adfa", "sfda")
+         
+         tabItem(tabName = "PopStatistics",
+                 fluidRow(
+                    box(
+                       fileInput("popStatsFile", "Upload CSV or XLSX Dataset"),
+                       actionButton("runPopStats", "Analyze", icon = icon("magnifying-glass-chart")),
+                       downloadButton("downloadStatsXLSX", "Download Results (Excel)")
+                    ),
+                    tabBox(
+                       tabPanel("Instructions",
+                        p("Calculation of common population statistics:"),
+                       tags$ul(
+                          tags$li("Private alleles [1] calculated using the poppr R package"),
+                          tags$li("Mean Allelic Richness [2] using the hierfstat R package"),
+                          tags$li("Heterozygosity [3] using the hierfstat R package"),
+                          tags$li("Inbreeding Coefficient [4] using the hierfstat R package"),
+                          tags$li("Allele frequency [5] using the adegenet R package"),
+                          tags$li("Hardy-Weinberg equilibrium [6] using the pegas R package"),
+                          tags$li("FST values [7] using the hierfstat R package")
+                       ),
+                       br(),
+                       p("Input file: CSV or XLSX file"),
+                       p("Expected output files:"),
+                       tags$ul(
+                          tags$li("XLSX file with all results"),
+                          tags$li("Heterozygosity Plot"),
+                          tags$li("Fst Plots")
+                       )
+                       ),
+                       tabPanel("Sample Input Format/s",
+                                h5("Example: Population File Format"),
+                                tableOutput("examplePop")
+                       ),
+                       tabPanel("Download Sample Files",
+                                h5("Sample File"),
+                                tags$ul(
+                                   tags$a("Sample CSV file", href = "www/sample.csv", download = NA)
+                                )
+                       )
+                    ),
+                    tabBox(
+                       tabPanel("Private Alleles",
+                                h4("Private Alleles Summary"),
+                                DT::dataTableOutput("privateAlleleTable") %>% withSpinner(color = "blue")
+                       ),
+                       tabPanel("Mean Allelic Richness",
+                                h4("Mean Allelic Richness per site"),
+                                DT::dataTableOutput("meanallelic") %>% withSpinner(color = "blue")
+                       ),
+                       tabPanel("Heterozygosity",
+                                h4("Observed vs Expected Heterozygosity"),
+                                DT::dataTableOutput("heterozygosity_table") %>% withSpinner(color = "blue"),
+                                br(),
+                                h4("Heterozygosity Plot"),
+                                imageOutput("heterozygosity_plot") %>% withSpinner(color = "blue"),
+                                downloadButton("downloadHeterozygosityPlot", "Download Plot")
+                       ),
+                       tabPanel("Inbreeding Coefficients",
+                                h4("Inbreeding Coefficient by Population"),
+                                DT::dataTableOutput("inbreeding_table") %>% withSpinner(color = "blue")
+                       ),
+                       tabPanel("Allele Frequencies",
+                                h4("Allele Frequency Table"),
+                                DT::dataTableOutput("allele_freq_table") %>% withSpinner(color = "blue")
+                       ),
+                       tabPanel("Hardy-Weinberg Equilibrium",
+                                h4("HWE P-value Summary"),
+                                uiOutput("hwe_summary") %>% withSpinner(color = "blue"),
+                                h4("Population-wise HWE Chi-Square Table"),
+                                DT::dataTableOutput("hwe_chisq_table") %>% withSpinner(color = "blue")
+                       ),
+                       tabPanel("Fst Values",
+                                h4("Pairwise Fst Matrix"),
+                                uiOutput("fstMatrixUI") %>% withSpinner(color = "blue"),
+                                h4("Tidy Pairwise Fst Data"),
+                                DT::dataTableOutput("fstDfTable") %>% withSpinner(color = "blue"),
+                                br(),
+                                h4("Fst Heatmap"),
+                                imageOutput("fst_heatmap_plot", width = "100%") %>% withSpinner(color = "blue")
+                       ),
+                    )
+                 ) # end of fluid row
+                 ), # end of tabsetpanel
+         tabItem(tabName = "PCAtab", 
+                 fluidRow(
+                    box(
+                       fileInput("pcaFile", "Upload SNP Data (in CSV or XLSX) for PCA", accept = c(".csv", ".txt")),
+                       checkboxInput("useDefaultColors", "Use Default Colors and Labels", TRUE),
+                       conditionalPanel(
+                          condition = "!input.useDefaultColors",
+                          fileInput("pcaLabels", "Upload PCA Labels (TXT)"),
+                          fileInput("colorPalette", "Upload Color Palette (TXT)"),
+                          fileInput("shapeList", "Upload desired point shapes (TXT)"),
+                          p("The order of the colors would match the order of PCA labels")
+                       ),
+                       br(),
+                       numericInput("pcX", "PC Axis X", value = 1, min = 1),
+                       numericInput("pcY", "PC Axis Y", value = 2, min = 1),
+                       actionButton("runPCA", "Run PCA Analysis", icon = icon("play"))
+                    ),
+                    tabBox(
+                       tabPanel("Instructions",
+                                h5("Run principal component analysis using the ade4 R package."),
+                                br(),
+                                p("Input file: CSV or XLSX file and color labels (optional)"),
+                                p("Expected output file: PNG plots")
+                       ),
+                       tabPanel("Sample Input Format/s",
+                                h5("Example: PCA Input Format"),
+                                tableOutput("examplePCA")
+                       ),
+                       tabPanel("Download sample files",
+                                h5("Sample File"),
+                                tags$ul(
+                                   tags$a("Sample file", href = "www/sample.csv", download = NA)
+                                )
+                       )
+                    ),
+                    tabBox(
+                       title = "PCA Results",
+                       plotOutput("barPlot"),
+                       plotOutput("pcaPlot"),
+                       downloadButton("downloadbarPlot", "Download Bar Plot"),
+                       downloadButton("downloadPCAPlot", "Download PCA Plot")
+                    )
+                 )
+                 ),
+      
+         tabItem(tabName = "PopStructure",
+                 fluidRow(
+                    box(
+                       fileInput("structureFile", "Upload Input File (CSV/XLSX)"),
+                       helpText("Input file should be similar to the output of the 'Convert to CSV' tab under 'File Conversion'"),
+                       numericInput("kMin", "Min K", value = 2, min = 1),
+                       numericInput("kMax", "Max K", value = 5, min = 1),
+                       numericInput("numKRep", "Replicates per K", value = 5, min = 1),
+                       numericInput("burnin", "Burn-in Period", value = 1000),
+                       numericInput("numreps", "MCMC Reps After Burn-in", value = 10000),
+                       checkboxInput("noadmix", "No Admixture Model", value = FALSE),
+                       checkboxInput("phased", "Phased Genotype", value = FALSE),
+                       numericInput("ploidy", "Ploidy Level", value = 2),
+                       checkboxInput("linkage", "Use Linkage Model", value = FALSE),
+                       actionButton("runStructure", "Run STRUCTURE", icon = icon("play")) 
+                    ),
+                    tabBox(
+                       tabPanel("Instructions",
+                                p("Some functions were revised and adapted from the strataG and dartR packages such as 'gl.run.structure', '.structureParseQmat', 'structureRead', and 'utils.structure.evanno'"),
+                                h5("Generate STRUCTURE input files and pong compatible files. Visualize the possible results"),
+                                p("Input file: CSV or XLSX file"),
+                                p("Expected output file: Zipped qmatrices, individual files, and PNG plots"),
+                                p("See ",
+                                  tags$a("STRUCTURE v2.3.4 Documentation",
+                                         href="https://web.stanford.edu/group/pritchardlab/structure_software/release_versions/v2.3.4/structure_doc.pdf",
+                                         target="_blank"))
+                       ),
+                       tabPanel("Download Sample File",
+                                h5("Download Sample File"),
+                                tags$ul(
+                                   tags$a("Sample CSV file", href = "www/sample.csv", download = NA)
+                                )     
+                      )
+                    ),
+                    tabBox(
+                       title = "STRUCTURE Results",
+                       uiOutput("downloadButtons"),
+                       h4("STRUCTURE Visualization"),
+                       p("NOTE: The plots are expected to take some time to load."),
+                       imageOutput("structurePlotPreview") %>% withSpinner(color = "blue")
+                    )
+                 )
+                 
+                 ),
+         
+         tabItem(tabName = "Classification",
+                 fluidRow(
+                    box(
+                       fileInput("forPredFile", "Upload CSV file"),
+                       actionButton("runNaiveBayes", "Classify", icon = icon("align-justify")),
+                       downloadButton("downloadClassification", "Download Results")
+                    ),
+                    tabBox(
+                       tabPanel("Instructions",
+                                h5("Classify individuals using Naive Bayes from the e1071 and caret R packages."),
+                                p("Input file/s: CSV file"),
+                                p("Expected output file: XLSX file")
+                       ), 
+                       tabPanel("Download Sample File",
+                                h5("Download Sample File"),
+                                tags$ul(
+                                   tags$a("Sample CSV file", href = "www/sample.csv", download = NA)
+                                )
+                       )
+                    ),
+                    tabBox(
+                       tabPanel("Prediction Table",
+                                verbatimTextOutput("predictionTableResult") %>% withSpinner(color = "blue")
+                       ),
+                       tabPanel("Statistics by Population",
+                                verbatimTextOutput("statbyClassResult") %>% withSpinner(color = "blue")
+                       ),
+                       tabPanel("Overall Statistics",
+                                verbatimTextOutput("overallStatResult") %>% withSpinner(color = "blue")
+                       )
+                       
+                    )
+                 ),
+         tabItem(
+            tabName = "AppRef", "kajd"
+         ), # end of another tab item
+         tabItem(
+            tabName = "About", "kajd"
+         ) 
+                 )
+      
       )
    ) # end of dashboard body
 )
