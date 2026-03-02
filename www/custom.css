@@ -1,20 +1,20 @@
 
 body, label, input, button, select, .sidebar, .main-header, .main-sidebar, .content-wrapper {
-  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-family: "Lora", Arial, serif;
   font-size: 14px;
 }
 
 /* Header title */
 .main-header .logo {
-  font-family: "Georgia", serif;
+  font-family: "Roboto", sans-serif;
   font-size: 20px;
-  font-weight: bold;
+  /* font-weight: bold;
 }
 
 /* Sidebar menu items */
 .sidebar-menu > li > a {
   font-size: 14px;
-  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-family: "Roboto", sans-serif;
 }
 
 /* Box titles */
