@@ -69,22 +69,21 @@ ui <- dashboardPage(
                                                             "PLINK files (.bed/.bim/.fam)" = "plink1",
                                                             "CSV file" = "csv1")),
                                    
-                                   # --- VCF options ---
                                    conditionalPanel(
                                       condition = "input.inputType1 == 'vcf1'",
                                       fileInput("VCFFile", "Upload VCF File"),
-                                      radioButtons("inputType2", "Choose final file type",
+                                      radioButtons("inputType2_vcf", "Choose final file type",
                                                    choices = c("PLINK files (.bed/.bim/.fam)" = "plink2",
                                                                "CSV file" = "csv2",
                                                                "FASTA file" = "fasta")),
                                       
                                       conditionalPanel(
-                                         condition = "input.inputType2 == 'fasta'",
+                                         condition = "input.inputType2_vcf == 'fasta'",
                                          fileInput("FASTARef", "Reference sequence in FASTA format.")
                                       ),
                                       
                                       conditionalPanel(
-                                         condition = "input.inputType2 == 'csv2'",
+                                         condition = "input.inputType2_vcf == 'csv2'",
                                          radioButtons("poptype_vcf", "Do samples come from a single population?",
                                                       choices = c("Yes" = "single", "No" = "multiplepop")),
                                          conditionalPanel(
@@ -99,17 +98,16 @@ ui <- dashboardPage(
                                       )
                                    ),
                                    
-                                   # --- BCF options ---
                                    conditionalPanel(
                                       condition = "input.inputType1 == 'bcf1'",
                                       fileInput("BCFFile", "Upload BCF File"),
-                                      radioButtons("inputType2", "Choose final file type",
+                                      radioButtons("inputType2_bcf", "Choose final file type",
                                                    choices = c("VCF file" = "vcf2",
                                                                "PLINK files (.bed/.bim/.fam)" = "plink2",
                                                                "CSV file" = "csv2")),
                                       
                                       conditionalPanel(
-                                         condition = "input.inputType2 == 'csv2'",
+                                         condition = "input.inputType2_bcf == 'csv2'",
                                          radioButtons("poptype_bcf", "Do samples come from a single population?",
                                                       choices = c("Yes" = "single", "No" = "multiplepop")),
                                          conditionalPanel(
@@ -124,18 +122,17 @@ ui <- dashboardPage(
                                       )
                                    ),
                                    
-                                   # --- PLINK options ---
                                    conditionalPanel(
                                       condition = "input.inputType1 == 'plink1'",
                                       fileInput("bedFile", "Upload BED File"),
                                       fileInput("bimFile", "Upload BIM File"),
                                       fileInput("famFile", "Upload FAM File"),
-                                      radioButtons("inputType2", "Choose final file type",
+                                      radioButtons("inputType2_plink", "Choose final file type",
                                                    choices = c("VCF file" = "vcf2",
                                                                "CSV file" = "csv2")),
                                       
                                       conditionalPanel(
-                                         condition = "input.inputType2 == 'csv2'",
+                                         condition = "input.inputType2_plink == 'csv2'",
                                          radioButtons("poptype_plink", "Do samples come from a single population?",
                                                       choices = c("Yes" = "single", "No" = "multiplepop")),
                                          conditionalPanel(
@@ -150,7 +147,6 @@ ui <- dashboardPage(
                                       )
                                    ),
                                    
-                                   # --- CSV options ---
                                    conditionalPanel(
                                       condition = "input.inputType1 == 'csv1'",
                                       p("This feature automatically converts a CSV file to VCF"),
@@ -193,16 +189,25 @@ ui <- dashboardPage(
                                             br(),
                                             tags$a("C. Sample marker metadata file (for CSV-VCF conversion)", href = "www/marker_info.csv", download = NA)
                                    )
-                                ),
+                                )
+                             ), # end of first fluid row
+                             fluidRow(
                                 tabBox(
                                    title = "Conversion Results",
-                                   tableOutput("previewTable") %>% shinycssloaders::withSpinner(color = "blue"),
-                                   uiOutput("downloadVCF_UI"),
-                                   uiOutput("downloadCSV_UI"),
-                                   uiOutput("downloadFASTA_UI"),
-                                   uiOutput("downloadPLINK_UI")
-                                )
-                                
+                                   width = 12,
+                                   tabPanel(
+                                      title = "Preview and Download",
+                                      div(
+                                         style = "overflow-x: auto;",
+                                         DT::dataTableOutput("previewTable") %>% shinycssloaders::withSpinner(color = "blue")
+                                      ),
+                                      br(),
+                                      uiOutput("downloadVCF_UI"),
+                                      uiOutput("downloadCSV_UI"),
+                                      uiOutput("downloadFASTA_UI"),
+                                      uiOutput("downloadPLINK_UI")
+                                   )
+                                )   
                              )
                     ),
                     
@@ -214,9 +219,7 @@ ui <- dashboardPage(
                                    helpText("*Accepts compressed files containing XLSX files."),
                                    fileInput("ref_file", "Optional Reference File (CSV or XLSX)",
                                              accept = c(".csv", ".xlsx")),
-                                   actionButton("run_uas2csv", "Run Conversion"),
-                                   br(), br(),
-                                   downloadButton("downloadUAScsv", "Download Converted CSV")
+                                   actionButton("run_uas2csv", "Run Conversion")
                                 ),
                                 tabBox(
                                    #title = "Instructions",
@@ -235,10 +238,21 @@ ui <- dashboardPage(
                                             tags$ul(
                                                tags$a("Sample zipped file", href = "www/sample_forenseq.zip", download = NA))
                                    )
-                                ),
+                                )
+                             ),
+                             fluidRow(
                                 tabBox(
-                                   title = "Preview of Output",
-                                   tableOutput("previewTableUAS") %>% shinycssloaders::withSpinner(color = "blue")
+                                   title = "Conversion Results",
+                                   width = 12,
+                                   tabPanel(
+                                      title = "Preview and Download",
+                                      div(
+                                         style = "overflow-x: auto;", 
+                                         DT::dataTableOutput("previewTableUAS") %>% shinycssloaders::withSpinner(color = "blue")
+                                      ),
+                                      br(),
+                                      downloadButton("downloadUAScsv", "Download Converted CSV")
+                                   )
                                 )
                              )
                     ), # end of forenseq conversion
@@ -272,12 +286,23 @@ ui <- dashboardPage(
                                             h4("Sample reference file"),
                                             tableOutput("exampleRefSnipper")
                                    )
-                                ), # end of tabbox for instruction
+                                ) # end of tabbox for instruction
+                             ), # end of fluidrow
+                             fluidRow(
                                 tabBox(
-                                   h4("Preview of Converted SNIPPER Data"),
-                                   tableOutput("previewTableSNIPPER") %>% shinycssloaders::withSpinner(color = "blue")
+                                   title = "Conversion Result",
+                                   width = 12,
+                                   tabPanel(
+                                      title = "Preview and Download",
+                                      div(
+                                         style = "overflow-x: auto;",
+                                         DT::dataTableOutput("previewTableSNIPPER") %>% shinycssloaders::withSpinner(color = "blue")
+                                      ),
+                                      br(),
+                                      uiOutput("downloadSNIPPER")
+                                   )
                                 )
-                             ) # end of fluidrow
+                             )
                     ), # end of tabpanel for snipper
                     
                     tabPanel("CSV to STRUCTURE file",
@@ -307,15 +332,22 @@ ui <- dashboardPage(
                                                      target="_blank"))
                                             
                                    )
-                                ), # end of tabbox
+                                ) # end of tabbox
+                             ), # end of fluidrow
+                             fluidRow(
                                 tabBox(
-                                   h4("Preview of output files"),
-                                   tableOutput("revisedCSV"),
-                                   tableOutput("strFile"),
-                                   downloadButton("downloadrevised", "Download Revised CSV file"),
-                                   downloadButton("downloadSTRfile", "Download STR file")
+                                   title = "Conversion Result",
+                                   width = 12,
+                                   tabPanel(
+                                      title = "Preview and Download",
+                                      tableOutput("revisedCSV"),
+                                      tableOutput("strFile"),
+                                      br(),
+                                      downloadButton("downloadrevised", "Download Revised CSV file"),
+                                      downloadButton("downloadSTRfile", "Download STR file")
+                                   )
                                 )
-                             ) # end of fluidrow
+                             )
                     ) # end of tabpanel for structure
                  )
          ),
@@ -447,14 +479,31 @@ ui <- dashboardPage(
                                             h4("Concordance Summary Table"),
                                             tableOutput("concordanceResults") %>% shinycssloaders::withSpinner(color = "blue"),
                                             downloadButton("downloadConcordance", "Download Concordance Results")
-                                   ),
-                                   tabPanel("Concordance Plot",
-                                            h4("Concordance Plot"),
-                                            plotOutput("concordancePlot", height = "600px") %>% shinycssloaders::withSpinner(color = "blue"),
-                                            downloadButton("downloadConcordancePlot", "Download Plot")
                                    )
                                 )
-                             ) # end of fluidrow
+                             ), # end of fluidrow
+                             fluidRow(
+                                tabBox(
+                                   title = "Concordance Results",
+                                   width = 12,
+                                   tabPanel("Summary Table",
+                                      div(
+                                         style = "overflow-x: auto;",
+                                         DT::dataTableOutput("concordanceResults") %>% shinycssloaders::withSpinner(color = "blue")
+                                      ),
+                                      br(),
+                                      downloadButton("downloadConcordance", "Download Concordance Results")
+                                   ),
+                                   tabPanel("Concordance Plot",
+                                      div(
+                                         style = "overflow-x: auto;",
+                                         plotOutput("concordancePlot", height = "600px") %>% shinycssloaders::withSpinner(color = "blue"),
+                                         br(),
+                                         downloadButton("downloadConcordancePlot", "Download Plot")
+                                      )
+                                   )
+                                )
+                             )
                     ) # end of tabpanel for concordance
                  ) # tabsetpanel
          ),
@@ -1184,58 +1233,110 @@ server <- function(input, output, session){
    timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
    outputName <- paste0("converted_", timestamp, ".csv")
    
-   # Helper to get reference value depending on inputType1
+   output_type <- function(input) {
+      switch(input$inputType1,
+             "vcf1"   = input$inputType2_vcf,
+             "bcf1"   = input$inputType2_bcf,
+             "plink1" = input$inputType2_plink,
+             "csv1"   = "vcf2"
+      )
+   }
+   
    getRefValue <- function(input) {
+      
+      outputType <- output_type(input)
+      
+      if (outputType != "csv2") {
+         return(NULL)
+      }
+      
       if (input$inputType1 == "vcf1") {
+         
+         req(input$poptype_vcf)
+         
          if (input$poptype_vcf == "multiplepop") {
             req(input$multiplepop_vcf)
             return(input$multiplepop_vcf$datapath)
          } else {
+            req(input$typePop_vcf)
             return(input$typePop_vcf)
          }
+         
       } else if (input$inputType1 == "bcf1") {
+         
+         req(input$poptype_bcf)
+         
          if (input$poptype_bcf == "multiplepop") {
             req(input$multiplepop_bcf)
             return(input$multiplepop_bcf$datapath)
          } else {
+            req(input$typePop_bcf)
             return(input$typePop_bcf)
          }
+         
       } else if (input$inputType1 == "plink1") {
+         
+         req(input$poptype_plink)
+         
          if (input$poptype_plink == "multiplepop") {
             req(input$multiplepop_plink)
             return(input$multiplepop_plink$datapath)
          } else {
+            req(input$typePop_plink)
             return(input$typePop_plink)
          }
       }
+      
       return(NULL)
    }
+   
    
    observeEvent(input$ConvertFILES, {
       req(input$ConvertFILES)
       showPageSpinner()
-      Sys.sleep(1.5)
+     # Sys.sleep(1.5)
       disable("ConvertFILES")
       
-      refValue <- getRefValue(input)
+      outputType <- output_type(input)
+      req(outputType)
       
-      # --- VCF outputs ---
+      refValue <- if (outputType == "csv2"){
+         getRefValue(input)
+      } else {
+         NULL
+      }
+      
+      
       if (input$inputType1 == "vcf1") {
          req(input$VCFFile, input$VCFFile$datapath)
          
-         if (input$inputType2 == "csv2") {
-            csv_file <- vcf_to_csv(input$VCFFile$datapath, ref = refValue, output.dir = output.dir)
+         if (outputType == "csv2") {
+            
+            csv_file <- vcf_to_csv(
+               input$VCFFile$datapath, 
+               ref = refValue, 
+               output.dir = output.dir
+               )
+            
             convertedCSV(csv_file)
+            
             output$downloadConvertedCSV <- downloadHandler(
                filename = function() { outputName },
-               content = function(file) { readr::write_csv(convertedCSV(), file) }
+               content = function(file) { 
+                  readr::write_csv(convertedCSV(), file) 
+                  }
             )
          }
          
-         if (input$inputType2 == "fasta") {
+         if (outputType == "fasta") {
             req(input$FASTARef)
-            converted.file <- vcf_to_fasta(input$VCFFile$datapath, input$FASTARef$datapath,
-                                           bcftools_path = bcftools_path, output.dir = output.dir)
+            
+            converted.file <- vcf_to_fasta(
+               input$VCFFile$datapath, 
+               input$FASTARef$datapath,
+               bcftools_path = bcftools_path, 
+               output.dir = output.dir)
+            
             convertedFASTA(converted.file)
             output$downloadConvertedFASTA <- downloadHandler(
                filename = function() { "consensus.fa" },
@@ -1243,7 +1344,7 @@ server <- function(input, output, session){
             )
          }
          
-         if (input$inputType2 == "plink2") {
+         if (outputType == "plink2") {
             converted.file <- convert_to_plink(input$VCFFile$datapath, output.dir = output.dir, plink_path = plink_path)
             convertedPLINK(converted.file)
             output$downloadConvertedPLINK <- downloadHandler(
@@ -1257,11 +1358,11 @@ server <- function(input, output, session){
          }
       }
       
-      # --- BCF outputs ---
+
       if (input$inputType1 == "bcf1") {
          req(input$BCFFile, input$BCFFile$datapath)
          
-         if (input$inputType2 == "vcf2") {
+         if (outputType == "vcf2") {
             converted.file <- bcf_to_vcf(input$BCFFile$datapath, output.dir = output.dir, plink_path = plink_path)
             convertedVCF(converted.file)
             output$downloadConvertedVCF <- downloadHandler(
@@ -1270,7 +1371,7 @@ server <- function(input, output, session){
             )
          }
          
-         if (input$inputType2 == "csv2") {
+         if (outputType == "csv2") {
             file2 <- bcf_to_vcf(input$BCFFile$datapath, output.dir = output.dir)
             csv_file <- vcf_to_csv(file2, ref = refValue, output.dir = output.dir)
             convertedCSV(csv_file)
@@ -1280,7 +1381,7 @@ server <- function(input, output, session){
             )
          }
          
-         if (input$inputType2 == "plink2") {
+         if (outputType == "plink2") {
             converted.file <- convert_to_plink(input$BCFFile$datapath, output.dir = output.dir, plink_path = plink_path)
             convertedPLINK(converted.file)
             output$downloadConvertedPLINK <- downloadHandler(
@@ -1294,11 +1395,10 @@ server <- function(input, output, session){
          }
       }
       
-      # --- PLINK outputs ---
       if (input$inputType1 == "plink1") {
          req(input$bedFile, input$bimFile, input$famFile)
          
-         if (input$inputType2 == "vcf2") {
+         if (outputType == "vcf2") {
             converted.file <- plink_to_vcf(input$bedFile$datapath, input$bimFile$datapath, input$famFile$datapath, output.dir = output.dir)
             convertedVCF(converted.file)
             output$downloadConvertedVCF <- downloadHandler(
@@ -1307,7 +1407,7 @@ server <- function(input, output, session){
             )
          }
          
-         if (input$inputType2 == "csv2") {
+         if (outputType == "csv2") {
             file2 <- plink_to_vcf(input$bedFile$datapath, input$bimFile$datapath, input$famFile$datapath, output.dir = output.dir)
             csv_file <- vcf_to_csv(file2, ref = refValue, output.dir = output.dir)
             convertedCSV(csv_file)
@@ -1318,8 +1418,7 @@ server <- function(input, output, session){
          }
       }
       
-      # --- CSV to VCF ---
-      if (input$inputType1 == "csv1" && input$inputType2 == "vcf2") {
+      if (input$inputType1 == "csv1") {
          req(input$CSVFile, input$lociMetaFile)
          file2 <- csv_to_gentibble(input$CSVFile$datapath, loci.meta = input$lociMetaFile$datapath)
          converted.file <- tidypopgen::gt_as_vcf(file2, file = "tovcf.vcf")
@@ -1334,6 +1433,34 @@ server <- function(input, output, session){
       hidePageSpinner()
    })
    
+   output$previewTable <- DT::renderDataTable({
+      req(convertedCSV())
+      convertedCSV()
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 10
+   )
+   )
+   
+   output$downloadCSV_UI <- renderUI({
+      req(convertedCSV())
+      downloadButton("downloadConvertedCSV", "Download CSV File")
+   })
+   
+   output$downloadVCF_UI <- renderUI({
+      req(convertedVCF())
+      downloadButton("downloadConvertedVCF", "Download VCF File")
+   })
+   
+   output$downloadFASTA_UI <- renderUI({
+      req(convertedFASTA())
+      downloadButton("downloadConvertedFASTA", "Download FASTA File")
+   })
+   
+   output$downloadPLINK_UI <- renderUI({
+      req(convertedPLINK())
+      downloadButton("downloadConvertedPLINK", "Download PLINK File")
+   })
    
    
    
@@ -1425,10 +1552,19 @@ server <- function(input, output, session){
       }
    )
    
-   output$previewTableSNIPPER <- renderTable({
+   output$downloadSNIPPER <- renderUI({
       req(convertedSNIPPER())
-      head(convertedSNIPPER(), 10)
+      downloadButton("downloadConverted", "Download SNIPPER-ready file")
    })
+   
+   output$previewTableSNIPPER <- DT::renderDataTable({
+      req(convertedSNIPPER())
+      convertedSNIPPER()
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 10
+   )
+   )
    
    
    ### UAS to CSV
@@ -1499,10 +1635,14 @@ server <- function(input, output, session){
       }
    )
    
-   output$previewTableUAS <- renderTable({
+   output$previewTableUAS <- DT::renderDataTable({
       req(convertedUAS())
-      head(convertedUAS(), 10)  # Preview top 10 rows
-   })
+      convertedUAS()
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 10
+   )
+   )
    
    # CSV TO STR #
    shinyjs::disable("downloadrevised")
@@ -1622,10 +1762,14 @@ server <- function(input, output, session){
       hidePageSpinner()
    }) # end of observe event
    
-   output$concordanceResults <- renderTable({
+   output$concordanceResults <- DT::renderDataTable({
       req(concordanceResult())
       concordanceResult()
-   })
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 10
+   )
+   )
    
    output$concordancePlot <- renderPlot({
       req(concordancePlotPath())

@@ -122,7 +122,7 @@ vcf_to_fasta <- function(vcf_file, reference, bcftools_path, output.dir){
 # Load VCF/VCF.GZ
 # Description: Generates a dataframe with markers as columns
 
-load_vcf_files <- function(files, output.dir = NULL){
+load_vcf_files <- function(vcf, output.dir = NULL){
    if(!require("pacman")) {
       install.packages("pacman")
    }
