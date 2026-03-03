@@ -1465,6 +1465,7 @@ server <- function(input, output, session){
    
    
    ### For SNIPPER
+   
    output$exampleTableSnipper <- renderTable({
       data.frame(
          Ind = c("sample1", "sample2", "sample3", "sample4", "..."),
@@ -1484,24 +1485,20 @@ server <- function(input, output, session){
    })
    
    convertedSNIPPER <- reactiveVal(NULL)
+   outputName <- "snipper.xlsx"
    
    observe({
-      hasFile <- !is.null(input$convertFile)
-      hasRef <- !is.null(input$refFile)
+      hasFile <- !is.null(input$convertFile) && nrow(input$convertFile) > 0
+      hasRef  <- !is.null(input$refFile) && nrow(input$refFile) > 0
       
-      if (input$targetPop) {
-         hasTarget <- nchar(trimws(input$targetPopName)) > 0
-      } else {
-         hasTarget <- TRUE  # Only required if checkbox is checked
+      hasTarget <- TRUE
+      if (isTRUE(input$targetPop)) {
+         hasTarget <- !is.null(input$targetPopName) && nzchar(trimws(input$targetPopName))
       }
       
-      ready <- hasFile && hasRef && hasTarget
+      ready <- isTRUE(hasFile) && isTRUE(hasRef) && isTRUE(hasTarget)
       
-      if (ready) {
-         shinyjs::enable("convertBtn")
-      } else {
-         shinyjs::disable("convertBtn")
-      }
+      shinyjs::toggleState("convertBtn", ready)
    })
    
    observeEvent(input$convertBtn, {
@@ -1519,7 +1516,7 @@ server <- function(input, output, session){
       inputData <- read.csv(inputPath, header = TRUE)
       numMarkers <- ncol(inputData) - 2
       
-      outputName <- "snipper.xlsx"
+
       
       withProgress(message = "Converting to SNIPPER-analysis ready file...", value = 0, {
          
@@ -1540,7 +1537,7 @@ server <- function(input, output, session){
             convertedSNIPPER(snipper.file)
             enable("convertBtn")
          }
-         
+         enable("convertBtn")
       })
       
    }) # end of observe Event
