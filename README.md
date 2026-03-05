@@ -1,3 +1,4 @@
+![](www/readme/fulllogo.png)
 # restful-forensics-shinyapp
 The Windows implementation of restful-forensics in RStudio. To check the dockerized application, see https://github.com/NSRI-DAL-2025-Project/rstudio-shiny-verse-opencpu-dependencies-restful-forensics.
 
@@ -37,7 +38,7 @@ functionalities.
 
 ### 🔄 File Conversion
 This tab has multiple features dedicated to converting file types to a different data structure structure.
-
+![](www/fileconv.png)
 
 **_A. Convert files to CSV_**
 
