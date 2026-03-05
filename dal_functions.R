@@ -1498,14 +1498,16 @@ read_fasta <- function(zipped, directory){
 
 # ALIGNMENT
 
-msa_results <- function(files, algorithm, directory){
+calc_msa <- function(files, algorithm){
    if(!require("pacman")) {
       install.packages("pacman")
    }
-   pacman::p_load(BiocManager, pwalign, seqinr, msa, DECIPHER, Biostrings, try.bioconductor = TRUE, install = TRUE)
+   pacman::p_load(BiocManager, pwalign, tinytex, seqinr, msa, DECIPHER, Biostrings, try.bioconductor = TRUE, install = TRUE)
    
    # Creating Substitution Matrix
-   personal_matrix <- pwalign::nucleotideSubstitutionMatrix(match = 1, mismatch = 0, baseOnly = FALSE, type = "DNA")
+   personal_matrix <- pwalign::nucleotideSubstitutionMatrix(
+      match = 1, mismatch = 0, baseOnly = FALSE, type = "DNA")
+   
    gap_penalty <- -2
    personal_matrix <- rbind(personal_matrix, "-" = gap_penalty)
    personal_matrix <- cbind(personal_matrix, "-" = gap_penalty)
@@ -1514,28 +1516,30 @@ msa_results <- function(files, algorithm, directory){
    personal_matrix <- as.matrix(personal_matrix)
    
    # perform msa
-   aligned_sequences <- msa::msa(files,substitutionMatrix = personal_matrix, method = algorithm) # ClustalW, ClustalOmega, MUSCLE
+   aligned_sequences <- msa::msa(
+      files,
+      substitutionMatrix = personal_matrix, 
+      method = algorithm) # ClustalW, ClustalOmega, MUSCLE
    
    # calculate alignment score
-   alignment_scores <- msa::msaConservationScore(aligned_sequences, substitutionMatrix = personal_matrix)
+   alignment_scores <- msa::msaConservationScore(
+      aligned_sequences, substitutionMatrix = personal_matrix)
    
    # Post-processing
-   aligned_dnastrings <- msa::msaConvert(aligned_sequences, type = "seqinr::alignment")
-   aligned_dnastrings <- Biostrings::DNAStringSet(setNames(aligned_dnastrings$seq, aligned_dnastrings$nam))
+   aligned_dnastrings <- msa::msaConvert(
+      aligned_sequences, type = "seqinr::alignment")
+   aligned_dnastrings <- Biostrings::DNAStringSet(
+      setNames(aligned_dnastrings$seq, aligned_dnastrings$nam))
    
    adjusted <- DECIPHER::AdjustAlignment(aligned_dnastrings)
    staggered <- DECIPHER::StaggerAlignment(adjusted)
    
-   filename3 <- file.path(paste0(directory, "aligned_seqs.pdf"))
-   msa::msaPrettyPrint(aligned_sequences, file = filename3,
-                       output="pdf", showNames= "left", showLogo = "none", askForOverwrite = FALSE)
-   
    return(list(
-      alignment_msa = aligned_sequences,
+      alignment = aligned_sequences,
       scores = alignment_scores,
-      aligned_adjusted = adjusted,
-      aligned_staggered = staggered,
-      pdf = filename3
+      adjusted = adjusted,
+      staggered = staggered#,
+      #pdf = filename3
    ))
 }
 

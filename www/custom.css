@@ -1,24 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 
-body, label, input, button, select, .sidebar, .main-header, .main-sidebar, .content-wrapper {
-  font-family: "Lora", Arial, serif;
-  font-size: 14px;
+.main-header {
+  background-color: #dfe5f2;
 }
 
-/* Header title */
-.main-header .logo {
+.main-sidebar {
   font-family: "Roboto", sans-serif;
-  font-size: 20px;
-  /* font-weight: bold;
+  font-size: 18px;
+  color: white;
 }
 
-/* Sidebar menu items */
-.sidebar-menu > li > a {
-  font-size: 14px;
-  font-family: "Roboto", sans-serif;
-}
-
-/* Box titles */
-.box-title {
+.sidebar-menu .treeview-menu > li > a {
   font-size: 16px;
-  font-weight: 600;
+  font-family: "Roboto", sans-serif;
+}
+
+
+body {
+  font-family: "Lora", Arial, serif;
+  font-size: 15px;
+}
+
+h5 {
+  font-family: "Roboto", sans-serif;
+  font-size: 15px;
+  color: #d7d7d7;
+}
+
+/* Tab box custom */
+.nav-tabs-custom .nav-tabs li.active {
+    background-color: #023047;
+    border-top-color: #023047;
+}
+
+.nav-tabs-custom .nav-tabs {
+  font-family: "Lora", Arial, serif;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.nav-tabs-custom .tab-content {
+  font-family: "Lora", Arial, serif;
+  font-size: 15px;
 }

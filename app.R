@@ -5,7 +5,6 @@ library(shinycssloaders)
 library(shinyjs)
 library(shinydashboard)
 
-
 source("functions.R", local = TRUE)
 source("dal_functions.R", local = TRUE)
 source("global.R", local = TRUE)
@@ -15,17 +14,15 @@ options(shiny.maxRequestSize = 2000*1024^2)
 ui <- dashboardPage(
    dashboardHeader(
       title = div(
-         tags$img(src = "logo.png", height = "30px", style = "display: inline-block; vertical-align: middle;"),
-         tags$span("RESTful Forensics",
-                   style = "font-family: Carme, sans-serif; font-size: 26px; color: #92b2e4; vertical-align: middle; padding-left: 0px;")
+         #tags$img(src = "logo.png", height = "10px", style = "display: inline-block; vertical-align: middle;"),
+         tags$span("restFUL Forensics",
+                   style = "font-family: Carme, sans-serif; font-size: 26px; color: #ffffff; vertical-align: middle; padding-left: 0px;")
       ),
       titleWidth = 300
    ),
    dashboardSidebar(
       width = 300,
-      tags$head(
-         tags$link(rel = "stylesheet", type = "text/css", href = "custom.css") 
-      ),
+
       sidebarMenu(
          menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
          menuItem("Data Pre-processing", tabName = "DataPreProcess", icon = icon("gears"), startExpanded = TRUE,
@@ -43,16 +40,56 @@ ui <- dashboardPage(
          menuItem("References", tabName = "AppRef", icon = icon("book-bookmark")),
          menuItem("About", tabName = "About", icon = icon("building-user"))
       ),
-      textOutput("res")
+      h5("© 2025 DNA Analysis Laboratory, Natural Sciences Research Institute, University of the Philippines Diliman. All rights reserved.")
+
    ),
    dashboardBody(
       useShinyjs(),
       tags$head(
-         tags$link(rel = "stylesheet", type = "text/css", href = "custom.css") 
+         includeCSS("www/custom.css") 
       ),
       tabItems(
          tabItem(tabName = "dashboard",
-                 h2("Dashboard tab content")
+                 fluidRow(
+                    tabBox(
+                       width = 12,
+                       tags$head(tags$style("img {max-width: 100%; height: auto; }")),
+                       div(tags$img(
+                          src = "readme/fulllogo.png",
+                          width = "600px"
+                       ),
+                       style = "text-align: center;"
+                       )
+                    )
+                 ), # end of fluid row
+                 fluidRow(
+                    tabBox(
+                       title = "Introduction",
+                       width = 12,
+                       h4("restFUL forensics is a toolkit dedicated for the forensic analysis of single nucleotide polymorphisms (SNPs) and DNA barcodes. It compiles population datasets extracted from publicly available databases for direct analysis of forensic marker panels.")
+                    )
+                 ),
+                 fluidRow(
+                    tabBox(
+                       title = "Overview of Features",
+                       width = 12,
+                       tabPanel("Workplan",
+                     
+                     # Zoom features adapted from: https://forum.posit.co/t/zoom-in-zoom-out-in-r-shiny-while-working-with-images/183567
+                          div(style = "display:flex; justify-content: space-evenly; margin-bottom:10px;"),
+                       actionButton("smaller_workplan", "-"),
+                       actionButton("bigger_workplan", "+"),
+                       div(style = "overflow:auto; text-align:center;",
+                           uiOutput("workplanImg"))),
+                       tabPanel("File Conversion Options",
+                                div(style = "display:flex; justify-content: space-evenly; margin-bottom:10px;"),
+                                actionButton("smaller_fc", "-"),
+                                actionButton("bigger_fc", "+"),
+                                div(style = "overflow:auto; text-align:center;",
+                                    uiOutput("fileConvTable"))
+                       )
+                    )
+                 )
          ),
          
          tabItem(tabName = "FileConv",
@@ -94,8 +131,19 @@ ui <- dashboardPage(
                                          conditionalPanel(
                                             condition = "input.poptype_vcf == 'single'",
                                             textAreaInput("typePop_vcf", "Enter population", rows = 1)
+                                         ),
+                                         
+                                         # --- Breakdowns
+                                         radioButtons("breakdown_vcf", "Calculate population breakdown?",
+                                                      choices = c("Yes" = "yesbreakdown_vcf", "No" = "nobreakdown_vcf")),
+                                         conditionalPanel(
+                                            condition = "input.breakdown_vcf == 'yesbreakdown_vcf'",
+                                            helpText("Specify column name to serve as a basis for the summary count."),
+                                            textAreaInput("breakdown_column_vcf", "Enter column name", rows = 1)
+                                            
                                          )
-                                      )
+                                         
+                                      ) # end of conditional for csv2
                                    ),
                                    
                                    conditionalPanel(
@@ -118,6 +166,16 @@ ui <- dashboardPage(
                                          conditionalPanel(
                                             condition = "input.poptype_bcf == 'single'",
                                             textAreaInput("typePop_bcf", "Enter population", rows = 1)
+                                         ),
+                                         
+                                         # --- Breakdowns
+                                         radioButtons("breakdown_bcf", "Calculate population breakdown?",
+                                                      choices = c("Yes" = "yesbreakdown_bcf", "No" = "nobreakdown_bcf")),
+                                         conditionalPanel(
+                                            condition = "input.breakdown_bcf == 'yesbreakdown_bcf'",
+                                            helpText("Specify column name to serve as a basis for the summary count."),
+                                            textAreaInput("breakdown_column_bcf", "Enter column name", rows = 1)
+                                            
                                          )
                                       )
                                    ),
@@ -143,6 +201,16 @@ ui <- dashboardPage(
                                          conditionalPanel(
                                             condition = "input.poptype_plink == 'single'",
                                             textAreaInput("typePop_plink", "Enter population", rows = 1)
+                                         ),
+                                         
+                                         # --- Breakdowns
+                                         radioButtons("breakdown_plink", "Calculate population breakdown?",
+                                                      choices = c("Yes" = "yesbreakdown_plink", "No" = "nobreakdown_plink")),
+                                         conditionalPanel(
+                                            condition = "input.breakdown_plink == 'yesbreakdown_plink'",
+                                            helpText("Specify column name to serve as a basis for the summary count."),
+                                            textAreaInput("breakdown_column_plink", "Enter column name", rows = 1)
+                                            
                                          )
                                       )
                                    ),
@@ -160,14 +228,16 @@ ui <- dashboardPage(
                                 tabBox(
                                    tabPanel("Instructions", 
                                             h4("This tab intercqonverts common genetic files and to CSV with population information."),
-                                            p("Input file/s:"),
+                                            p(strong("Input file/s:")),
+                                            p("Required: VCF, BCF, or PLINK (.bed, .bim, .fam) files."),
+                                            p(strong("Optional input files:")),
                                             tags$ul(
-                                               tags$li("VCF, BCF, or PLINK (.bed, .bim, .fam) files."),
-                                               tags$li("(to CSV) Population data (XLSX/CSV/TXT)."),
+                                               tags$li("(to CSV) XLSX/CSV/TXT file containing metadata. All columns will be merged to the genotype data. Remove unnecessary columns before running 'Convert'."),
+                                               tags$li("(to CSV) Single-line text indicating the 'Column name' to be used as basis for the calculation of population breakdown."),
                                                tags$li("(VCF to FASTA) Reference sequence in FASTA format."),
                                                tags$li("(CSV to VCF) Marker information with the following columns: [1] SNP, [2] CHR, [3] POS, [4] Genetic distance, [5] REF Allele [6] ALT Allele")
                                             ),
-                                            p("Expected output file/s: VCF, PLINK, or CSV file."),
+                                            p(strong("Expected output file/s:"), "VCF, PLINK, or CSV file."),
                                             br(),
                                    ),
                                    tabPanel("Sample Input Format/s", 
@@ -196,7 +266,7 @@ ui <- dashboardPage(
                                    title = "Conversion Results",
                                    width = 12,
                                    tabPanel(
-                                      title = "Preview and Download",
+                                      title = "Preview CSV File and Download Output",
                                       div(
                                          style = "overflow-x: auto;",
                                          DT::dataTableOutput("previewTable") %>% shinycssloaders::withSpinner(color = "blue")
@@ -206,6 +276,13 @@ ui <- dashboardPage(
                                       uiOutput("downloadCSV_UI"),
                                       uiOutput("downloadFASTA_UI"),
                                       uiOutput("downloadPLINK_UI")
+                                   ),
+                                   tabPanel(
+                                      title = "View Population Breakdown",
+                                      div(
+                                         style = "overflow-x: auto;",
+                                         DT::dataTableOutput("previewTableBreakdown") %>% shinycssloaders::withSpinner(color = "blue")
+                                      )
                                    )
                                 )   
                              )
@@ -226,8 +303,8 @@ ui <- dashboardPage(
                                    tabPanel("Instructions", 
                                             h4("This tab converts zipped ForenSeq UAS outputs to a single file in a wide format."),
                                             p("This section builds upon the work of Ms. Maeviviene Sosing as part of the Filipino Genomes Research Program 2"),
-                                            p("Input file/s: Compressed folder (.zip or .tar) of XLSX files."),
-                                            p("Expected output file/s: Single CSV file (merged XLSX files).")
+                                            p(strong("Input file/s:"), "Compressed folder (.zip or .tar) of XLSX files."),
+                                            p(strong("Expected output file/s:"), "Single CSV file (merged XLSX files).")
                                    ),
                                    tabPanel("Sample Input Format/s", 
                                             h4("Sample input file. All alleles of available SNPs per sample are listed in a long format."),
@@ -251,7 +328,7 @@ ui <- dashboardPage(
                                          DT::dataTableOutput("previewTableUAS") %>% shinycssloaders::withSpinner(color = "blue")
                                       ),
                                       br(),
-                                      downloadButton("downloadUAScsv", "Download Converted CSV")
+                                      uiOutput("downloadUAScsv_UI")
                                    )
                                 )
                              )
@@ -272,9 +349,10 @@ ui <- dashboardPage(
                                 tabBox(
                                    tabPanel("Instructions",
                                             h4("This converts CSV or XLSX files to a SNIPPER-compatible file"),
-                                            p("Input file/s: CSV or XLSX file."),
-                                            p("Parameter/s: (optional) Target population name for classification"),
-                                            p("Expected output file/s: XLSX file."),
+                                            p(strong("Input file/s:"), "CSV or XLSX file."),
+                                            p(strong("Parameter/s:"), "(optional) Target population name for classification"),
+                                            p(strong("Expected output file/s:"), "XLSX file."),
+                                            br(),
                                             p("SNIPPER tool for sample classification: ",
                                               tags$a("SNIPPER tool",
                                                      href="https://mathgene.usc.es/snipper/index.php",
@@ -318,13 +396,14 @@ ui <- dashboardPage(
                                 tabBox(
                                    tabPanel("Instructions",
                                             h4("Convert CSV files to STRUCTURE files."),
-                                            p("Input file/s: CSV file with marker and population data."),
-                                            p("Parameter/s: User's operating system (for STRUCTURE input compatibility)"),
-                                            p("Expected output file/s:"),
+                                            p(strong("Input file/s:"), "CSV file with marker and population data."),
+                                            p(strong("Parameter/s:"), "User's operating system (for STRUCTURE input compatibility)"),
+                                            p(strong("Expected output file/s:")),
                                             tags$ul(
                                                tags$li("structure (.str) file"),
                                                tags$li("revised input file")
                                             ),
+                                            br(),
                                             p("STRUCTURE generally can't handle sample labels with alphabets, the function converts sample labels to their associated row number."),
                                             p("For users who opt to use STRUCTURE via the terminal or GUI, instructions can be found here: ",
                                               tags$a("STRUCTURE v2.3.4 documentation",
@@ -343,8 +422,8 @@ ui <- dashboardPage(
                                       tableOutput("revisedCSV"),
                                       tableOutput("strFile"),
                                       br(),
-                                      downloadButton("downloadrevised", "Download Revised CSV file"),
-                                      downloadButton("downloadSTRfile", "Download STR file")
+                                      uiOutput("downloadrevised_UI"),
+                                      uiOutput("downloadSTRfile_UI")
                                    )
                                 )
                              )
@@ -404,7 +483,7 @@ ui <- dashboardPage(
                                 tabBox(
                                    tabPanel("Instructions",
                                             h4("Extract SNPs based on rsID (marker identification) or GRCh37/GRCh38 position"),
-                                            p("Input file/s:"),
+                                            p(strong("Input file/s:")),
                                             p("(1) VCF, BCF, or PLINK (.bed, .bim, .fam) files."),
                                             p("(2) Markers/position list — you may type rsIDs manually, upload a list, or use a POS txt file."),
                                             p("The position list (txt file) should include:"),
@@ -413,8 +492,8 @@ ui <- dashboardPage(
                                                tags$li("[2] Starting base-pair position (integer)"),
                                                tags$li("[3] Final base-pair position (integer)")
                                             ),
-                                            p("Parameter/s: Filtering options"),
-                                            p("Expected output file/s: VCF file")
+                                            p(strong("Parameter/s:"), "Filtering options"),
+                                            p(strong("Expected output file/s:"), "VCF file")
                                    ), # end of tabpanel
                                    tabPanel("Sample Input Format/s",
                                             h4("rsID Format"),
@@ -435,7 +514,7 @@ ui <- dashboardPage(
                              fluidRow(
                                 tabBox(
                                    title = "Extraction Results",
-                                   downloadButton("downloadExtracted", "Download Extracted VCF"),
+                                   uiOutput("downloadExtracted_UI"),
                                    helpText("Note: Some systems mislabel .vcf files as contact files. This is a reminder that the file is a genomic VCF.")
                                 )
                              )
@@ -453,9 +532,9 @@ ui <- dashboardPage(
                                 tabBox(
                                    tabPanel("Instructions",
                                             h4("Concordance analysis between files with the same samples"),
-                                            p("Input file/s: Two CSV or XLSX files."),
-                                            p("Parameter/s: Indicate if using haplotypes"),
-                                            p("Expected output/s:"),
+                                            p(strong("Input file/s:"), "Two CSV or XLSX files."),
+                                            p(strong("Parameter/s:"), "Indicate if using haplotypes"),
+                                            p(strong("Expected output/s:")),
                                             tags$ul(
                                                tags$li("Concordance table"),
                                                tags$li("Concordance plot")
@@ -473,14 +552,7 @@ ui <- dashboardPage(
                                                tags$a("Sample CSV file (2)", href = "www/sample1_for.concordance.csv", download = NA)
                                             )
                                    )
-                                ), # end of second tabbox
-                                tabBox(
-                                   tabPanel("Summary Table",
-                                            h4("Concordance Summary Table"),
-                                            tableOutput("concordanceResults") %>% shinycssloaders::withSpinner(color = "blue"),
-                                            downloadButton("downloadConcordance", "Download Concordance Results")
-                                   )
-                                )
+                                ) # end of second tabbox
                              ), # end of fluidrow
                              fluidRow(
                                 tabBox(
@@ -492,14 +564,14 @@ ui <- dashboardPage(
                                          DT::dataTableOutput("concordanceResults") %>% shinycssloaders::withSpinner(color = "blue")
                                       ),
                                       br(),
-                                      downloadButton("downloadConcordance", "Download Concordance Results")
+                                      uiOutput("downloadConcordance_UI")
                                    ),
                                    tabPanel("Concordance Plot",
                                       div(
                                          style = "overflow-x: auto;",
                                          plotOutput("concordancePlot", height = "600px") %>% shinycssloaders::withSpinner(color = "blue"),
                                          br(),
-                                         downloadButton("downloadConcordancePlot", "Download Plot")
+                                         uiOutput("downloadConcordancePlot_UI")
                                       )
                                    )
                                 )
@@ -561,8 +633,8 @@ ui <- dashboardPage(
                     tabBox(
                        tabPanel("Instructions",
                                 h4("Filter individuals and variants using standard options in PLINK 1.9."),
-                                p("Input file/s: VCF file"),
-                                p("Parameter/s:"),
+                                p(strong("Input file/s:"), "VCF file"),
+                                p(strong("Parameter/s:")),
                                 tags$ul(
                                    tags$li("--mind [value]"),
                                    tags$li("--geno [value]"),
@@ -572,11 +644,12 @@ ui <- dashboardPage(
                                    tags$li("--indep-pairwise [value]"),
                                    tags$li("Other additional PLINK flags")
                                 ),
-                                p("Expected output/s:"),
+                                p(strong("Expected output/s:")),
                                 tags$ul(
                                    tags$li("VCF file"),
                                    tags$li("Depth of Coverage Plots")
                                 ),
+                                br(),
                                 p("Standard filtering flags are indicated. For other PLINK flags, see the following for options to be specified in the 'Additional PLINK flags' text box: ",
                                   tags$a("PLINK 1.9 Documentation",
                                          href="https://www.cog-genomics.org/plink/",
@@ -595,8 +668,9 @@ ui <- dashboardPage(
                                 imageOutput("depthSamplePlot") %>% shinycssloaders::withSpinner(color = "blue")
                        ),
                        tabPanel("Download Files",
-                                downloadButton("downloadFilteredFile", "Download Filtered File"),
-                                downloadButton("downloadDepthPlots", "Download Plots")
+                                uiOutput("depthMarkerPlot_UI"),
+                                uiOutput("depthSamplePlot_UI"),
+                                uiOutput("downloadFilteredFile_UI")
                        )
                     )
                  ) # end of fluid row
@@ -624,9 +698,9 @@ ui <- dashboardPage(
                                    tabPanel("Instructions",
                                             h4("Perform multiple sequence alignment using the msa R package."),
                                             p("Post-processing of alignment is performed using the DECIPHER package in R."),
-                                            p("Input file/s: Zipped folder of FASTA files."),
-                                            p("Parameter/s: Substitution matrix for the alignment (ClustalW, ClustalOmega, MUSCLE)"),
-                                            p("Expected output/s:"),
+                                            p(strong("Input file/s:"), "Zipped folder of FASTA files."),
+                                            p(strong("Parameter/s:"), "Substitution matrix for the alignment (ClustalW, ClustalOmega, MUSCLE)"),
+                                            p(strong("Expected output/s:")),
                                             tags$ul(
                                                tags$li("Aligned sequences"),
                                                tags$li("Alignment scores"),
@@ -643,7 +717,10 @@ ui <- dashboardPage(
                                    )
                                 ),
                                 tabBox(
+                                   width = 12,
                                    tabPanel("Preview of Alignments",
+                                            msaR::msaROutput("msaView", width = "100%"),
+                                            br(),
                                             verbatimTextOutput("initialAlignmentText") %>% shinycssloaders::withSpinner(color = "blue"),
                                             br(),
                                             verbatimTextOutput("adjustedAlignmentText") %>% shinycssloaders::withSpinner(color = "blue"),
@@ -653,9 +730,10 @@ ui <- dashboardPage(
                                             verbatimTextOutput("alignmentScoresPreview") %>% shinycssloaders::withSpinner(color = "blue")
                                    ),
                                    tabPanel("Download Results",
-                                            downloadButton("downloadAlignedFASTA", "Download Aligned Sequences"),
-                                            downloadButton("downloadAlignmentScores", "Download Alignment Scores"),
-                                            downloadButton("downloadAlignmentPDF", "Download Alignment PDF")
+                                            uiOutput("downloadAlignedFASTA_UI"),
+                                            uiOutput("downloadAlignmentScores_UI"),
+                                            downloadButton("downloadAlignmentPDF", "Download Alignment in PDF"),
+                                            p("Note that the PDF is automatically downloaded in the same folder/working directory. This is a built in feature of the msa R package.")
                                    )
                                 )
                              ) # end of fluid row
@@ -694,9 +772,9 @@ ui <- dashboardPage(
                                    title = "Instructions",
                                    h4("Perform phylogenetic tree reconstruction using ape and phangorn R packages."),
                                    p("Approaches to tree construction are NJ, UPGMA, Maximum Parsimony, and Maximum Likelihood. Check the assumptions and constraints of each approach [1]."),
-                                   p("Input file used is the alignment output from the MSA tab. There is an option of using the raw, adjusted, or staggered alignment for tree construction."),
-                                   p("Parameters vary based on the method."),
-                                   p("Expected output is the phylogenetic tree in PNG format.")
+                                   p(strong("Input file"), "used is the alignment output from the MSA tab. There is an option of using the raw, adjusted, or staggered alignment for tree construction."),
+                                   p(strong("Parameters"), "vary based on the method."),
+                                   p(strong("Expected output"), "is the phylogenetic tree in PNG format.")
                                 ),
                                 tabBox(
                                    tabPanel("View Results",
@@ -705,8 +783,8 @@ ui <- dashboardPage(
                                             uiOutput("treeImage") %>% shinycssloaders::withSpinner(color = "blue")
                                    ),
                                    tabPanel("Download Results",
-                                            downloadButton("downloadTree", "Download Tree"),
-                                            downloadButton("downloadAll", "Download All Outputs")  
+                                            uiOutput("downloadTree_UI"),
+                                            uiOutput("downloadAll_UI")  
                                    )
                                 )
                              )
@@ -742,13 +820,14 @@ ui <- dashboardPage(
                                                actionButton("identifySpecies", "Identify Species", icon = icon("magnifying-glass"))
                                             ),
                                             tabBox(
+                                               title = "Instructions",
                                                h4("This tab performs species identification using the R package 'BarcodingR'."),
-                                               p("Input file/s:"),
+                                               p(strong("Input file/s:")),
                                                tags$ul(
                                                   tags$li("Aligned reference sequences"),
                                                   tags$li("Aligned query sequences")
                                                ),
-                                               p("Parameter/s:"),
+                                               p(strong("Parameter/s:")),
                                                tags$ul(
                                                   tags$li("(without kmer method) Training model: bpNewTraining, fuzzyId, bpNewTrainingOnly, bpUsedTrained, or Bayesian"),
                                                   tags$li("(with kmer method) Fuzzy-set Method or BP-based method")
@@ -773,9 +852,9 @@ ui <- dashboardPage(
                                                width = 6,
                                                tabPanel("Overview",
                                                         h4("Calculate the optimal kmer values"),
-                                                        p("Input file/s: Aligned sequences of the reference dataset (FASTA)"),
-                                                        p("Parameter/s: Length of maximum kmer value"),
-                                                        p("Expected output file: Kmer plot")
+                                                        p(strong("Input file/s:"), "Aligned sequences of the reference dataset (FASTA)"),
+                                                        p(strong("Parameter/s:"), "Length of maximum kmer value"),
+                                                        p(strong("Expected output file:"), "Kmer plot")
                                                )
                                             )
                                          ),
@@ -786,7 +865,7 @@ ui <- dashboardPage(
                                                tabPanel("Outputs",
                                                         verbatimTextOutput("kmerResult") %>% shinycssloaders::withSpinner(color = "blue"),
                                                         imageOutput("kmerPlot") %>% shinycssloaders::withSpinner(color = "blue"),
-                                                        downloadButton("downloadKmerPlot", "Download Plot")
+                                                        uiOutput("downloadKmerPlot_UI")
                                                )
                                             )
                                          )
@@ -807,9 +886,9 @@ ui <- dashboardPage(
                                                width = 6,
                                                tabPanel("Overview",
                                                         h4("Calculate the barcoding gap"),
-                                                        p("Input file: VCF file"),
-                                                        p("Parameter/s: Distance (raw, K80, euclidean)"),
-                                                        p("Expected output file: Barcoding gap plot")
+                                                        p(strong("Input file:"), "VCF file"),
+                                                        p(strong("Parameter/s:"), "Distance (raw, K80, euclidean)"),
+                                                        p(strong("Expected output file:"), "Barcoding gap plot")
                                                )
                                             )
                                          ),
@@ -820,7 +899,7 @@ ui <- dashboardPage(
                                                tabPanel("Outputs",
                                                         verbatimTextOutput("barcodingResult") %>% shinycssloaders::withSpinner(color = "blue"),
                                                         imageOutput("BarcodingGapPlot") %>% shinycssloaders::withSpinner(color = "blue"),
-                                                        downloadButton("downloadGapPlot", "Download Barcoding Gap Plot")
+                                                        uiOutput("downloadGapPlot_UI")
                                                )
                                             )
                                          )
@@ -835,9 +914,10 @@ ui <- dashboardPage(
                                                actionButton("evalBarcodes", "Evaluate Barcodes", icon = icon("code-compare"))
                                             ),
                                             tabBox(
+                                               title = "Instructions",
                                                h4("Evaluate Barcodes"),
-                                               p("Input file/s: CSV or XLSX file."),
-                                               p("Parameter/s: Length of kmer for barcode 1 and barcode 2 (separate)")
+                                               p(strong("Input file/s:"), "CSV or XLSX file."),
+                                               p(strong("Parameter/s:"), "Length of kmer for barcode 1 and barcode 2 (separate)")
                                             ),
                                             tabBox(
                                                tableOutput("evalBarcodesResult") %>% shinycssloaders::withSpinner(color = "blue")
@@ -855,9 +935,10 @@ ui <- dashboardPage(
                                                actionButton("calculateTDR2", "Calculate", icon = icon("calculator"))
                                             ),
                                             tabBox(
+                                               title = "Instructions",
                                                h4("Species Membership Value (TDR)"),
-                                               p("Input file/s: CSV file with marker and population data."),
-                                               p("Parameter/s: Boostrap value for query and reference samples.")
+                                               p(strong("Input file/s:"), "CSV file with marker and population data."),
+                                               p(strong("Parameter/s:"), "Boostrap value for query and reference samples.")
                                             ),
                                             tabBox(
                                                verbatimTextOutput("tdrValues") %>% shinycssloaders::withSpinner(color = "blue")
@@ -874,7 +955,7 @@ ui <- dashboardPage(
                     box(
                        fileInput("popStatsFile", "Upload CSV or XLSX Dataset"),
                        actionButton("runPopStats", "Analyze", icon = icon("magnifying-glass-chart")),
-                       downloadButton("downloadStatsXLSX", "Download Results (Excel)")
+                       uiOutput("downloadStatsXLSX_UI")
                     ),
                     tabBox(
                        tabPanel("Private Alleles",
@@ -891,7 +972,7 @@ ui <- dashboardPage(
                                 br(),
                                 h4("Heterozygosity Plot"),
                                 imageOutput("heterozygosity_plot") %>% shinycssloaders::withSpinner(color = "blue"),
-                                downloadButton("downloadHeterozygosityPlot", "Download Plot")
+                                uiOutput("downloadHeterozygosityPlot_UI")
                        ),
                        tabPanel("Inbreeding Coefficients",
                                 h4("Inbreeding Coefficient by Population"),
@@ -930,8 +1011,8 @@ ui <- dashboardPage(
                                    tags$li("FST values [7] using the hierfstat R package")
                                 ),
                                 br(),
-                                p("Input file: CSV or XLSX file"),
-                                p("Expected output files:"),
+                                p(strong("Input file:"), "CSV or XLSX file"),
+                                p(strong("Expected output files:")),
                                 tags$ul(
                                    tags$li("XLSX file with all results"),
                                    tags$li("Heterozygosity Plot"),
@@ -983,8 +1064,8 @@ ui <- dashboardPage(
                        tabPanel("Instructions",
                                 h4("Run principal component analysis using the ade4 R package."),
                                 br(),
-                                p("Input file: CSV or XLSX file and color labels (optional)"),
-                                p("Expected output file: PNG plots")
+                                p(strong("Input file:"), "CSV or XLSX file and color labels (optional)"),
+                                p(strong("Expected output file:"), "PNG plots")
                        ),
                        tabPanel("Sample Input Format/s",
                                 h4("Example: PCA Input Format"),
@@ -1027,8 +1108,8 @@ ui <- dashboardPage(
                        tabPanel("Instructions",
                                 p("Some functions were revised and adapted from the strataG and dartR packages such as 'gl.run.structure', '.structureParseQmat', 'structureRead', and 'utils.structure.evanno'"),
                                 h4("Generate STRUCTURE input files and pong compatible files. Visualize the possible results"),
-                                p("Input file: CSV or XLSX file"),
-                                p("Expected output file: Zipped qmatrices, individual files, and PNG plots"),
+                                p(strong("Input file:"), "CSV or XLSX file"),
+                                p(strong("Expected output file:"), "Zipped qmatrices, individual files, and PNG plots"),
                                 p("See ",
                                   tags$a("STRUCTURE v2.3.4 Documentation",
                                          href="https://web.stanford.edu/group/pritchardlab/structure_software/release_versions/v2.3.4/structure_doc.pdf",
@@ -1057,13 +1138,13 @@ ui <- dashboardPage(
                     box(
                        fileInput("forPredFile", "Upload CSV file"),
                        actionButton("runNaiveBayes", "Classify", icon = icon("align-justify")),
-                       downloadButton("downloadClassification", "Download Results")
+                       uiOutput("downloadClassification_UI")
                     ),
                     tabBox(
                        tabPanel("Instructions",
                                 h4("Classify individuals using Naive Bayes from the e1071 and caret R packages."),
-                                p("Input file/s: CSV file"),
-                                p("Expected output file: XLSX file")
+                                p(strong("Input file/s:"), "CSV file"),
+                                p(strong("Expected output file:"), "XLSX file")
                        ), 
                        tabPanel("Download Sample File",
                                 h4("Download Sample File"),
@@ -1089,90 +1170,59 @@ ui <- dashboardPage(
          tabItem(
             tabName = "AppRef",
             tabBox(
-               title = "References",
+               #title = "References",
                width = 12,
-               side = "right",
-               p("Pritchard, J.K., Stephens, M., & Donnelly, P. (2000). Inference of Population Structure Using Multilocus Genotype Data. Genetics Society of America, 155, 945-959.",
-                 tags$a("https://doi.org/10.1093/genetics/155.2.945",
-                        href="https://doi.org/10.1093/genetics/155.2.945",
-                        target="_blank")),
-               p("Falush, D., Stephens, M., & Pritchard, J.K. (2003). Inference of Population Structure Using Multilocus Genotype Data: Linked Loci and Correlated Allele Frequencies. Genetics Society of America, 164, 1567-1587.",
-                 tags$a("https://doi.org/10.1093/genetics/164.4.1567",
-                        href="https://doi.org/10.1093/genetics/164.4.1567",
-                        target="_blank")),
-               p("Falush, D., Stephens, M., & Pritchard, J.K. (2007). Inference of population structure using multilocus genotype data: dominant markers and null alleles. Molecular Ecology Notes, 7(4), 574-578.",
-                 tags$a("https://doi.org/10.1111/j.1471-8286.2007.01758.x",
-                        href="https://doi.org/10.1111/j.1471-8286.2007.01758.x",
-                        target="_blank")),
-               p("Hubisz, M. J., Falush, D., Stephens, M., & Pritchard, J. K. (2009). Inferring weak population structure with the assistance of sample group information. Molecular ecology resources, 9(5), 1322–1332.",
-                 tags$a("https://doi.org/10.1111/j.1755-0998.2009.02591.x",
-                        href="https://doi.org/10.1111/j.1755-0998.2009.02591.x",
-                        target="_blank")),
-               p("Purcell, S., Neale, B., Todd-Brown, K., Thomas, L., Ferreira, M. A., Bender, D., Maller, J., Sklar, P., de Bakker, P. I., Daly, M. J., & Sham, P. C. (2007). PLINK: a tool set for whole-genome association and population-based linkage analyses. American journal of human genetics, 81(3), 559–575.",
-                 tags$a("https://doi.org/10.1086/519795",
-                        href="https://doi.org/10.1086/519795",
-                        target="_blank")),
-               p("Bodenhofer, U., Bonatesta, E., Horejš-Kainrath, C., & Hochreiter, S. (2015). msa: an R package for multiple sequence alignment. Bioinformatics (Oxford, England), 31(24), 3997–3999.",
-                 tags$a("https://doi.org/10.1093/bioinformatics/btv494",
-                        href="https://doi.org/10.1093/bioinformatics/btv494",
-                        target="_blank")),
-               p("Wright E. S. (2015). DECIPHER: harnessing local sequence context to improve protein multiple sequence alignment. BMC bioinformatics, 16, 322.",
-                 tags$a("https://doi.org/10.1186/s12859-015-0749-z",
-                        href="https://doi.org/10.1186/s12859-015-0749-z",
-                        target="_blank")),
-               p("Paradis, E., & Schliep, K. (2019). ape 5.0: an environment for modern phylogenetics and evolutionary analyses in R. Bioinformatics (Oxford, England), 35(3), 526–528.",
-                 tags$a("https://doi.org/10.1093/bioinformatics/bty633",
-                        href="https://doi.org/10.1093/bioinformatics/bty633",
-                        target="_blank")),
-               p("Schliep, K.P. (2011). phangorn: phylogenetic analysis in R. Bioinformatics, 27(4), 592-593.",
-                 tags$a("https://doi.org/10.1093/bioinformatics/btq706",
-                        href="https://doi.org/10.1093/bioinformatics/btq706",
-                        target="_blank")),
-               p("Zhang, A., Hao, M., Yang, C., & Shi, Z. (2016). BarcodingR: an integrated r package for species identification using DNA barcodes. Methods in Ecology and Evolution, 8, 627-634.",
-                 tags$a("https://doi.org/10.1111/2041-210X.12682",
-                        href="https://doi.org/10.1111/2041-210X.12682",
-                        target="_blank")),
-               p("Goudet, J. (2004). hierfstat, a package for r to compute and test hierarchical F-statistics. Molecular Ecology Notes, 5(1), 184-186.",
-                 tags$a("https://doi.org/10.1111/j.1471-8286.2004.00828.x",
-                        href="https://doi.org/10.1111/j.1471-8286.2004.00828.x",
-                        target="_blank")),
-               p("Jombart, T. (2008). adegenet: a R package for the multivariate analysis of genetic markers. Bioinformatics, 24(11), 1403-1405.",
-                 tags$a("https://doi.org/10.1093/bioinformatics/btn129",
-                        href="https://doi.org/10.1093/bioinformatics/btn129",
-                        target="_blank")),
-               p("Jombart, T., & Ahmed, I. (2011). adegenet 1.3-1: new tools for the analysis of genome-wide SNP data. Bioinformatics (Oxford, England), 27(21), 3070–3071.",
-                 tags$a("https://doi.org/10.1093/bioinformatics/btr521",
-                        href="https://doi.org/10.1093/bioinformatics/btr521",
-                        target="_blank")),
-               p("Paradis E. (2010). pegas: an R package for population genetics with an integrated-modular approach. Bioinformatics (Oxford, England), 26(3), 419–420.",
-                 tags$a("https://doi.org/10.1093/bioinformatics/btp696",
-                        href="https://doi.org/10.1093/bioinformatics/btp696",
-                        target="_blank")),
-               p("Dray, S., & Dufour, A.-B. (2007). The ade4 Package: Implementing the Duality Diagram for Ecologists. Journal of Statistical Software, 22(4), 1–20.",
-                 tags$a("https://doi.org/10.18637/jss.v022.i04",
-                        href="https://doi.org/10.18637/jss.v022.i04",
-                        target="_blank")),
-               p("Gruber, B., Unmack, P. J., Berry, O. F., & Georges, A. (2018). dartr: An r package to facilitate analysis of SNP data generated from reduced representation genome sequencing. Molecular ecology resources, 18(3), 691–699.",
-                 tags$a("https://doi.org/10.1111/1755-0998.12745",
-                        href="https://doi.org/10.1111/1755-0998.12745",
-                        target="_blank")),
-               p("Archer, F. I., Adams, P. E., & Schneiders, B. B. (2017). stratag: An r package for manipulating, summarizing and analysing population genetic data. Molecular ecology resources, 17(1), 5–11.",
-                 tags$a("https://doi.org/10.1111/1755-0998.12559",
-                        href="https://doi.org/10.1111/1755-0998.12559",
-                        target="_blank")),
-               p("Dimitriadou, E., Hornik, K., Leisch, F., Meyer, D., & Weingessel, A. (2009). E1071: Misc Functions of the Department of Statistics (E1071), TU Wien.",
-                 tags$a("https://www.researchgate.net/publication/221678005_E1071_Misc_Functions_of_the_Department_of_Statistics_E1071_TU_Wien",
-                        href="https://www.researchgate.net/publication/221678005_E1071_Misc_Functions_of_the_Department_of_Statistics_E1071_TU_Wien",
-                        target="_blank")),
-               p("Kuhn, M. (2008). Building Predictive Models in R Using the caret Package. Journal of Statistical Software, 28(5), 1–26.",
-                 tags$a("https://doi.org/10.18637/jss.v028.i05",
-                        href="https://doi.org/10.18637/jss.v028.i05",
-                        target="_blank"))
+               #side = "right",
+               tabPanel("References",
+                        div(
+                          style = "height: 70vh; overflow-y:scroll;",
+                          uiOutput("referenceTexts")
+                        )
+               )
             )
             
          ), # end of another tab item
          tabItem(
-            tabName = "About", "kajd"
+            tabName = "About",
+            fluidRow(
+               tabBox(
+                  title = tagList(icon("book-open-reader"), "Background"),
+                  width = 6,
+                  height = "250px",
+                  #h3("Background"),
+                  p("The", strong("restFUL forensics"), "toolkit is an output of the project", strong("Development and validation of an automated web-based tool for efficient genomic marker extraction to assist in genomic research"))
+               ),
+               tabBox(
+                  title = tagList(icon("people-line"), "Authors"),
+                  width = 6,
+                  height = "250px",
+                  #h3("Authors"),
+                  p("Nelvie Fatima Jane Soliven from the DNA Analysis Laboratory."),
+                  p("Leda Celeste Samin from the DNA Analysis Laboratory."),
+                  p("Melvin Ambrocio Matias from the Institute of Biology at the University of the Philippines Diliman.")
+               )),
+            fluidRow(
+               tabBox(
+                  title = tagList(icon("wallet"), "Funding"),
+                  width = 6,
+                  height = "250px",
+                  #h3("Funding"),
+                  h4("The project is funded by the Natural Sciences Research Institute at the University of the Philippines Diliman"),
+                  div(tags$img(
+                     src = "funding.png",
+                     width = "200px"
+                  ),
+                  style = "text-align: center;"
+                  )
+               ),
+               tabBox(
+                  title = tagList(icon("address-book"), "Contact"),
+                  width = 6,
+                  height = "250px",
+                  h4(strong("Project Leader: "), "nasoliven@up.edu.ph"),
+                  h4("Location: Miranda Hall, Natural Sciences Research Institute, University of the Philippines Diliman, Quezon City, Philippines")
+                      )
+            )
          ) 
       )
    )
@@ -1183,17 +1233,142 @@ ui <- dashboardPage(
 ##########
 
 server <- function(input, output, session){
-   output$res <- renderText({
-      req(input$tabs)
-      paste("In:", input$tabs)
-   }
-   )
+
+   zoom <- reactiveVal(1)
+   
+   observeEvent(input$smaller_workplan, {
+      zoom(max(0.5, zoom() - 0.1))
+   })
+   
+   observeEvent(input$bigger_workplan, {
+      zoom(min(3, zoom() + 0.1))
+   })
+   
+   output$workplanImg <- renderUI({
+      tags$img(
+         src = "readme/chart.png",
+         style = paste0(
+            "transform: scale(", zoom(), ");",
+            "transform-origin: top center;",
+            "transition: transform 0.2s;"
+         )
+      )
+   })
+   
+   
+   observeEvent(input$smaller_fc, {
+      zoom(max(0.5, zoom() - 0.1))
+   })
+   
+   observeEvent(input$bigger_fc, {
+      zoom(min(3, zoom() + 0.1))
+   })
+   
+   output$fileConvTable <- renderUI({
+      tags$img(
+         src = "fileconv.png",
+         style = paste0(
+            "transform: scale(", zoom(), ");",
+            "transform-origin: top center;",
+            "transition: transform 0.2s;"
+         )
+      )
+   })
+   
+   output$referenceTexts <- renderUI({
+      p_lists <- list(
+         p("Pritchard, J.K., Stephens, M., & Donnelly, P. (2000). Inference of Population Structure Using Multilocus Genotype Data. Genetics Society of America, 155, 945-959.",
+           tags$a("https://doi.org/10.1093/genetics/155.2.945",
+                  href="https://doi.org/10.1093/genetics/155.2.945",
+                  target="_blank")),
+         p("Falush, D., Stephens, M., & Pritchard, J.K. (2003). Inference of Population Structure Using Multilocus Genotype Data: Linked Loci and Correlated Allele Frequencies. Genetics Society of America, 164, 1567-1587.",
+           tags$a("https://doi.org/10.1093/genetics/164.4.1567",
+                  href="https://doi.org/10.1093/genetics/164.4.1567",
+                  target="_blank")),
+         p("Falush, D., Stephens, M., & Pritchard, J.K. (2007). Inference of population structure using multilocus genotype data: dominant markers and null alleles. Molecular Ecology Notes, 7(4), 574-578.",
+           tags$a("https://doi.org/10.1111/j.1471-8286.2007.01758.x",
+                  href="https://doi.org/10.1111/j.1471-8286.2007.01758.x",
+                  target="_blank")),
+         p("Hubisz, M. J., Falush, D., Stephens, M., & Pritchard, J. K. (2009). Inferring weak population structure with the assistance of sample group information. Molecular ecology resources, 9(5), 1322–1332.",
+           tags$a("https://doi.org/10.1111/j.1755-0998.2009.02591.x",
+                  href="https://doi.org/10.1111/j.1755-0998.2009.02591.x",
+                  target="_blank")),
+         p("Purcell, S., Neale, B., Todd-Brown, K., Thomas, L., Ferreira, M. A., Bender, D., Maller, J., Sklar, P., de Bakker, P. I., Daly, M. J., & Sham, P. C. (2007). PLINK: a tool set for whole-genome association and population-based linkage analyses. American journal of human genetics, 81(3), 559–575.",
+           tags$a("https://doi.org/10.1086/519795",
+                  href="https://doi.org/10.1086/519795",
+                  target="_blank")),
+         p("Bodenhofer, U., Bonatesta, E., Horejš-Kainrath, C., & Hochreiter, S. (2015). msa: an R package for multiple sequence alignment. Bioinformatics (Oxford, England), 31(24), 3997–3999.",
+           tags$a("https://doi.org/10.1093/bioinformatics/btv494",
+                  href="https://doi.org/10.1093/bioinformatics/btv494",
+                  target="_blank")),
+         p("Wright E. S. (2015). DECIPHER: harnessing local sequence context to improve protein multiple sequence alignment. BMC bioinformatics, 16, 322.",
+           tags$a("https://doi.org/10.1186/s12859-015-0749-z",
+                  href="https://doi.org/10.1186/s12859-015-0749-z",
+                  target="_blank")),
+         p("Paradis, E., & Schliep, K. (2019). ape 5.0: an environment for modern phylogenetics and evolutionary analyses in R. Bioinformatics (Oxford, England), 35(3), 526–528.",
+           tags$a("https://doi.org/10.1093/bioinformatics/bty633",
+                  href="https://doi.org/10.1093/bioinformatics/bty633",
+                  target="_blank")),
+         p("Schliep, K.P. (2011). phangorn: phylogenetic analysis in R. Bioinformatics, 27(4), 592-593.",
+           tags$a("https://doi.org/10.1093/bioinformatics/btq706",
+                  href="https://doi.org/10.1093/bioinformatics/btq706",
+                  target="_blank")),
+         p("Zhang, A., Hao, M., Yang, C., & Shi, Z. (2016). BarcodingR: an integrated r package for species identification using DNA barcodes. Methods in Ecology and Evolution, 8, 627-634.",
+           tags$a("https://doi.org/10.1111/2041-210X.12682",
+                  href="https://doi.org/10.1111/2041-210X.12682",
+                  target="_blank")),
+         p("Goudet, J. (2004). hierfstat, a package for r to compute and test hierarchical F-statistics. Molecular Ecology Notes, 5(1), 184-186.",
+           tags$a("https://doi.org/10.1111/j.1471-8286.2004.00828.x",
+                  href="https://doi.org/10.1111/j.1471-8286.2004.00828.x",
+                  target="_blank")),
+         p("Jombart, T. (2008). adegenet: a R package for the multivariate analysis of genetic markers. Bioinformatics, 24(11), 1403-1405.",
+           tags$a("https://doi.org/10.1093/bioinformatics/btn129",
+                  href="https://doi.org/10.1093/bioinformatics/btn129",
+                  target="_blank")),
+         p("Jombart, T., & Ahmed, I. (2011). adegenet 1.3-1: new tools for the analysis of genome-wide SNP data. Bioinformatics (Oxford, England), 27(21), 3070–3071.",
+           tags$a("https://doi.org/10.1093/bioinformatics/btr521",
+                  href="https://doi.org/10.1093/bioinformatics/btr521",
+                  target="_blank")),
+         p("Paradis E. (2010). pegas: an R package for population genetics with an integrated-modular approach. Bioinformatics (Oxford, England), 26(3), 419–420.",
+           tags$a("https://doi.org/10.1093/bioinformatics/btp696",
+                  href="https://doi.org/10.1093/bioinformatics/btp696",
+                  target="_blank")),
+         p("Dray, S., & Dufour, A.-B. (2007). The ade4 Package: Implementing the Duality Diagram for Ecologists. Journal of Statistical Software, 22(4), 1–20.",
+           tags$a("https://doi.org/10.18637/jss.v022.i04",
+                  href="https://doi.org/10.18637/jss.v022.i04",
+                  target="_blank")),
+         p("Gruber, B., Unmack, P. J., Berry, O. F., & Georges, A. (2018). dartr: An r package to facilitate analysis of SNP data generated from reduced representation genome sequencing. Molecular ecology resources, 18(3), 691–699.",
+           tags$a("https://doi.org/10.1111/1755-0998.12745",
+                  href="https://doi.org/10.1111/1755-0998.12745",
+                  target="_blank")),
+         p("Archer, F. I., Adams, P. E., & Schneiders, B. B. (2017). stratag: An r package for manipulating, summarizing and analysing population genetic data. Molecular ecology resources, 17(1), 5–11.",
+           tags$a("https://doi.org/10.1111/1755-0998.12559",
+                  href="https://doi.org/10.1111/1755-0998.12559",
+                  target="_blank")),
+         p("Dimitriadou, E., Hornik, K., Leisch, F., Meyer, D., & Weingessel, A. (2009). E1071: Misc Functions of the Department of Statistics (E1071), TU Wien.",
+           tags$a("https://www.researchgate.net/publication/221678005_E1071_Misc_Functions_of_the_Department_of_Statistics_E1071_TU_Wien",
+                  href="https://www.researchgate.net/publication/221678005_E1071_Misc_Functions_of_the_Department_of_Statistics_E1071_TU_Wien",
+                  target="_blank")),
+         p("Kuhn, M. (2008). Building Predictive Models in R Using the caret Package. Journal of Statistical Software, 28(5), 1–26.",
+           tags$a("https://doi.org/10.18637/jss.v028.i05",
+                  href="https://doi.org/10.18637/jss.v028.i05",
+                  target="_blank"))
+         
+      )
+      
+      do.call(tagList, p_lists)
+   })
+   
+   
+   
+   
    
    # FILE CONVERSION #
    convertedVCF <- reactiveVal(NULL)
    convertedFASTA <- reactiveVal(NULL)
    convertedCSV <- reactiveVal(NULL)
    convertedPLINK <- reactiveVal(NULL)
+   convertedBreakdown <- reactiveVal(NULL)
    
    observe({
       toggleState("ConvertFILES", !is.null(input$VCFFile) || !is.null(input$BCFFile) || !is.null(input$CSVFile) || (!is.null(input$bedFile) && !is.null(input$bimFile) && !is.null(input$famFile)))
@@ -1243,7 +1418,6 @@ server <- function(input, output, session){
    }
    
    getRefValue <- function(input) {
-      
       outputType <- output_type(input)
       
       if (outputType != "csv2") {
@@ -1251,9 +1425,7 @@ server <- function(input, output, session){
       }
       
       if (input$inputType1 == "vcf1") {
-         
          req(input$poptype_vcf)
-         
          if (input$poptype_vcf == "multiplepop") {
             req(input$multiplepop_vcf)
             return(input$multiplepop_vcf$datapath)
@@ -1261,11 +1433,8 @@ server <- function(input, output, session){
             req(input$typePop_vcf)
             return(input$typePop_vcf)
          }
-         
       } else if (input$inputType1 == "bcf1") {
-         
          req(input$poptype_bcf)
-         
          if (input$poptype_bcf == "multiplepop") {
             req(input$multiplepop_bcf)
             return(input$multiplepop_bcf$datapath)
@@ -1273,11 +1442,8 @@ server <- function(input, output, session){
             req(input$typePop_bcf)
             return(input$typePop_bcf)
          }
-         
       } else if (input$inputType1 == "plink1") {
-         
          req(input$poptype_plink)
-         
          if (input$poptype_plink == "multiplepop") {
             req(input$multiplepop_plink)
             return(input$multiplepop_plink$datapath)
@@ -1286,10 +1452,8 @@ server <- function(input, output, session){
             return(input$typePop_plink)
          }
       }
-      
       return(NULL)
    }
-   
    
    observeEvent(input$ConvertFILES, {
       req(input$ConvertFILES)
@@ -1317,15 +1481,20 @@ server <- function(input, output, session){
                ref = refValue, 
                output.dir = output.dir
                )
-            
             convertedCSV(csv_file)
-            
             output$downloadConvertedCSV <- downloadHandler(
                filename = function() { outputName },
                content = function(file) { 
                   readr::write_csv(convertedCSV(), file) 
                   }
             )
+            
+            if (!is.null(input$breakdown_vcf)) {
+               req(input$breakdown_column_vcf)
+               breakdown_results <- pop_breakdown(csv_file, input$breakdown_column_vcf)
+               convertedBreakdown(breakdown_results)
+            }
+            
          }
          
          if (outputType == "fasta") {
@@ -1379,6 +1548,12 @@ server <- function(input, output, session){
                filename = function() { outputName },
                content = function(file) { readr::write_csv(convertedCSV(), file) }
             )
+            
+            if (!is.null(input$breakdown_bcf)) {
+               req(input$breakdown_column_bcf)
+               breakdown_results <- pop_breakdown(csv_file, input$breakdown_column_bcf)
+               convertedBreakdown(breakdown_results)
+            }
          }
          
          if (outputType == "plink2") {
@@ -1415,6 +1590,11 @@ server <- function(input, output, session){
                filename = function() { outputName },
                content = function(file) { readr::write_csv(convertedCSV(), file) }
             )
+            if (!is.null(input$breakdown_plink)) {
+               req(input$breakdown_column_plink)
+               breakdown_results <- pop_breakdown(csv_file, input$breakdown_column_plink)
+               convertedBreakdown(breakdown_results)
+            }
          }
       }
       
@@ -1433,9 +1613,19 @@ server <- function(input, output, session){
       hidePageSpinner()
    })
    
+   
    output$previewTable <- DT::renderDataTable({
       req(convertedCSV())
       convertedCSV()
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 10
+   )
+   )
+   
+   output$previewTableBreakdown <- DT::renderDataTable({
+      req(convertedBreakdown())
+      convertedBreakdown()
    }, options = list(
       scrollX = TRUE,
       pageLength = 10
@@ -1462,10 +1652,89 @@ server <- function(input, output, session){
       downloadButton("downloadConvertedPLINK", "Download PLINK File")
    })
    
+   ### ForenSeq to CSV
+   convertedUAS <- reactiveVal(NULL)
+   observe({
+      shinyjs::toggleState("run_uas2csv", !is.null(input$uas_zip))
+   })
+   
+   
+   output$exampleXLSX <- renderTable({
+      data.frame(
+         Sample.Name = c("sample1","sample1", "sample1", "sample1", "sample1", "sample1", "sample2", "sample3", "sample3", "sample3", "..."),
+         Locus = c("rs01", "rs01", "rs02", "rs02", "rs02", "rs03", "rs01", "rs01", "rs02", "rs03", "..."),
+         Allele = c("A", "T", "C", "A", "G", "T", "A", "T", "G", "A", "...")
+      )
+   })
+   
+   
+   temp_dir <- tempdir()
+   
+   observeEvent(input$run_uas2csv, {
+      req(input$uas_zip)
+      showPageSpinner()
+      #Sys.sleep(1.5)
+      disable("run_uas2csv")
+      
+      input_path <- file.path(temp_dir, input$uas_zip$name)
+      file.copy(input$uas_zip$datapath, input_path, overwrite = TRUE)
+      
+      # Handle optional reference input
+      ref_value <- NULL
+      use_reference <- FALSE
+      
+      if (!is.null(input$ref_file)) {
+         ref_value <- input$ref_file$datapath
+         use_reference <- TRUE
+      }
+      
+      withProgress(message = "Converting file...", value = 0, {
+         tryCatch({
+            widened.file <- uas_to_csv(files = input_path,
+                                       population = ref_value,
+                                       reference = use_reference,
+                                       dir = temp_dir)
+            convertedUAS(widened.file)
+            
+            enable("run_uas2csv")
+            showNotification("Conversion complete!", type = "message")
+            
+         }, error = function(e) {
+            showNotification(paste("Error:", e$message), type = "error")
+            enable("run_uas2csv")
+         })
+      })
+      hidePageSpinner()
+   }) # end of observe Event
+   
+   outputName <- "merged_typed_data.csv"
+   
+   output$downloadUAScsv <- downloadHandler(
+      filename = function() {
+         outputName
+      },
+      content = function(file) {
+         readr::write_csv(convertedUAS(), file)
+      }
+   )
+   
+   
+   output$downloadUAScsv_UI <- renderUI({
+      req(convertedUAS())
+      downloadButton("downloadUAScsv", "Download CSV File")
+   })
+   
+   output$previewTableUAS <- DT::renderDataTable({
+      req(convertedUAS())
+      convertedUAS()
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 10
+   )
+   )
    
    
    ### For SNIPPER
-   
    output$exampleTableSnipper <- renderTable({
       data.frame(
          Ind = c("sample1", "sample2", "sample3", "sample4", "..."),
@@ -1562,89 +1831,8 @@ server <- function(input, output, session){
       pageLength = 10
    )
    )
-   
-   
-   ### UAS to CSV
-   convertedUAS <- reactiveVal(NULL)
-   
-   output$exampleXLSX <- renderTable({
-      data.frame(
-         Sample.Name = c("sample1","sample1", "sample1", "sample1", "sample1", "sample1", "sample2", "sample3", "sample3", "sample3", "..."),
-         Locus = c("rs01", "rs01", "rs02", "rs02", "rs02", "rs03", "rs01", "rs01", "rs02", "rs03", "..."),
-         Allele = c("A", "T", "C", "A", "G", "T", "A", "T", "G", "A", "...")
-      )
-   })
-   
-   observe({
-      zip_ready <- !is.null(input$uas_zip)
-      shinyjs::toggleState("run_uas2csv", condition = zip_ready)
-   })
-   
-   temp_dir <- tempdir()
-   
-   observeEvent(input$run_uas2csv, {
-      req(input$uas_zip)
-      
-      showPageSpinner()
-      Sys.sleep(1.5)
-      
-      disable("run_uas2csv")
-      
-      input_path <- file.path(temp_dir, input$uas_zip$name)
-      file.copy(input$uas_zip$datapath, input_path, overwrite = TRUE)
-      
-      # Handle optional reference input
-      ref_value <- NULL
-      use_reference <- FALSE
-      
-      if (!is.null(input$ref_file)) {
-         ref_value <- input$ref_file$datapath
-         use_reference <- TRUE
-      }
-      
-      withProgress(message = "Converting file...", value = 0, {
-         tryCatch({
-            widened.file <- uas_to_csv(files = input_path,
-                                       population = ref_value,
-                                       reference = use_reference,
-                                       dir = temp_dir)
-            convertedUAS(widened.file)
-            
-            enable("run_uas2csv")
-            showNotification("Conversion complete!", type = "message")
-            
-         }, error = function(e) {
-            showNotification(paste("Error:", e$message), type = "error")
-            enable("run_uas2csv")
-         })
-      })
-      hidePageSpinner()
-   }) # end of observe Event
-   
-   outputName <- "01_merged_typed_data.csv"
-   
-   output$downloadUAScsv <- downloadHandler(
-      filename = function() {
-         outputName
-      },
-      content = function(file) {
-         readr::write_csv(convertedUAS(), file)
-      }
-   )
-   
-   output$previewTableUAS <- DT::renderDataTable({
-      req(convertedUAS())
-      convertedUAS()
-   }, options = list(
-      scrollX = TRUE,
-      pageLength = 10
-   )
-   )
-   
+  
    # CSV TO STR #
-   shinyjs::disable("downloadrevised")
-   shinyjs::disable("downloadSTRfile")
-   
    observe({
       toggleState("csv2str", !is.null(input$tostrFile) && !is.null(input$systemFile))
    })
@@ -1658,8 +1846,6 @@ server <- function(input, output, session){
       Sys.sleep(1.5)
       
       disable("csv2str")
-      shinyjs::disable("downloadrevised")
-      shinyjs::disable("downloadSTRfile")
       
       withProgress(message = "Analyzing files...", value = 0, {
          tryCatch({
@@ -1673,20 +1859,13 @@ server <- function(input, output, session){
             directory <- tempdir()
             str_path <- revise_structure_file(strconvert(), directory, system = input$systemFile)
             str_file(str_path)
-            
-            shinyjs::enable("downloadrevised")
-            shinyjs::enable("downloadSTRfile")
-            
          }, error = function(e) {
             showNotification(paste("Error during STRUCTURE conversion", e$message), type = "error", duration = 20)
          }, finally = {
             enable("csv2str")
          }) # end of try catch 
       })
-      shinyjs::enable("downloadrevised")
-      shinyjs::enable("downloadSTRfile")
       shinyjs::enable("csv2str")
-      
       hidePageSpinner()
    })
    
@@ -1718,6 +1897,16 @@ server <- function(input, output, session){
          file.copy(str_file(), file) # double check if reactive object works
       }
    )
+   
+   output$downloadrevised_UI <- renderUI({
+      req(csv_revised())
+      downloadButton("downloadrevised", "Download Revised CSV File")
+   })
+   
+   output$downloadSTRfile_UI <- renderUI({
+      req(str_file())
+      downloadButton("downloadSTRfile", "Download .str File")
+   })
    
    ## Concordance Analysis
    observe({
@@ -1790,6 +1979,17 @@ server <- function(input, output, session){
          
       }, contentType = "image/png"
    )
+   
+   output$downloadConcordance_UI <- renderUI({
+      req(concordanceResult())
+      downloadButton("downloadConcordance", "Download Concordance Results")
+   })
+   
+   output$downloadConcordancePlot_UI <- renderUI({
+      req(concordancePlotPath())
+      downloadButton("downloadConcordancePlot", "Download Concordance Plot")
+   })
+   
    
    ## MARKER EXTRACTION
    output$exampleRSID <- renderTable({
@@ -1898,7 +2098,6 @@ server <- function(input, output, session){
             extracted_file(extracted_markers)
             showNotification("VCF file successfully extracted and ready for download!", type = "message")
             enable("extractBtn")
-            shinyjs::enable("downloadExtracted")
          }, error = function(e) {
             showNotification(paste("Error:", e$message), type = "error")
             enable("extractBtn")
@@ -1915,12 +2114,14 @@ server <- function(input, output, session){
       contentType = "text/vcf"
    )
    
+   output$downloadExtracted_UI <- renderUI({
+      req(extracted_file())
+      downloadButton("downloadExtracted", "Download Extracted Markers (VCF)")
+   })
+   
    #############
    # Filtering #
    #############
-   shinyjs::disable("downloadDepthPlots")
-   shinyjs::disable("downloadFilteredFile")
-   
    # enable run button only if there's input files and at least one filter
    observe({
       hasFile <- !is.null(input$forFilter)
@@ -1938,9 +2139,6 @@ server <- function(input, output, session){
    
    # reset buttons with new file
    observeEvent(input$forFilter, {
-      shinyjs::disable("downloadDepthPlots")
-      shinyjs::disable("downloadFilteredFile")
-      
       ext <- tools::file_ext(input$forFilter$name)
       if (tolower(ext) == "vcf"){
          shinyjs::enable("enableDp")
@@ -1974,14 +2172,13 @@ server <- function(input, output, session){
             palette = palette
          )
          depth_outputs(dp)
-         shinyjs::enable("downloadDepthPlots")
       }
       
       # Revised 14 November 2025 to first convert files to PLINK before filtering
       input_file <- convert_to_plink(input$forFilter$datapath, temp_dir)
       
       # for plink filtering
-      plink_cmds <- c("plink", "--bfile", shQuote(input_file), "--out", file.path(temp_dir, "filtered"))
+      plink_cmds <- c("plink", "--bfile", shQuote(paste(temp_dir, "converted_to_plink")), "--out", file.path(temp_dir, "filtered"))
       
       if (input$filterIndiv){
          plink_cmds <- c(plink_cmds, "--mind", input$mindThresh)
@@ -2050,55 +2247,73 @@ server <- function(input, output, session){
       }
    )
    
+   output$downloadDepthMarkerPlot <- downloadHandler(
+      filename = function() {
+         "Depth_marker.png"
+      },
+      content = function(file) {
+         req(depth_outputs())
+         file.copy(depth_outputs()$plot_marker, file)
+      }
+   )
+   
+   output$downloadDepthSamplePlot <- downloadHandler(
+      filename = function() {
+         "Depth_samples.png"
+      },
+      content = function(file) {
+         req(depth_outputs())
+         file.copy(depth_outputs()$plot_sample, file)
+      }
+   )
+   
+   output$depthMarkerPlot_UI <- renderUI({
+      req(depth_outputs()$plot_marker)
+      downloadButton("downloadDepthMarkerPlot", "Download Marker Depth Plot")
+   })
+   
+   output$depthSamplePlot_UI <- renderUI({
+      req(depth_outputs()$plot_sample)
+      downloadButton("downloadDepthSamplePlot", "Download Sample Depth Plot")
+   })
+   
+   output$downloadFilteredFile_UI <- renderUI({
+      req(filtered_plink_file())
+      downloadButton("downloadFilteredFile", "Download Filtered File")
+   })
+   
    #######
    # MSA #
    #######
-   
-   shinyjs::disable("downloadAlignedFASTA")
-   shinyjs::disable("downloadAlignmentScores")
-   shinyjs::disable("downloadAlignmentPDF")
-   shinyjs::disable("downloadTree")
-   shinyjs::disable("downloadAll")
-   
+
    fasta_data <- reactiveVal(NULL)
-   aligned_data <- reactiveVal(NULL)
+   alignment_msa <- reactiveVal(NULL)
    alignment_scores <- reactiveVal(NULL)
-   alignment_pdf <- reactiveVal(NULL)
    alignment_adjusted <- reactiveVal(NULL)
    alignment_staggered <- reactiveVal(NULL)
    directory <- tempdir()
-   
-   observeEvent(input$fastaFILE, {
-      shinyjs::disable("downloadAlignedFASTA")
-      shinyjs::disable("downloadAlignmentScores")
-      shinyjs::disable("downloadAlignmentPDF")
-   })
    
    observeEvent(input$runMSA, {
       req(input$fastaFile)
       showPageSpinner()
       Sys.sleep(1.5)
+      fasta <- read_fasta(input$fastaFile$datapath, directory)
+      fasta_data(fasta)
+
+      aligned <- calc_msa(fasta, 
+                             algorithm = input$substitutionMatrix)
       
-      fasta_data(read_fasta(input$fastaFile$datapath, directory = directory))
-      aligned <- msa_results(fasta_data(), algorithm = input$substitutionMatrix, directory = directory)
-      aligned_data(aligned$alignment)
+      alignment_msa(aligned$alignment)
       alignment_scores(aligned$scores)
-      alignment_pdf(aligned$pdf)
-      alignment_adjusted(aligned$aligned_adjusted)
-      alignment_staggered(aligned$aligned_staggered)
+      alignment_adjusted(aligned$adjusted)
+      alignment_staggered(aligned$staggered)
       
-      shinyjs::enable("downloadAlignedFASTA")
-      shinyjs::enable("downloadAlignmentScores")
-      shinyjs::enable("downloadAlignmentPDF")
       hidePageSpinner()
    }) # end of observe event for run msa
    
-   output$initialAlignmentText <- renderPrint({
-      req(aligned_data())
-      aligned_data()
-      #aligned <- aligned_data()
-      #withMathJax(HTML(msa::msaPrettyPrint(aligned, output="asis", showNames = "left", showLogo = "none",
-      #               shadingMode = "similar", showLegend = FALSE, shadingColors = "blues", askForOverwrite = FALSE)))
+   output$msaView <- msaR::renderMsaR({
+      req(alignment_msa())
+      msaR::msaR(alignment_msa())
    })
    
    output$adjustedAlignmentText <- renderPrint({
@@ -2116,16 +2331,17 @@ server <- function(input, output, session){
       alignment_scores()
    })
    
+   
    # Changed writeLines to seqinr::write.fasta
    # 20 Nov 2025 used bios2mds to download msa to fasta
    output$downloadAlignedFASTA <- downloadHandler(
       filename = function() {paste0("aligned", input$msaDownloadType, "_sequence.fasta")},
       content = function(file){
          alignment <- switch(input$msaDownloadType,
-                             initial = aligned_data(),
+                             initial = alignment_msa(),
                              adjusted = alignment_adjusted(),
                              staggered = alignment_staggered())
-         req(alignment) 
+
          #writeLines(utils::capture.output(print(alignment)), file)
          #seqinr::write.fasta(sequences = as.list(alignment), names = getSequence(alignment), file.out = filename)
          aligned <- msa::msaConvert(alignment, "bios2mds::align")
@@ -2143,15 +2359,38 @@ server <- function(input, output, session){
    #filename3 <- paste0(directory, "/aligned_seqs.pdf")
    
    output$downloadAlignmentPDF <- downloadHandler(
-      filename = function(){#"aligned_seqs.pdf"
-         file.path(paste0(directory, "aligned_seqs.pdf"))
+      filename = function(){
+         "aligned_seqs.pdf"
       },
+      contentType = "application/pdf",
       content = function(file){
-         req(alignment_pdf())
-         file.copy(alignment_pdf(), file)
+         alignment <- switch(input$msaDownloadType,
+                             initial = alignment_msa(),
+                             adjusted = alignment_adjusted(),
+                             staggered = alignment_staggered())
+         
+         pdf_name = "aligned_seqs.pdf"
+         msa::msaPrettyPrint(alignment, file = pdf_name,
+                             output="pdf", showNames= "left", showLogo = "none", askForOverwrite = FALSE)
+         file.copy(pdf_name, file, overwrite = TRUE)
+         
       }
    )
    
+   
+   output$downloadAlignedFASTA_UI <- renderUI({
+      alignment <- switch(input$msaDownloadType,
+                          initial = alignment_msa(),
+                          adjusted = alignment_adjusted(),
+                          staggered = alignment_staggered())
+      req(alignment)
+      downloadButton("downloadAlignedFASTA", "Download Aligned Sequences")
+   })
+   output$downloadAlignmentScores_UI <- renderUI({
+      req(alignment_scores())
+      downloadButton("downloadAlignmentScores", "Download Alignment Scores")
+   })
+
    
    # Phylogenetic Tree Construction
    tree_plot <- reactiveVal(NULL)
@@ -2201,9 +2440,7 @@ server <- function(input, output, session){
                tree_model(results$best_model)
             }
             showNotification("Tree construction complete.", type = "message")
-            
-            shinyjs::enable("downloadTree")
-            shinyjs::enable("downloadAll")
+
          },error = function(e){
             showNotification(paste("Error during tree construction:", e$message), type = "error", duration = 20)
          }) # end of try catch
@@ -2264,7 +2501,23 @@ server <- function(input, output, session){
       }
    )
    
+   
+   output$downloadTree_UI <- renderUI({
+      req(tree_plot()) || req(tree_path())
+      downloadButton("downloadTree", "Download Phylogenetic Tree")
+   })
+   
+   output$downloadAll_UI <- renderUI({
+      req(tree_plot()) || req(tree_path())
+      downloadButton("downloadAll", "Download All Outputs")
+   })
+
+   
    # BARCODING
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(rphast, BarcodingR, install = TRUE)
    
    # Species identification
    observe({ 
@@ -2371,6 +2624,11 @@ server <- function(input, output, session){
       }, contentType = "image/png"
    )
    
+   output$downloadKmerPlot_UI <- renderUI({
+      req(kmerFile())
+      downloadButton("downloadKmerPlot", "Download Kmer Plot")
+   })
+   
    # barcoding gap
    observe({
       gapReady <- !is.null(input$barcodeRef)
@@ -2418,6 +2676,10 @@ server <- function(input, output, session){
       }, contentType = "image/png"
    )
    
+   output$downloadGapPlot_UI <- renderUI({
+      req(refBarcode())
+      downloadButton("downloadGapPlot", "Download Gap Plot")
+   })
    
    # barcodes eval
    observe({ 
@@ -2690,6 +2952,10 @@ server <- function(input, output, session){
       }
    )
    
+   output$downloadHeterozygosityPlot_UI <- renderUI({
+      downloadButton("downloadHeterozygosityPlot", "Download Heterozygosity Plot")
+   })
+   
    output$downloadFstHeatmap <- downloadHandler(
       filename = function() {
          "fst_heatmap.png"
@@ -2702,6 +2968,10 @@ server <- function(input, output, session){
          file.copy(plot_path, file)
       }
    )
+   
+   output$downloadFstHeatmap_UI <- renderUI({
+      downloadButton("downloadFstHeatmap", "Download Fst Plot")
+   })
    
    ## download all results
    output$downloadStatsXLSX <- downloadHandler(
@@ -2718,6 +2988,10 @@ server <- function(input, output, session){
       }
    )
    
+   output$downloadStatsXLSX_UI <- renderUI({
+      req(statsMatrix(), hwMatrix(), fstMatrix(), privAlleles())
+      downloadButton("downloadStatsXLSX", "Download Results (excel)")
+   })
    
    # PCA
    output$examplePCA <- renderTable({
@@ -3060,6 +3334,11 @@ server <- function(input, output, session){
          openxlsx::write.xlsx(datasets, file = file)
       }
    )
+   
+   output$downloadClassification_UI <- renderUI({
+      req(predResults())
+      downloadButton("downloadClassification", "Download Results")
+   })
 }
 
 shinyApp(ui, server)
