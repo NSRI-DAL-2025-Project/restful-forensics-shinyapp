@@ -24,7 +24,7 @@ ui <- dashboardPage(
       width = 300,
 
       sidebarMenu(
-         menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
+         menuItem("Homepage", tabName = "dashboard", icon = icon("dashboard")),
          menuItem("Data Pre-processing", tabName = "DataPreProcess", icon = icon("gears"), startExpanded = TRUE,
                   menuSubItem("🔄 File Conversion", tabName = "FileConv"),
                   menuSubItem("🧬 SNP Extraction", tabName = "markerExtract"),
@@ -229,8 +229,8 @@ ui <- dashboardPage(
                                    tabPanel("Instructions", 
                                             h4("This tab intercqonverts common genetic files and to CSV with population information."),
                                             p(strong("Input file/s:")),
-                                            p("Required: VCF, BCF, or PLINK (.bed, .bim, .fam) files."),
-                                            p(strong("Optional input files:")),
+                                            p("Required: VCF, BCF, or PLINK (.bed, .bim, .fam) files. It also accepts zipped files as long as it contains the same file type."),
+                                            p("Optional input files:"),
                                             tags$ul(
                                                tags$li("(to CSV) XLSX/CSV/TXT file containing metadata. All columns will be merged to the genotype data. Remove unnecessary columns before running 'Convert'."),
                                                tags$li("(to CSV) Single-line text indicating the 'Column name' to be used as basis for the calculation of population breakdown."),
@@ -243,14 +243,18 @@ ui <- dashboardPage(
                                    tabPanel("Sample Input Format/s", 
                                             h4("To convert to a CSV file with population metadata:"),
                                             h4("This is a sample reference file. Only the first two columns are used."),
-                                            tableOutput("exampleRefCSV"),
+                                            DT::dataTableOutput("ExampleRefFile"),
+                                            #tableOutput("exampleRefCSV"),
                                             br(),
                                             h4("For CSV to VCF conversion, a separate file on marker information is needed."),
                                             h4("See the following formats:"),
                                             h4("Required CSV format:"),
-                                            tableOutput("exampleCSVFile"),
+                                            DT::dataTableOutput("ExampleCSVFormat"),
+                                            #tableOutput("exampleCSVFile"),
                                             h4("Required marker info format:"),
-                                            tableOutput("exampleMarkerInfo")
+                                            DT::dataTableOutput("markerInfoFormat")
+                                            #tableOutput("exampleMarkerInfo")
+                                              
                                    ),
                                    tabPanel("Download Sample Files", 
                                             tags$a("A. Sample VCF", href="www/sample_hgdp.vcf"),
@@ -278,7 +282,7 @@ ui <- dashboardPage(
                                       uiOutput("downloadPLINK_UI")
                                    ),
                                    tabPanel(
-                                      title = "View Population Breakdown",
+                                      title = "(to CSV) View Population Breakdown",
                                       div(
                                          style = "overflow-x: auto;",
                                          DT::dataTableOutput("previewTableBreakdown") %>% shinycssloaders::withSpinner(color = "blue")
@@ -449,7 +453,9 @@ ui <- dashboardPage(
                                       condition = "input.inputFileType == 'PLINK'",
                                       fileInput("bedFile", "PLINK BED file"),
                                       fileInput("bimFile", "PLINK BIM file"),
-                                      fileInput("famFile", "PLINK FAM file")
+                                      fileInput("famFile", "PLINK FAM file"),
+                                      helpText("If multiple PLINK files will be used, upload as a zipped file."),
+                                      fileInput("zippedPLINK", "Zipped PLINK Files")
                                    ),
                                    
                                    radioButtons("markerType", "B. Choose Marker Type",
@@ -488,9 +494,9 @@ ui <- dashboardPage(
                                             p("(2) Markers/position list — you may type rsIDs manually, upload a list, or use a POS txt file."),
                                             p("The position list (txt file) should include:"),
                                             tags$ul(
-                                               tags$li("[1] Chromosome number (integer)"),
-                                               tags$li("[2] Starting base-pair position (integer)"),
-                                               tags$li("[3] Final base-pair position (integer)")
+                                               tags$li("[1] rsID/marker name"),
+                                               tags$li("[2] Chromosome number (integer)"),
+                                               tags$li("[3] Position in GRCh37 or GRCh38 (integer)")
                                             ),
                                             p(strong("Parameter/s:"), "Filtering options"),
                                             p(strong("Expected output file/s:"), "VCF file")
@@ -1000,34 +1006,10 @@ ui <- dashboardPage(
                     ),
                     tabBox(
                        tabPanel("Instructions",
-                                p("Calculation of common population statistics:"),
-                                tags$ul(
-                                   tags$li("Private alleles [1] calculated using the poppr R package"),
-                                   tags$li("Mean Allelic Richness [2] using the hierfstat R package"),
-                                   tags$li("Heterozygosity [3] using the hierfstat R package"),
-                                   tags$li("Inbreeding Coefficient [4] using the hierfstat R package"),
-                                   tags$li("Allele frequency [5] using the adegenet R package"),
-                                   tags$li("Hardy-Weinberg equilibrium [6] using the pegas R package"),
-                                   tags$li("FST values [7] using the hierfstat R package")
-                                ),
-                                br(),
-                                p(strong("Input file:"), "CSV or XLSX file"),
-                                p(strong("Expected output files:")),
-                                tags$ul(
-                                   tags$li("XLSX file with all results"),
-                                   tags$li("Heterozygosity Plot"),
-                                   tags$li("Fst Plots")
-                                ),
-                                br(),
-                                h5("To learn more about the statistics:"),
-                                h5("References"),
-                                p("[1] Petit, R.J., El Mousadik, A., and Pons, O. (1998). Identifying populations for conservation on the basis of genetic markers. Conservation Biology, 12:844-855"),
-                                p("[2] Foulley, J.F., and Ollivier, L. (2005). Estimating allelic richness and its diversity. Livestock Science, 101:150-158. https://doi.org/10.1016/j.livprodsci.2005.10.021"),
-                                p("[3] Nei, M. (1978). Estimation of average heterozygosity and genetic distance from a small number of individuals. Genetics:89:583-590. https://doi.org/10.1093/genetics/89.3.583"),
-                                p("[4] Rousset, F. (2002). Inbreeding and relatedness coefficients: what do they measure? Heredity, 88:371-380."),
-                                p("[5] Rezaei, N., and Hedayat, M. (2013). Allele Frequency. Brenner's Encyclopedia of Genetics (Second Edition). https://doi.org/10.1016/B978-0-12-374984-0.00032-2"),
-                                p("[6] Tiret, L., and Cambien, F. (1995). Departure from Hardy-Weinberg equilibrium should be systematically tested in studies of association between genetic markers and disease. Circulation, 92(11):3364-3365."),
-                                p("[7] Weir, B.S., and Cockerham, C.C. (1984). Estimating F-statistics for the analysis of population structure. Evolution; International Journal of Organic Evolution, 38(6): 1358-1370. https://doi.org/10.1111/j.1558-5646.1984.tb05657.x")
+                                div(
+                                   style = "height: 40vh; overflow-y:scroll;",
+                                   uiOutput("popstatRef")
+                                )
                        ),
                        tabPanel("Sample Input Format/s",
                                 h4("Example: Population File Format"),
@@ -1175,7 +1157,7 @@ ui <- dashboardPage(
                #side = "right",
                tabPanel("References",
                         div(
-                          style = "height: 70vh; overflow-y:scroll;",
+                          style = "height: 50vh; overflow-y:scroll;",
                           uiOutput("referenceTexts")
                         )
                )
@@ -1190,7 +1172,8 @@ ui <- dashboardPage(
                   width = 6,
                   height = "250px",
                   #h3("Background"),
-                  p("The", strong("restFUL forensics"), "toolkit is an output of the project", strong("Development and validation of an automated web-based tool for efficient genomic marker extraction to assist in genomic research"))
+                  p("The", strong("restFUL forensics"), "toolkit is an output of the project", strong("Development and validation of an automated web-based tool for efficient genomic marker extraction to assist in genomic research.")),
+                  p("This is based on the preliminary work on ancestry marker analysis at the DNA Analysis Laboratory.")
                ),
                tabBox(
                   title = tagList(icon("people-line"), "Authors"),
@@ -1220,7 +1203,7 @@ ui <- dashboardPage(
                   width = 6,
                   height = "250px",
                   h4(strong("Project Leader: "), "nasoliven@up.edu.ph"),
-                  h4("Location: Miranda Hall, Natural Sciences Research Institute, University of the Philippines Diliman, Quezon City, Philippines")
+                  h4(strong("Location:"), "Miranda Hall, Natural Sciences Research Institute, University of the Philippines Diliman, Quezon City, Philippines")
                       )
             )
          ) 
@@ -1359,7 +1342,41 @@ server <- function(input, output, session){
       do.call(tagList, p_lists)
    })
    
-   
+   output$popstatRef <- renderUI({
+      p_lists <- list(
+         p("Calculation of common population statistics:"),
+         tags$ul(
+            tags$li("Private alleles [1] calculated using the poppr R package"),
+            tags$li("Mean Allelic Richness [2] using the hierfstat R package"),
+            tags$li("Heterozygosity [3] using the hierfstat R package"),
+            tags$li("Inbreeding Coefficient [4] using the hierfstat R package"),
+            tags$li("Allele frequency [5] using the adegenet R package"),
+            tags$li("Hardy-Weinberg equilibrium [6] using the pegas R package"),
+            tags$li("FST values [7] using the hierfstat R package")
+         ),
+         br(),
+         p(strong("Input file:"), "CSV or XLSX file"),
+         p(strong("Expected output files:")),
+         tags$ul(
+            tags$li("XLSX file with all results"),
+            tags$li("Heterozygosity Plot"),
+            tags$li("Fst Plots")
+         ),
+         br(),
+         h5("To learn more about the statistics:"),
+         h5("References"),
+         p("[1] Petit, R.J., El Mousadik, A., and Pons, O. (1998). Identifying populations for conservation on the basis of genetic markers. Conservation Biology, 12:844-855"),
+         p("[2] Foulley, J.F., and Ollivier, L. (2005). Estimating allelic richness and its diversity. Livestock Science, 101:150-158. https://doi.org/10.1016/j.livprodsci.2005.10.021"),
+         p("[3] Nei, M. (1978). Estimation of average heterozygosity and genetic distance from a small number of individuals. Genetics:89:583-590. https://doi.org/10.1093/genetics/89.3.583"),
+         p("[4] Rousset, F. (2002). Inbreeding and relatedness coefficients: what do they measure? Heredity, 88:371-380."),
+         p("[5] Rezaei, N., and Hedayat, M. (2013). Allele Frequency. Brenner's Encyclopedia of Genetics (Second Edition). https://doi.org/10.1016/B978-0-12-374984-0.00032-2"),
+         p("[6] Tiret, L., and Cambien, F. (1995). Departure from Hardy-Weinberg equilibrium should be systematically tested in studies of association between genetic markers and disease. Circulation, 92(11):3364-3365."),
+         p("[7] Weir, B.S., and Cockerham, C.C. (1984). Estimating F-statistics for the analysis of population structure. Evolution; International Journal of Organic Evolution, 38(6): 1358-1370. https://doi.org/10.1111/j.1558-5646.1984.tb05657.x")
+         
+      )
+      
+      do.call(tagList, p_lists)
+   })
    
    
    
@@ -1374,26 +1391,20 @@ server <- function(input, output, session){
       toggleState("ConvertFILES", !is.null(input$VCFFile) || !is.null(input$BCFFile) || !is.null(input$CSVFile) || (!is.null(input$bedFile) && !is.null(input$bimFile) && !is.null(input$famFile)))
    })
    
-   output$exampleRefCSV <- renderTable({
-      data.frame(
+   exampleRefCSV <- data.frame(
          Sample.Name = c("sample1", "sample2", "sample3", "sample4", "..."),
          Population = c("Malaysia", "Mexico", "Greece", "South Korea", "..."),
          Superpopulation = c("Southeast Asia", "North and South America", "Europe", "East Asia", "...")
       )
-   })
    
-   output$exampleCSVFile <- renderTable({
-      data.frame(
+   exampleCSVFile <- data.frame(
          Sample.Name = c("sample1", "sample2", "sample3", "sample4", "..."),
          Population = c("Malaysia", "Mexico", "Greece", "South Korea", "..."),
          rs01 = c("G/T", "G/A", "C/A", "A/A", "..."),
          rs02 = c("C/C", "C/C", "G/C", "G/G", "..." ),
          "..." = c("...", "...", "...", "...", "...")
       )
-   })
-   
-   output$exampleMarkerInfo <- renderTable({
-      data.frame(
+   marker_info_format <- data.frame(
          SNP = c("rs01", "rs02", "rs03", "rs04", "..."),
          chromosome = c("chr1", "chr4", "chr5", "chr5", "..."),
          position = c("1004", "90986", "5768", "9384982", "..."),
@@ -1401,7 +1412,33 @@ server <- function(input, output, session){
          ref_allele = c("A", "T", "G", "G", "C"),
          alt_allele = c("T", "A", "C", "C", "G")
       )
-   })
+   
+   output$ExampleRefFile <- DT::renderDataTable({
+      req(exampleRefCSV)
+      exampleRefCSV
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 5
+   )
+   )
+
+   output$ExampleCSVFormat <- DT::renderDataTable({
+      req(exampleCSVFile)
+      marker_info_format
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 5
+   )
+   )
+   
+   output$markerInfoFormat <- DT::renderDataTable({
+      req(marker_info_format)
+      marker_info_format
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 5
+   )
+   )
    
    
    output.dir <- tempdir()
@@ -1470,14 +1507,53 @@ server <- function(input, output, session){
          NULL
       }
       
+      names_text <- paste(output.dir, "list.txt")
+      merged_file <- file.path(output.dir, "merged")
       
+      #============= VCF ===============#
       if (input$inputType1 == "vcf1") {
-         req(input$VCFFile, input$VCFFile$datapath)
+         req(input$VCFFile)
+         vcf_ext <- tools::file_ext(input$VCFFile$name)
+         
+         if (vcf_ext %in% c("zip", "tar")) {
+            unpacked_files <- unpack_input_file(input$VCFFile$datapath, output.dir)
+            
+            data_list <- unpacked_files$data_files
+            all.list <- list()
+            
+            
+            # Convert each file to plink and create a list of output files
+            for (x in data_list) {
+               revised <- substr(x, 1, nchar(x)-4)
+               file_name <- convert_to_plink(x, output.dir, plink_path, name = revised)
+               plink_lines <- paste(paste0(file_name, ".bed"),
+                                    paste0(file_name, ".bim"),
+                                    paste0(file_name, ".fam"),
+                                    sep = "\t"
+               )
+               write(plink_lines, file = names_text, append = TRUE)
+            }
+            
+            # merge all the plink files
+            merged_plink <- paste(
+               shQuote(plink_path),
+               "--merge-list", shQuote(names_text),
+               "--recode vcf",
+               "--keep-allele-order",
+               "--out", shQuote(merged_file)
+            )
+            system(merged_plink)
+            
+         }
+         
+         vcf_file <- if (vcf_ext %in% c("zip", "tar")) {
+            paste(merged_file, ".vcf")
+         } else { input$VCFFile$datapath }
          
          if (outputType == "csv2") {
             
             csv_file <- vcf_to_csv(
-               input$VCFFile$datapath, 
+               vcf_file, 
                ref = refValue, 
                output.dir = output.dir
                )
@@ -1501,7 +1577,7 @@ server <- function(input, output, session){
             req(input$FASTARef)
             
             converted.file <- vcf_to_fasta(
-               input$VCFFile$datapath, 
+               vcf_file, 
                input$FASTARef$datapath,
                bcftools_path = bcftools_path, 
                output.dir = output.dir)
@@ -1514,7 +1590,7 @@ server <- function(input, output, session){
          }
          
          if (outputType == "plink2") {
-            converted.file <- convert_to_plink(input$VCFFile$datapath, output.dir = output.dir, plink_path = plink_path)
+            converted.file <- convert_to_plink(vcf_file, output.dir = output.dir, plink_path = plink_path)
             convertedPLINK(converted.file)
             output$downloadConvertedPLINK <- downloadHandler(
                filename = function() { "convertedtoPLINK.zip" },
@@ -1527,22 +1603,75 @@ server <- function(input, output, session){
          }
       }
       
-
+      #============= BCF ===============#
       if (input$inputType1 == "bcf1") {
-         req(input$BCFFile, input$BCFFile$datapath)
+         req(input$BCFFile)
+         bcf_ext <- tools::file_ext(input$VCFFile$name)
          
-         if (outputType == "vcf2") {
-            converted.file <- bcf_to_vcf(input$BCFFile$datapath, output.dir = output.dir, plink_path = plink_path)
+         if (bcf_ext %in% c("zip", "tar")) {
+            unpacked_files <- unpack_input_file(input$VCFFile$datapath, output.dir)
+            
+            data_list <- unpacked_files$data_files
+
+            # Convert each file to plink and create a list of output files
+            for (x in data_list) {
+               revised <- substr(x, 1, nchar(x)-4)
+               file_name <- convert_to_plink(x, output.dir, plink_path, name = revised)
+               plink_lines <- paste(paste0(file_name, ".bed"),
+                                    paste0(file_name, ".bim"),
+                                    paste0(file_name, ".fam"),
+                                    sep = "\t"
+               )
+               write(plink_lines, file = names_text, append = TRUE)
+            }
+            
+            # merge all the plink files
+            merged_plink <- paste(
+               shQuote(plink_path),
+               "--merge-list", shQuote(names_text),
+               "--recode vcf",
+               "--keep-allele-order",
+               "--out", shQuote(merged_file)
+            )
+            system(merged_plink)
+         }
+         
+         bcf_file <- if (bcf_ext %in% c("zip", "tar")) {
+            paste(merged_file, ".vcf")
+         } else { input$BCFFile$datapath }
+         
+         
+         if (outputType == "vcf2" & bcf_ext == "bcf") {
+            converted.file <- bcf_to_vcf(bcf_file, output.dir = output.dir, plink_path = plink_path)
             convertedVCF(converted.file)
             output$downloadConvertedVCF <- downloadHandler(
-               filename = function() { "tovcf.vcf" },
+               filename = function() { "bcftovcf.vcf" },
+               content = function(file) { file.copy(convertedVCF(), file) }
+            )
+         } else if (outputType == "vcf2" & bcf_ext != "bcf"){
+            convertedVCF(bcf_file)
+            output$downloadConvertedVCF <- downloadHandler(
+               filename = function() { "bcftovcf.vcf" },
                content = function(file) { file.copy(convertedVCF(), file) }
             )
          }
          
-         if (outputType == "csv2") {
-            file2 <- bcf_to_vcf(input$BCFFile$datapath, output.dir = output.dir)
+         if (outputType == "csv2" & bcf_ext == "bcf") {
+            file2 <- bcf_to_vcf(bcf_file, output.dir = output.dir)
             csv_file <- vcf_to_csv(file2, ref = refValue, output.dir = output.dir)
+            convertedCSV(csv_file)
+            output$downloadConvertedCSV <- downloadHandler(
+               filename = function() { outputName },
+               content = function(file) { readr::write_csv(convertedCSV(), file) }
+            )
+            
+            if (!is.null(input$breakdown_bcf)) {
+               req(input$breakdown_column_bcf)
+               breakdown_results <- pop_breakdown(csv_file, input$breakdown_column_bcf)
+               convertedBreakdown(breakdown_results)
+            }
+         } else if (outputType == "csv2" & bcf_ext != "bcf") {
+            csv_file <- vcf_to_csv(bcf_file, ref = refValue, output.dir = output.dir)
             convertedCSV(csv_file)
             output$downloadConvertedCSV <- downloadHandler(
                filename = function() { outputName },
@@ -1557,8 +1686,9 @@ server <- function(input, output, session){
          }
          
          if (outputType == "plink2") {
-            converted.file <- convert_to_plink(input$BCFFile$datapath, output.dir = output.dir, plink_path = plink_path)
+            converted.file <- convert_to_plink(bcf_file, output.dir = output.dir, plink_path = plink_path)
             convertedPLINK(converted.file)
+            
             output$downloadConvertedPLINK <- downloadHandler(
                filename = function() { "convertedtoPLINK.zip" },
                content = function(file) {
@@ -1570,11 +1700,47 @@ server <- function(input, output, session){
          }
       }
       
+      #============= PLINK ===============#
       if (input$inputType1 == "plink1") {
-         req(input$bedFile, input$bimFile, input$famFile)
+         req((input$bedFile & input$bimFile & input$famFile) || input$zippedPLINK)
+         
+         if (!is.null(input$zippedPLINK)) {
+            zipped_files <- unpack_input_file(input$zippedPLINK$datapath)
+            file_names <- zipped_files$data_files
+            
+            for (x in file_names) {
+               revised <- substr(x, 1, nchar(x)-4)
+               plink_lines <- paste(paste0(revised, ".bed"),
+                                    paste0(revised, ".bim"),
+                                    paste0(revised, ".fam"),
+                                    sep = "\t"
+               )
+               write(plink_lines, file = names_text, append = TRUE)
+            }
+            
+            # merge all the plink files
+            merged_plink <- paste(
+               shQuote(plink_path),
+               "--merge-list", shQuote(names_text),
+               "--make-bed",
+               "--out", shQuote(merged_file)
+            )
+            system(merged_plink)
+         }
+         
+         if (!is.null(input$zippedPLINK)) {
+            bed_file <- paste(merged_file, ".bed")
+            bim_file <- paste(merged_file, ".bim")
+            fam_file <- paste(merged_file, ".fam")
+         } else { 
+            bed_file <- input$bedFile$datapath
+            bim_file <- input$bimFile$datapath
+            fam_file <- input$famFile$datapath
+            }
+         
+         converted.file <- plink_to_vcf(bed_file, bim_file, fam_file, output.dir = output.dir)
          
          if (outputType == "vcf2") {
-            converted.file <- plink_to_vcf(input$bedFile$datapath, input$bimFile$datapath, input$famFile$datapath, output.dir = output.dir)
             convertedVCF(converted.file)
             output$downloadConvertedVCF <- downloadHandler(
                filename = function() { "tovcf.vcf" },
@@ -1583,8 +1749,7 @@ server <- function(input, output, session){
          }
          
          if (outputType == "csv2") {
-            file2 <- plink_to_vcf(input$bedFile$datapath, input$bimFile$datapath, input$famFile$datapath, output.dir = output.dir)
-            csv_file <- vcf_to_csv(file2, ref = refValue, output.dir = output.dir)
+            csv_file <- vcf_to_csv(converted.file, ref = refValue, output.dir = output.dir)
             convertedCSV(csv_file)
             output$downloadConvertedCSV <- downloadHandler(
                filename = function() { outputName },
@@ -1598,9 +1763,28 @@ server <- function(input, output, session){
          }
       }
       
+      #============= CSV ===============#
       if (input$inputType1 == "csv1") {
          req(input$CSVFile, input$lociMetaFile)
-         file2 <- csv_to_gentibble(input$CSVFile$datapath, loci.meta = input$lociMetaFile$datapath)
+         csv_ext <- tools::file_ext(input$CSVFile$name)
+         
+         if (csv_ext %in% c("zip", "tar")){
+            unpacked_files <- unpack_input_file(input$CSVFile$datapath, output.dir)
+            file_names <- unpacked_files$data_files
+            all.list <- list()
+            
+            for (x in file_names) {
+               all.list[[x]] = load_csv_xlsx_files(x)
+            }
+            
+            csv_merged <- data.table::rbindlist(all.list, fill = TRUE)
+         }
+         
+         csv_file <- if (csv_ext %in% c("zip", "tar")){
+            csv_merged
+         } else {input$CSVFile$datapath}
+         
+         file2 <- csv_to_gentibble(csv_file, loci.meta = input$lociMetaFile$datapath)
          converted.file <- tidypopgen::gt_as_vcf(file2, file = "tovcf.vcf")
          convertedVCF(converted.file)
          output$downloadConvertedVCF <- downloadHandler(
@@ -2514,11 +2698,7 @@ server <- function(input, output, session){
 
    
    # BARCODING
-   if(!require("pacman")) {
-      install.packages("pacman")
-   }
-   pacman::p_load(rphast, BarcodingR, install = TRUE)
-   
+
    # Species identification
    observe({ 
       refReady = !is.null(input$refBarcoding)

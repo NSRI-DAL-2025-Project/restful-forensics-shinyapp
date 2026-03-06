@@ -8,7 +8,7 @@ unpack_input_file <- function(files, output.dir = output.dir){
    if(!require("pacman")) {
       install.packages("pacman")
    }
-   pacman::p_load(tools, utils, install = TRUE)
+   pacman::p_load(tools, utils, zip, install = TRUE)
    
    if(!file.exists(files)){
       stop("File does not exist in the working directory")
@@ -43,14 +43,14 @@ unpack_input_file <- function(files, output.dir = output.dir){
 # Description: Returns file path containing plink files
 #============================
 
-convert_to_plink <- function(input.file, output.dir, plink_path = plink_path) {
+convert_to_plink <- function(input.file, output.dir, plink_path = plink_path, name = "converted_to_plink") {
    if(!require("pacman")) {
       install.packages("pacman")
    }
    pacman::p_load(tools, install = TRUE)
    
    file_extension <- tools::file_ext(input.file)
-   output_file <- file.path(output.dir, "converted_to_plink")
+   output_file <- file.path(output.dir, name)
    
    if (grepl("\\.vcf\\.gz$", input.file)) {
       cmd <- paste(plink_path, "--vcf", input.file, "--make-bed --out", output_file)
@@ -348,8 +348,7 @@ uas_to_csv <- function(files = files, population = pop_file, reference = FALSE, 
       files_raw <- unpack_input_file(files, output.dir = output.dir)
    }
    
-   data_files <- files_raw$data_files
-   data_list <- data_files
+   data_list <- files_raw$data_files
    all.list <- list()
    
    for (x in data_list) {
@@ -848,7 +847,7 @@ extract_POStoID <- function(pos.list,
       "--out", shQuote(merged_file)
       )
    message("Running: ", merged_plink)
-   system(merged_file)
+   system(merged_plink)
    
    # 4. Rename rsID
    input_vcf <- paste0(merged_file, ".vcf")
