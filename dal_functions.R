@@ -218,8 +218,7 @@ vcf_to_csv <- function(files, ref = NULL, output.dir = NULL) {
    
    if (extension %in% c("vcf", "gz")){
       raw_file <- load_vcf_files(files, output.dir = output.dir)
-      raw_file <- raw_file %>%
-         rename(Sample = 1)
+      raw_file <- dplyr::rename(raw_file, Sample = 1)
    } else {
       stop("Input is not a VCF file.")
    } 
@@ -232,8 +231,7 @@ vcf_to_csv <- function(files, ref = NULL, output.dir = NULL) {
    # Merge or assign population
    if (file.exists(ref)) {
       ref_data <- load_csv_xlsx_files(ref)
-      ref_data <- ref_data %>%
-         rename(Sample = 1, Population = 2)
+      ref_data <- dplyr::rename(ref_data, Sample = 1, Population = 2)
       ref_data <- ref_data[,1:2]
       final_df <- dplyr::left_join(raw_file, ref_data, by = "Sample")
    } else if (is.character(ref)) {
@@ -250,8 +248,7 @@ vcf_to_csv <- function(files, ref = NULL, output.dir = NULL) {
    data_gt <- final_df[, 2:data_cols] #subset data
    pop <- final_df[,total_cols] # subset pop
    final_df <- bind_cols(sample, pop, data_gt)
-   final_df <- final_df %>%
-      rename(Sample = 1, Population = 2)
+   final_df <- dplyr::rename(final_df, Sample = 1, Population = 2)
    
    return(final_df)
 }
@@ -274,8 +271,7 @@ to_binary <- function(df, markers = marker.file){ # marker.file requires txt/csv
    data <- lapply(data, function(x) gsub("/", "", x, fixed = TRUE))
    data <- as.data.frame(data)
    revised_data <- data.frame(row_name, data)
-   revised_data <- revised_data %>%
-      rename(ID = 1)
+   revised_data <- dplyr::rename(revised_data, ID = 1)
    
    marker <- as.data.frame(markers)
    marker <- marker[,-c(2,3,4)]
@@ -286,8 +282,7 @@ to_binary <- function(df, markers = marker.file){ # marker.file requires txt/csv
       . == "C" ~ "CC",
       . == "G" ~ "GG",
       TRUE ~ .x)))
-   marker <- marker %>%
-      rename(ID = 1, REF = 2, ALT = 3)
+   marker <- dplyr::rename(marker, ID = 1, REF = 2, ALT = 3)
    
    df_marker <- merge(marker, revised_data, by = "ID", all.x = TRUE)
    df_marker <- df_marker %>%
@@ -312,12 +307,10 @@ csv_to_gentibble <- function(file, loci.meta = loci.meta){
    
    df <- load_csv_xlsx_files(file)
    meta <- df[,1:2]
-   meta <- meta %>%
-      rename(id = 1, population = 2)
+   meta <-  dplyr::rename(meta, id = 1, population = 2)
    
    loci_meta <- load_csv_xlsx_files(loci.meta)
-   loci_meta <- loci_meta %>%
-      rename(name = 1, chromosome = 2, position = 3, genetic_dist = 4, allele_ref = 5, allele_alt = 6)
+   loci_meta <-  dplyr::rename(loci_meta, name = 1, chromosome = 2, position = 3, genetic_dist = 4, allele_ref = 5, allele_alt = 6)
    
    geno <- to_binary(df, markers = loci_meta)
    geno <- as.matrix(geno)
@@ -389,8 +382,7 @@ uas_to_csv <- function(files = files, population = pop_file, reference = FALSE, 
       return(corrected)
    } else {
       pop_data <- load_csv_xlsx_files(population)
-      pop_data <- pop_data %>%
-         rename(Sample = 1, Population = 2)
+      pop_data <- dplyr::rename(pop_data, Sample = 1, Population = 2)
       
       matched <- corrected %>% dplyr::left_join(pop_data, by = "Sample")
       data_length <- as.integer(ncol(corrected) - 1)
@@ -412,8 +404,7 @@ convert_to_genind_str <- function(file) {
    }
    pacman::p_load(dplyr, adegenet, install = TRUE)
    
-   file <- file %>%
-      rename(Ind = 1, Pop = 2)
+   file <- dplyr::rename(file, Ind = 1, Pop = 2)
    
    names(file)[names(file) == "Ind"] <- "Ind2"
    
@@ -449,8 +440,7 @@ convert_to_genind <- function(file) {
    }
    pacman::p_load(dplyr, adegenet, install = TRUE)
    
-   file <- file %>%
-      rename(Ind = 1, Pop = 2)
+   file <- dplyr::rename(file, Ind = 1, Pop = 2)
    
    ind <- as.character(file$Ind)
    pop <- as.character(file$Pop)
@@ -486,9 +476,7 @@ clean_input_data <- function(file) {
       mutate(across(everything(), ~ case_when(
          . == "N/A" ~ "N",
          . == "NA" ~ "N",
-         TRUE ~ .x))) %>%
-      rename(Ind = 1, Pop = 2)
-   
+         TRUE ~ .x)))
    file1 <- as.data.frame(file1)
    
    return(file1)
@@ -538,14 +526,22 @@ to_snipper <- function(input,
    }
    pacman::p_load(dplyr, purrr, tools, plyr, install = TRUE)
    
-   file_extension <- tools::file_ext(input)
+   #file_extension <- tools::file_ext(input)
    
-   if (file_extension %in% c("csv", "xlsx")){
-      input.file <- load_csv_xlsx_files(input)
-   } else if (file_extension == "vcf"){
-      input.file <- load_vcf_files(input)
+   #if (file_extension %in% c("csv", "xlsx")){
+   #   input.file <- load_csv_xlsx_files(input)
+   #} else if (file_extension == "vcf"){
+   #   input.file <- load_vcf_files(input)
+   #} else if (is.data.frame(input)) {
+   #   input.file <- input
+   #} else {
+   #   stop("Not an xlsx, csv, or vcf file.")
+   #}
+   
+   if (is.data.frame(input)) {
+      input.file <- input
    } else {
-      stop("Not an xlsx, csv, or vcf file.")
+      stop("Not a dataframe.")
    }
    
    tosnipper <- lapply(
@@ -561,9 +557,21 @@ to_snipper <- function(input,
       tosnipper$Sample <-  as.character(tosnipper$Sample)
    }
    
-   reference <- load_csv_xlsx_files(references)
-   reference <- reference %>%
-      rename(Sample = 1)
+   #if (tools::file_ext(references) %in% c("csv", "xlsx")){
+   #   reference <- load_csv_xlsx_files(references)
+   #   reference <- reference %>%
+   #      rename(Sample = 1)
+   #} else if (is.data.frame(references)) {
+   #   reference <- references
+   #} else {
+   #   stop("Not an xlsx, csv, or vcf file.")
+   #}
+   
+   if (is.data.frame(references)) {
+      reference <- references
+   } else {
+      stop("Not a dataframe.")
+   }
    
    if(class(reference$Sample) != "character"){
       reference$Sample <-  as.character(reference$Sample)
@@ -580,6 +588,7 @@ to_snipper <- function(input,
    data <- data[,!(names(data) %in% drops)]
    
    to_excel <- dplyr::bind_cols(Population, Superpop, Sample, data)
+   
    names(to_excel)[names(to_excel) == "matched[, last.col]"] <- "Superpop"
    names(to_excel)[names(to_excel) == "matched[, sec.last]"] <- "Population"
    names(to_excel)[names(to_excel) == "matched$Sample"] <- "Sample"
@@ -620,6 +629,7 @@ to_snipper <- function(input,
    pop.count <- as.integer(nrow(pop.only))
    merged3 <- merged2[,-2]
    merged3 <- as.data.frame(merged3)
+   
    names(merged3)[names(merged3) == "...1"] <- sample.count
    names(merged3)[names(merged3) == "Superpop"] <- markers
    names(merged3)[names(merged3) == "Sample"] <- pop.count
@@ -895,10 +905,8 @@ calc_concordance <- function(file1, file2, haplotypes = FALSE){
       file2 <- load_csv_xlsx_files(file2)
    }
    
-   file1 <- file1 %>%
-      rename(Ind = 1)
-   file2 <- file2 %>%
-      rename(Ind = 1)
+   file1 <- dplyr::rename(file1, Ind = 1)
+   file2 <- dplyr::rename(file2, Ind = 1)
    
    file_list <- list(file1, file2)
    overlaps <- as.list(intersect(file1$Ind, file2$Ind))
@@ -942,7 +950,7 @@ calc_concordance <- function(file1, file2, haplotypes = FALSE){
    merged <- clean_input_data(merged)
    
    if(haplotypes == TRUE){
-      print("Assuming the data are haplotypes.")
+      message("Assuming the data are haplotypes.")
       merged <- merged %>% mutate(across(tidyselect::everything(), ~ case_when(
          . == "A" ~ "A/A",
          . == "T" ~ "T/T",
@@ -983,23 +991,26 @@ plot_concordance <- function(dataframe){
    }
    pacman::p_load(ggplot2, tidyr, forcats, install = TRUE)
    
-   concordance <- bind_cols(dataframe %>%
-                               tidyr::gather(var, val, -matches("(.x$|ID)")) %>%
-                               select(ID,val), dataframe %>%
-                               tidyr::gather(var2, val2, -matches("(*.y$|ID)")) %>%
-                               select(val2)) %>%
-      add_count(ID) %>%
-      group_by(ID) %>%
-      summarise(
-         Total = paste((ncol(dataframe) - 1)/2),
-         Incomparable = paste(sum(val == "N" | val2 == "N")),
-         Concordant = paste(sum(val == val2 & val != "N" & val2 != "N")),
-         Discordant = paste(((ncol(dataframe) - 1)/2) - (sum(val == val2 & val != "N" & val2 != "N") + sum(val == "N" | val2 == "N")))) %>%
-      left_join(dataframe, by = c("ID" = "ID")) 
+   dataframe <- dplyr::rename(dataframe, ID = 1)
+   x_cols <- dataframe %>% dplyr::select(dplyr::ends_with(".x"))
+   y_cols <- dataframe %>% dplyr::select(dplyr::ends_with(".y"))
    
-   pivot <- concordance[,1]
+   Total <- ncol(x_cols)
+   Incomparable <- rowSums(x_cols == "N" | y_cols == "N")
+   Concordant <- rowSums(x_cols == y_cols & x_cols != "N" & y_cols != "N")
+   Discordant <- Total - (Concordant + Incomparable)
+
+   concordance <- dataframe %>%
+      dplyr::mutate(
+         Total = Total,
+         Incomparable = Incomparable,
+         Concordant = Concordant,
+         Discordant = Discordant
+      ) %>% dplyr::relocate(Total, Incomparable, Concordant, Discordant, .after = ID)
+   
+   ID <- concordance[,1]
    pivot2 <- concordance[,3:5]
-   pivot <- data.frame(pivot, pivot2)
+   pivot <- data.frame(ID, pivot2)
    pivot <- pivot %>%
       tidyr::pivot_longer(!ID,
                           names_to = 'Condition',
@@ -1070,8 +1081,7 @@ depth_from_vcf <- function(vcf,
    # [2] the data to be highlighted 
    if(!is.null(reference)){
       ref <- load_csv_xlsx_files(reference)
-      ref <- ref %>%
-         rename(Sample = 1, highlight = 2)
+      ref <- dplyr::rename(ref, Sample = 1, highlight = 2)
       depth_long <- depth_long %>% dplyr::left_join(ref, by = "Sample")
       fill2 = depth_long$highlight
    } else {
@@ -1293,7 +1303,7 @@ compute_pca <- function(fsnps_gen) {
    
    x <- tab(fsnps_gen, NA.method = "mean")
    set.seed(9999)
-   pca1 <- dudi.pca(x, scannf = FALSE, scale = FALSE, nf = 7)
+   pca1 <- ade4::dudi.pca(x, scannf = FALSE, scale = FALSE, nf = 7)
    
    percent <- pca1$eig/sum(pca1$eig)*100
    
@@ -1302,13 +1312,17 @@ compute_pca <- function(fsnps_gen) {
    ind_coords$Ind <- adegenet::indNames(fsnps_gen)
    ind_coords$Site <- fsnps_gen@pop
    
-   centroid <- stats::aggregate(ind_coords[, -c(ncol(ind_coords), ncol(ind_coords)-1)], 
+   centroid <- stats::aggregate(
+      ind_coords[, grep("^PC", names(ind_coords))], 
                                 by = list(ind_coords$Site), 
                                 FUN = mean)
    colnames(centroid)[1] <- "Site"
    centroid <- as.data.frame(centroid)
    
-   return(list(pca1 = pca1, percent = percent, ind_coords = ind_coords, centroid = centroid))
+   return(list(pca1 = pca1, 
+               percent = percent, 
+               ind_coords = ind_coords, 
+               centroid = centroid))
 }
 
 get_labels <- function(fsnps_gen, use_default, input_labels = NULL, input_colors = NULL, input_shapes = NULL) {
@@ -1320,7 +1334,10 @@ get_labels <- function(fsnps_gen, use_default, input_labels = NULL, input_colors
    if (use_default) {
       labels <- levels(as.factor(fsnps_gen@pop))
       n <- as.integer(length(labels))
-      colors <- RColorBrewer::brewer.pal(min(n, 9), name = "Set1")
+      colors <- rep(
+         RColorBrewer::brewer.pal(9, "Set1"),
+         length.out = n
+      )
       shapes <- rep(21:25, length.out = n)
    } else {
       labels <- input_labels
@@ -1365,16 +1382,18 @@ plot_pca <- function(ind_coords, centroid, percent, labels_colors, width = 8, he
    )
    
    # Plot
-   plot <- ggplot(ind_coords, aes(x = ind_coords[[paste0("PC", pc_x)]],
-                                  y = ind_coords[[paste0("PC", pc_y)]],
-                                  fill = Site,
-                                  shape = Site)) +
+   plot <- ggplot(ind_coords, aes(
+      x = .data[[paste0("PC", pc_x)]],
+      y = .data[[paste0("PC", pc_y)]],
+      fill = Site, 
+      shape = Site
+   )) +
       geom_hline(yintercept = 0) +
       geom_vline(xintercept = 0) +
-      geom_point(aes(shape = Site, fill = Site), color = "black", size = 3, show.legend = FALSE) + # shape is changed
+      geom_point(color = "black", size = 3, show.legend = FALSE) + 
       geom_label_repel(data = centroid,
-                       aes(x = centroid[[paste0("PC", pc_x)]],
-                           y = centroid[[paste0("PC", pc_y)]],
+                       aes(x = .data[[paste0("PC", pc_x)]],
+                           y = .data[[paste0("PC", pc_y)]],
                            label = Site,
                            fill = Site),
                        color = "black",
@@ -1383,7 +1402,6 @@ plot_pca <- function(ind_coords, centroid, percent, labels_colors, width = 8, he
       scale_shape_manual(values = labels_colors$shapes) +
       labs(x = xlab, y = ylab) +
       ggtheme
-   
    return(plot)
 }
 
@@ -1404,7 +1422,7 @@ clean_input_data_str <- function(file) {
    pacman::p_load(dplyr, adegenet, install = TRUE)
    
    file <- clean_input_data(file)
-   
+
    # For Plotting
    populations_df <- file[,1:2]
    colnames(populations_df) <- c("Label", "Population")
@@ -1726,8 +1744,7 @@ calculate_naive_bayes <- function(file){
    pacman::p_load(dplyr, tidyr, e1071, caret, install = TRUE)
    
    data_fsnps <- load_csv_xlsx_files(file)
-   data_fsnps <- data_fsnps %>%
-      rename(Sample = 1, Pop = 2)
+   data_fsnps <- dplyr::rename(data_fsnps, Sample = 1, Pop = 2)
    data_fsnps[] <- lapply(data_fsnps, factor)
    predictors = !grepl("Pop",colnames(data_fsnps))
    label = "Pop"

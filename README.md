@@ -26,6 +26,10 @@ corner of the source panel. ![](www/readme/runapp.png)
 Note: Some functionalities require a Linux OS. A Windows-compatible
 version will be linked here once available.
 
+![](www/readme/dashboard.png)
+
+
+
 
 ## II. Features
 
@@ -34,7 +38,7 @@ files (VCF, VCF.GZ, BCF, PLINK files, and FASTA) and analysis to an
 extent. The following tabs are available and offers certain
 functionalities.
 
-![](www/readme/workplan.png)
+
 
 ### 🔄 File Conversion
 This tab has multiple features dedicated to converting file types to a different data structure structure.
@@ -138,7 +142,7 @@ build a phylogenetic tree using the common approaches (NJ, UPGMA,
 Maximum Parsimony, and Maximum Likelihood).  
 **Known Issue/s**: Occasionally throws an error that requires fsnps_gen() which is used in other functions.
 
-### 📑 Barcoding (*not yet tested)
+### 📑 Barcoding (*untested)
 
 This uses the BarcodingR package for species identification and to calculate and evaluate barcoding gaps.  
 Link to the manual: https://cran.r-project.org/web/packages/BarcodingR/BarcodingR.pdf

@@ -94,7 +94,6 @@ ui <- dashboardPage(
          
          tabItem(tabName = "FileConv",
                  tabsetPanel(
-                    # First tab: Convert Files
                     tabPanel("Convert Files",
                              fluidRow(
                                 box(
@@ -244,24 +243,20 @@ ui <- dashboardPage(
                                             h4("To convert to a CSV file with population metadata:"),
                                             h4("This is a sample reference file. Only the first two columns are used."),
                                             DT::dataTableOutput("ExampleRefFile"),
-                                            #tableOutput("exampleRefCSV"),
                                             br(),
                                             h4("For CSV to VCF conversion, a separate file on marker information is needed."),
                                             h4("See the following formats:"),
                                             h4("Required CSV format:"),
                                             DT::dataTableOutput("ExampleCSVFormat"),
-                                            #tableOutput("exampleCSVFile"),
                                             h4("Required marker info format:"),
                                             DT::dataTableOutput("markerInfoFormat")
-                                            #tableOutput("exampleMarkerInfo")
-                                              
                                    ),
                                    tabPanel("Download Sample Files", 
-                                            tags$a("A. Sample VCF", href="www/sample_hgdp.vcf"),
+                                            tags$a("A. Sample VCF", href="www/sample_files/sample_hgdp.vcf"),
                                             br(),
-                                            tags$a("B. Sample CSV file (for VCF conversion)", href = "www/sample.csv", download = NA),
+                                            tags$a("B. Sample CSV file (for VCF conversion)", href = "www/sample_files/sample.csv", download = NA),
                                             br(),
-                                            tags$a("C. Sample marker metadata file (for CSV-VCF conversion)", href = "www/marker_info.csv", download = NA)
+                                            tags$a("C. Sample marker metadata file (for CSV-VCF conversion)", href = "www/sample_files/marker_info.csv", download = NA)
                                    )
                                 )
                              ), # end of first fluid row
@@ -294,7 +289,7 @@ ui <- dashboardPage(
                     
                     tabPanel("ForenSeq Conversion",
                              fluidRow(
-                                tabBox(
+                                box(
                                    fileInput("uas_zip", "Upload ZIP or TAR file",
                                              accept = c(".zip", ".tar")),
                                    helpText("*Accepts compressed files containing XLSX files."),
@@ -303,7 +298,6 @@ ui <- dashboardPage(
                                    actionButton("run_uas2csv", "Run Conversion")
                                 ),
                                 tabBox(
-                                   #title = "Instructions",
                                    tabPanel("Instructions", 
                                             h4("This tab converts zipped ForenSeq UAS outputs to a single file in a wide format."),
                                             p("This section builds upon the work of Ms. Maeviviene Sosing as part of the Filipino Genomes Research Program 2"),
@@ -313,12 +307,13 @@ ui <- dashboardPage(
                                    tabPanel("Sample Input Format/s", 
                                             h4("Sample input file. All alleles of available SNPs per sample are listed in a long format."),
                                             tableOutput("exampleXLSX")
-                                   ),
-                                   tabPanel("Download Sample Zipped File", 
-                                            tags$h4("Downloadable Sample"),
-                                            tags$ul(
-                                               tags$a("Sample zipped file", href = "www/sample_forenseq.zip", download = NA))
-                                   )
+                                   )#,
+                                   #--------- Confidential sample data
+                                 #  tabPanel("Download Sample Zipped File", 
+                                 #           tags$h4("Downloadable Sample"),
+                                 #           tags$ul(
+                                 #              tags$a("Sample zipped file", href = "www/sample_forenseq.zip", download = NA))
+                                   #)
                                 )
                              ),
                              fluidRow(
@@ -340,14 +335,21 @@ ui <- dashboardPage(
                     
                     tabPanel("Convert to SNIPPER-analysis ready file",
                              fluidRow(
-                                tabBox(
+                                box(
                                    width = 6,
                                    fileInput("convertFile", "Upload File"),
-                                   helpText("*Accepts VCF, XLSX, and CSV files"),
-                                   fileInput("refFile", "Upload Reference File"),
-                                   helpText("*Accepts XLSX and CSV files"),
-                                   checkboxInput("targetPop", "Subset Target Population?", value = FALSE),
-                                   textInput("targetPopName", "Target Population Name"),
+                                   checkboxInput("refProvided", "Reference populations included in the file?", value = TRUE),
+                                   helpText("See 'sample input formats' for guidance. If 'TRUE', assuming population metadata is included."),
+                                   conditionalPanel(
+                                      condition = "input.refProvided == false",
+                                      fileInput("refFile", "Upload Reference File")
+                                   ),
+                                   checkboxInput("targetPop", "Classify a Target Population?", value = FALSE),
+                                   conditionalPanel(
+                                      condition = "input.targetPop == true",
+                                      textInput("targetPopName", "Target Population Name"),
+                                      helpText("Indicate population name to classify. Population should exist in the input file.")
+                                   ),
                                    actionButton("convertBtn", "Convert Format", icon = icon("arrow-up-right-from-square"))
                                 ), # end of input tabbox
                                 tabBox(
@@ -364,10 +366,20 @@ ui <- dashboardPage(
                                    ),
                                    tabPanel("Sample Input Format/s",
                                             h4("Sample Input File"),
-                                            tableOutput("exampleTableSnipper"),
+                                            p("Format if input file does", strong("not"), "contain population metadata:"),
+                                            DT::dataTableOutput("exampleTableSnipper1"),
+                                            br(),
+                                            p("Format if input file", strong("contains"), "population metadata:"),
+                                            DT::dataTableOutput("exampleTableSnipper2"),
+                                            br(),
                                             h4("Sample reference file"),
-                                            tableOutput("exampleRefSnipper")
-                                   )
+                                            DT::dataTableOutput("exampleRefSnipper")
+                                   ),
+                                   tabPanel("Download Sample File",
+                                            h4("Downloadable Sample"),
+                                                tags$ul(
+                                                   tags$a("Sample zipped file", href = "www/sample_files/sample_snipper.csv", download = NA))
+                                            )
                                 ) # end of tabbox for instruction
                              ), # end of fluidrow
                              fluidRow(
@@ -389,7 +401,7 @@ ui <- dashboardPage(
                     
                     tabPanel("CSV to STRUCTURE file",
                              fluidRow(
-                                tabBox(
+                                box(
                                    width = 6,
                                    fileInput("tostrFile", "Upload CSV file"),
                                    helpText("Use the 'Convert files to CSV' file if using VCF, BCF, or PLINK files. Population data is necessary."),
@@ -510,9 +522,9 @@ ui <- dashboardPage(
                                    tabPanel("Download Sample Files",
                                             h4("Sample File/s:"),
                                             tags$ul(
-                                               tags$a("A. Sample VCF file", href = "www/sample_hgdp.vcf", download = NA),
+                                               tags$a("A. Sample VCF file", href = "www/sample_files/sample_hgdp.vcf", download = NA),
                                                br(),
-                                               tags$a("B. Sample marker metadata file (to generate rsID names)", href = "www/marker_info.csv", download = NA)
+                                               tags$a("B. Sample marker metadata file (to generate rsID names)", href = "www/sample_files/marker_info.csv", download = NA)
                                             )
                                    ) # end of tabpanel download sample input
                                 ) # end of tabbox
@@ -529,7 +541,7 @@ ui <- dashboardPage(
                     # SNP Extraction: Concordance Analysis
                     tabPanel("Concordance Analysis",
                              fluidRow(
-                                tabBox(
+                                box(
                                    fileInput("concordanceFile1", "Upload File A"),
                                    fileInput("concordanceFile2", "Upload File B"),
                                    checkboxInput("isHaplotype", "Treat data as haplotypes", value = FALSE),
@@ -553,9 +565,9 @@ ui <- dashboardPage(
                                    tabPanel("Download Sample Files",
                                             h4("Sample Files"),
                                             tags$ul(
-                                               tags$a("Sample CSV file (1)", href = "www/sample1_for.concordance.csv", download = NA),
+                                               tags$a("Sample CSV file (1)", href = "www/sample_files/sample1_for.concordance.csv", download = NA),
                                                br(),
-                                               tags$a("Sample CSV file (2)", href = "www/sample1_for.concordance.csv", download = NA)
+                                               tags$a("Sample CSV file (2)", href = "www/sample_files/sample1_for.concordance.csv", download = NA)
                                             )
                                    )
                                 ) # end of second tabbox
@@ -662,7 +674,7 @@ ui <- dashboardPage(
                                          target="_blank"))
                        ),
                        tabPanel("Download sample files",
-                                tags$a("Sample VCF", href="www/sample_hgdp.vcf")
+                                tags$a("Sample VCF", href="www/sample_files/sample_hgdp.vcf")
                        )
                     ), # end of tabBox for instructions
                     tabBox(
@@ -719,7 +731,7 @@ ui <- dashboardPage(
                                    tabPanel("Download Sample File",
                                             h4("Sample Files"),
                                             tags$ul(
-                                               tags$a("Sample zipped FASTA file", href = "www/lactobacillus/lacto2.zip", download = NA)),
+                                               tags$a("Sample zipped FASTA file", href = "www/sample_files/lacto2.zip", download = NA)),
                                    )
                                 ),
                                 tabBox(
@@ -785,12 +797,9 @@ ui <- dashboardPage(
                                 tabBox(
                                    tabPanel("View Results",
                                             h4("Phylogenetic Tree"),
+                                            uiOutput("downloadTree_UI"),
                                             p("This tab uses the multiple sequence alignment performed in the previous tab."),
                                             uiOutput("treeImage") %>% shinycssloaders::withSpinner(color = "blue")
-                                   ),
-                                   tabPanel("Download Results",
-                                            uiOutput("downloadTree_UI"),
-                                            uiOutput("downloadAll_UI")  
                                    )
                                 )
                              )
@@ -1018,7 +1027,7 @@ ui <- dashboardPage(
                        tabPanel("Download Sample Files",
                                 h4("Sample File"),
                                 tags$ul(
-                                   tags$a("Sample CSV file", href = "www/sample.csv", download = NA)
+                                   tags$a("Sample CSV file", href = "www/sample_files/sample.csv", download = NA)
                                 )
                        )
                     )
@@ -1056,16 +1065,20 @@ ui <- dashboardPage(
                        tabPanel("Download sample files",
                                 h4("Sample File"),
                                 tags$ul(
-                                   tags$a("Sample file", href = "www/sample.csv", download = NA)
+                                   tags$a("Sample file", href = "www/sample_files/sample.csv", download = NA)
                                 )
                        )
-                    ),
+                    )
+                 ),
+                 fluidRow(
                     tabBox(
                        title = "PCA Results",
-                       plotOutput("barPlot"),
+                       width = 12,
+                       tabPanel("Plots",
+                        plotOutput("barPlot"),
                        plotOutput("pcaPlot"),
                        downloadButton("downloadbarPlot", "Download Bar Plot"),
-                       downloadButton("downloadPCAPlot", "Download PCA Plot")
+                       downloadButton("downloadPCAPlot", "Download PCA Plot"))
                     )
                  )
          ),
@@ -1100,7 +1113,7 @@ ui <- dashboardPage(
                        tabPanel("Download Sample File",
                                 h4("Download Sample File"),
                                 tags$ul(
-                                   tags$a("Sample CSV file", href = "www/sample.csv", download = NA)
+                                   tags$a("Sample CSV file", href = "www/sample_files/sample.csv", download = NA)
                                 )     
                        )
                     ),
@@ -1131,7 +1144,7 @@ ui <- dashboardPage(
                        tabPanel("Download Sample File",
                                 h4("Download Sample File"),
                                 tags$ul(
-                                   tags$a("Sample CSV file", href = "www/sample.csv", download = NA)
+                                   tags$a("Sample CSV file", href = "www/sample_files/sample.csv", download = NA)
                                 )
                        )
                     ),
@@ -1152,9 +1165,7 @@ ui <- dashboardPage(
          tabItem(
             tabName = "AppRef",
             tabBox(
-               #title = "References",
                width = 12,
-               #side = "right",
                tabPanel("References",
                         div(
                           style = "height: 50vh; overflow-y:scroll;",
@@ -1162,7 +1173,6 @@ ui <- dashboardPage(
                         )
                )
             )
-            
          ), # end of another tab item
          tabItem(
             tabName = "About",
@@ -1171,7 +1181,6 @@ ui <- dashboardPage(
                   title = tagList(icon("book-open-reader"), "Background"),
                   width = 6,
                   height = "250px",
-                  #h3("Background"),
                   p("The", strong("restFUL forensics"), "toolkit is an output of the project", strong("Development and validation of an automated web-based tool for efficient genomic marker extraction to assist in genomic research.")),
                   p("This is based on the preliminary work on ancestry marker analysis at the DNA Analysis Laboratory.")
                ),
@@ -1179,7 +1188,6 @@ ui <- dashboardPage(
                   title = tagList(icon("people-line"), "Authors"),
                   width = 6,
                   height = "250px",
-                  #h3("Authors"),
                   p("Nelvie Fatima Jane Soliven from the DNA Analysis Laboratory."),
                   p("Leda Celeste Samin from the DNA Analysis Laboratory."),
                   p("Melvin Ambrocio Matias from the Institute of Biology at the University of the Philippines Diliman.")
@@ -1189,7 +1197,6 @@ ui <- dashboardPage(
                   title = tagList(icon("wallet"), "Funding"),
                   width = 6,
                   height = "250px",
-                  #h3("Funding"),
                   h4("The project is funded by the Natural Sciences Research Institute at the University of the Philippines Diliman"),
                   div(tags$img(
                      src = "funding.png",
@@ -1919,38 +1926,60 @@ server <- function(input, output, session){
    
    
    ### For SNIPPER
-   output$exampleTableSnipper <- renderTable({
-      data.frame(
+   exampleTableSnipper1 <- data.frame(
          Ind = c("sample1", "sample2", "sample3", "sample4", "..."),
          rs101 = c("A/A", "A/T", "T/T", "A/T", "..."),
          rs102 = c("G/C", "G/C", "G/G", "G/C", "..."),
          rs103 = c("C/C", "C/G", "G/G", "G/G", "..."),
          rs_n = c("...", "...", "...", "...", "...")
       )
-   })
+   output$exampleTableSnipper1 <- DT::renderDataTable({
+      req(exampleTableSnipper1)
+      exampleTableSnipper1
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 10
+   )
+   )
    
-   output$exampleRefSnipper <- renderTable({
-      data.frame(
+   exampleTableSnipper2 <- data.frame(
+      Ind = c("sample1", "sample2", "sample3", "sample4", "..."),
+      Pop = c("sub_pop1", "sub_pop2", "sub_pop3", "sub_pop4", "..."),
+      Superpop = c("region1", "region1", "region2", "region3", "..."),
+      rs101 = c("A/A", "A/T", "T/T", "A/T", "..."),
+      rs102 = c("G/C", "G/C", "G/G", "G/C", "..."),
+      rs103 = c("C/C", "C/G", "G/G", "G/G", "..."),
+      rs_n = c("...", "...", "...", "...", "...")
+   )
+   output$exampleTableSnipper2 <- DT::renderDataTable({
+      req(exampleTableSnipper2)
+      exampleTableSnipper2
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 10
+   )
+   )
+   
+   exampleRefSnipper <- data.frame(
          Sample.Name = c("sample1", "sample2", "sample3", "sample4", "..."),
          Population = c("Malaysia", "Mexico", "Greece", "South Korea", "..."),
          Superpopulation = c("Southeast Asia", "North and South America", "Europe", "East Asia", "...")
       )
-   })
+   output$exampleRefSnipper <- DT::renderDataTable({
+      req(exampleRefSnipper)
+      exampleRefSnipper
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 10
+   )
+   )
    
    convertedSNIPPER <- reactiveVal(NULL)
    outputName <- "snipper.xlsx"
    
    observe({
       hasFile <- !is.null(input$convertFile) && nrow(input$convertFile) > 0
-      hasRef  <- !is.null(input$refFile) && nrow(input$refFile) > 0
-      
-      hasTarget <- TRUE
-      if (isTRUE(input$targetPop)) {
-         hasTarget <- !is.null(input$targetPopName) && nzchar(trimws(input$targetPopName))
-      }
-      
-      ready <- isTRUE(hasFile) && isTRUE(hasRef) && isTRUE(hasTarget)
-      
+      ready <- isTRUE(hasFile)
       shinyjs::toggleState("convertBtn", ready)
    })
    
@@ -1961,13 +1990,24 @@ server <- function(input, output, session){
       
       disable("convertBtn")
       
-      inputPath <- input$convertFile$datapath
-      refPath <- input$refFile$datapath
+      tosnipper_file <- load_csv_xlsx_files(input$convertFile$datapath)
+      tosnipper_file <- dplyr::rename(tosnipper_file, Sample = 1)
+      
+      if (!is.null(input$refProvided)) {
+         inputPath <- tosnipper_file[,-c(2,3)]
+         refPath <- tosnipper_file[,2:3]
+      } else {
+         inputPath <- tosnipper_file
+         refPath <- load_csv_xlsx_files(input$refFile$datapath)
+      }
+      
+      refPath <- dplyr::rename(refPath, Sample = 1)
+      
       targetSet <- input$targetPop
       targetName <- if (targetSet) input$targetPopName else NULL
       
-      inputData <- read.csv(inputPath, header = TRUE)
-      numMarkers <- ncol(inputData) - 2
+      inputData <- colnames(inputPath)
+      numMarkers <- length(inputData) - 1
       
 
       
@@ -2035,7 +2075,7 @@ server <- function(input, output, session){
          tryCatch({
             req(input$tostrFile$datapath, input$systemFile)
             
-            csv_file <- load_input_file(input$tostrFile$datapath)
+            csv_file <- load_csv_xlsx_files(input$tostrFile$datapath)
             genind <- convert_to_genind_str(csv_file)
             csv_revised(genind$new_file)
             strconvert(genind$fsnps_gen)
@@ -2582,7 +2622,7 @@ server <- function(input, output, session){
    tree_model <- reactiveVal(NULL)
    
    observeEvent(input$buildTree, {
-      req(aligned_data())
+      req(alignment_msa())
       disable("buildTree")
       showPageSpinner()
       Sys.sleep(1.5)
@@ -2593,7 +2633,7 @@ server <- function(input, output, session){
             outgroup <- input$outgroup
             bs <- input$boostrapSamples
             model <- input$model
-            aligned <- aligned_data()
+            aligned <- alignment_msa()
             directory <- tempdir()
             
             if (!is.null(input$seed)){
@@ -2664,38 +2704,12 @@ server <- function(input, output, session){
       }
    )
    
-   output$downloadAll <- downloadHandler(
-      filename = function() {"phylo_outputs.zip"},
-      content = function(file){
-         tmp_fasta <- tempfile(fileext = ".fasta")
-         tmp_scores <- tempfile(fileext = ".txt")
-         tmp_pdf <- alignment_pdf()
-         tmp_tree <- if(!is.null(tree_plot())){
-            tmp <- tempfile(fileext=".png")
-            ggsave(tmp, plot = tree_plot(), width = 8, height = 6, dpi = 300)
-            tmp
-         } else {
-            tree_path()
-         }
-         
-         writeLines(capture.output(print(aligned_data())), tmp_fasta)
-         writeLines(capture.output(print(alignment_scores())), tmp_scores)
-         
-         zip::zip(file, files = c(tmp_fasta, tmp_scores, tmp_pdf, tmp_tree))
-      }
-   )
-   
    
    output$downloadTree_UI <- renderUI({
-      req(tree_plot()) || req(tree_path())
-      downloadButton("downloadTree", "Download Phylogenetic Tree")
+      if (!is.null(tree_plot()) || !is.null(req(tree_path()))){
+      downloadButton("downloadTree", "Download Phylogenetic Tree")}
    })
    
-   output$downloadAll_UI <- renderUI({
-      req(tree_plot()) || req(tree_path())
-      downloadButton("downloadAll", "Download All Outputs")
-   })
-
    
    # BARCODING
 
@@ -2967,7 +2981,7 @@ server <- function(input, output, session){
       
       fsnps_gen <- reactive({
          req(input$popStatsFile)
-         df <- load_input_file(input$popStatsFile$datapath)
+         df <- load_csv_xlsx_files(input$popStatsFile$datapath)
          cleaned <- clean_input_data(df)
          convert_to_genind(cleaned)
       })
@@ -3174,6 +3188,8 @@ server <- function(input, output, session){
    })
    
    # PCA
+   PCAResults <- reactiveVal(NULL)
+   LabelColors <- reactiveVal(NULL)
    output$examplePCA <- renderTable({
       data.frame(
          Sample = c("Sample1", "Sample2", "Sample3", "Sample4", "..."),
@@ -3186,14 +3202,14 @@ server <- function(input, output, session){
    
    observe({
       hasDataFile <- !is.null(input$pcaFile)
-      
       hasLabelsFile <- !is.null(input$pcaLabels)
       hasColorFile <- !is.null(input$colorPalette)
       hasShapesFile <- !is.null(input$shapeList)
       
       usingDefaults <- input$useDefaultColors
       
-      readyForPCA <- hasDataFile && (usingDefaults || (hasLabelsFile && hasColorFile && hasShapesFile))
+      readyForPCA <- hasDataFile && 
+         (usingDefaults || (hasLabelsFile && hasColorFile && hasShapesFile))
       
       toggleState("runPCA", readyForPCA)
    })
@@ -3202,12 +3218,11 @@ server <- function(input, output, session){
       disable("runPCA")
       req(input$pcaFile)
       showPageSpinner()
-      Sys.sleep(1.5)
       
       withProgress(message = "Running PCA...", {
          tryCatch({
             incProgress(0.2, detail = "Loading input file...")
-            df <- load_input_file(input$pcaFile$datapath)
+            df <- load_csv_xlsx_files(input$pcaFile$datapath)
             cleaned <- clean_input_data(df)
             fsnps_gen <- convert_to_genind(cleaned)
             
@@ -3230,7 +3245,7 @@ server <- function(input, output, session){
                colors <- trimws(colors)
                shapes <- trimws(shapes)
                
-               if (length(labels) != length(colors) && length(labels) != length(shapes)) {
+               if (length(labels) != length(colors) || length(labels) != length(shapes)) {
                   stop("Mismatch between number of labels and colors/shapes.")
                }
             }
@@ -3242,30 +3257,34 @@ server <- function(input, output, session){
                input_colors = colors,
                input_shapes = shapes
             )
+            LabelColors(labels_colors)
             
             incProgress(0.6, detail = "Computing PCA...")
-            pca_results <- compute_pca(fsnps_gen)
-            
-            # to add under ui
-            # add an option to download
+            pca_results1 <- compute_pca(fsnps_gen)
+            PCAResults(pca_results1)
+
             output$barPlot <- renderPlot({
-               # identify percent of variance explained per component
-               graphics::barplot(pca_results$percent, 
-                                 ylab = "Genetic variance explained by eigenvectors (%)", ylim = c(0,25),
-                                 names.arg = round(pca_results$percent, 1))
+               req(PCAResults())
+               
+               barplot(PCAResults()$percent, 
+                           ylab = "Genetic variance explained by eigenvectors (%)", ylim = c(0,25),
+                           names.arg = round(PCAResults()$percent, 1))
             })
             
             incProgress(0.8, detail = "Rendering PCA plot...")
             
             output$pcaPlot <- renderPlot({
-               plot_pca(
-                  ind_coords = pca_results$ind_coords,
-                  centroid = pca_results$centroid,
-                  percent = pca_results$percent,
-                  labels_colors = labels_colors,
+               req(PCAResults(), LabelColors())
+               
+               p <- plot_pca(
+                  ind_coords = PCAResults()$ind_coords,
+                  centroid = PCAResults()$centroid,
+                  percent = PCAResults()$percent,
+                  labels_colors = LabelColors(),
                   pc_x = input$pcX,
                   pc_y = input$pcY
                )
+               print(p)
             })
             
             enable("runPCA")
@@ -3284,10 +3303,10 @@ server <- function(input, output, session){
       content = function(file) {
          png(file, width = 800, height = 800, res = 300)
          graphics::barplot(
-            pca_results$percent,
+            PCAResults()$percent,
             ylab = "Genetic variance explained by eigenvectors (%)",
             ylim = c(0, 25),
-            names.arg = round(pca_results$percent, 1)
+            names.arg = round(PCAResults()$percent, 1)
          )
          dev.off()
       },
@@ -3300,10 +3319,10 @@ server <- function(input, output, session){
       },
       content = function(file) {
          plot <- plot_pca(
-            ind_coords = pca_results$ind_coords,
-            centroid = pca_results$centroid,
-            percent = pca_results$percent,
-            labels_colors = labels_colors,
+            ind_coords = PCAResults()$ind_coords,
+            centroid = PCAResults()$centroid,
+            percent = PCAResults()$percent,
+            labels_colors = LabelColors(),
             pc_x = input$pcX,
             pc_y = input$pcY
          )
@@ -3334,7 +3353,7 @@ server <- function(input, output, session){
       
       withProgress(message = "Running STRUCTURE analysis...", {
          incProgress(0.2, detail = "Loading input file...")
-         df <- load_input_file(input$structureFile$datapath)
+         df <- load_csv_xlsx_files(input$structureFile$datapath)
          fsnps_gen <- clean_input_data_str(df)
          
          incProgress(0.4, detail = "Converting to STRUCTURE file...")
@@ -3511,7 +3530,7 @@ server <- function(input, output, session){
             "Overall Stats" = as.data.frame(predResults()$predStat)
          )
          
-         openxlsx::write.xlsx(datasets, file = file)
+         openxlsx::write.xlsx(dataset, file = file)
       }
    )
    
