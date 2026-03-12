@@ -23,9 +23,7 @@ git clone https://github.com/NSRI-DAL-2025-Project/restful-forensics-shinyapp.gi
 Open the "app.R" file and click the "Run App" button on the top right
 corner of the source panel. ![](www/readme/runapp.png)
 
-Note: Some functionalities require a Linux OS. A Windows-compatible
-version will be linked here once available.
-
+The shiny application will look like this:
 ![](www/readme/dashboard.png)
 
 

@@ -212,7 +212,7 @@ vcf_to_csv <- function(files, ref = NULL, output.dir = NULL) {
    if(!require("pacman")) {
       install.packages("pacman")
    }
-   pacman::p_load(dplyr, tools,  install = TRUE) # double check where purrr is needed
+   pacman::p_load(dplyr, tools,  install = TRUE)
    
    extension <- tools::file_ext(files)
    
@@ -251,6 +251,29 @@ vcf_to_csv <- function(files, ref = NULL, output.dir = NULL) {
    final_df <- dplyr::rename(final_df, Sample = 1, Population = 2)
    
    return(final_df)
+}
+
+pop_breakdown <- function(file, column){
+   if(!require("pacman")) {
+      install.packages("pacman")
+   }
+   pacman::p_load(dplyr, install = TRUE)
+   
+   col_name <- as.character(column)
+   file <- file %>%
+      rename(Sample = 1, Pop = col_name)
+   
+   for_breakdown <- data.frame(file$Sample, file$Pop)
+   for_breakdown <- for_breakdown %>%
+      rename(Sample = 1, Population = 2)
+   
+   
+   total <- for_breakdown %>%
+      unique() %>%
+      group_by(Population) %>%
+      summarize(Total = n())
+   
+   return(total)
 }
 
 #============================
@@ -651,6 +674,10 @@ to_snipper <- function(input,
 #
 # Last revised 31 October 2025
 #============================
+# Error: argument must be coercible to non-negative integer
+#Warning in seq_len(nrow(pos.list)) :
+# first element used of 'length.out' argument
+
 extract_markers <- function(input_type,
                            input.file = NULL, 
                             snps.list = NULL, 
@@ -1147,9 +1174,6 @@ compute_pop_stats <- function(fsnps_gen) {
    fsnps_gpop <- adegenet::genind2genpop(fsnps_gen)
    allele_freqs <- t(adegenet::makefreq(fsnps_gpop, quiet = FALSE, missing = NA)) %>%
       as.data.frame()
-   
-   # To-do: Ae
-   # General formula: ae <- 1 / (1 - He)
    
    
    return(list(

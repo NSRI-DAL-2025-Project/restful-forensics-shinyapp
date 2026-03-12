@@ -14,7 +14,6 @@ options(shiny.maxRequestSize = 2000*1024^2)
 ui <- dashboardPage(
    dashboardHeader(
       title = div(
-         #tags$img(src = "logo.png", height = "10px", style = "display: inline-block; vertical-align: middle;"),
          tags$span("restFUL Forensics",
                    style = "font-family: Carme, sans-serif; font-size: 26px; color: #ffffff; vertical-align: middle; padding-left: 0px;")
       ),
@@ -24,19 +23,18 @@ ui <- dashboardPage(
       width = 300,
 
       sidebarMenu(
+         tags$head(tags$style("img {max-width: 100%; height: auto; }")),
+         tags$img(src = "readme/full.png", height = "auto", width = "300px", height = "100px"),
          menuItem("Homepage", tabName = "dashboard", icon = icon("dashboard")),
-         menuItem("Data Pre-processing", tabName = "DataPreProcess", icon = icon("gears"), startExpanded = TRUE,
-                  menuSubItem("🔄 File Conversion", tabName = "FileConv"),
-                  menuSubItem("🧬 SNP Extraction", tabName = "markerExtract"),
-                  menuSubItem("🔽 Filtering", tabName = "FilterTab")
-         ), # End of menu item for data pre-processing
-         menuItem("Data Processing", tabName = "DataProcess", icon = icon("diagram-project"), startExpanded = TRUE,
-                  menuSubItem("📑 DNA Barcoding", tabName = "DNABarcoding"),
-                  menuSubItem("📝 Forensic Summary Statistics", tabName = "PopStatistics"),
-                  menuSubItem("🔍 Exploratory Analysis", tabName = "PCAtab"),
-                  menuSubItem("📊 Population Structure Analysis", tabName = "PopStructure"),
-                  menuSubItem("🪪 Forensic Ancestry Inference", tabName = "Classification")
-         ), # End of menu item for data processing
+         menuItem("File Conversion", tabName = "FileConv", icon = icon("arrows-rotate")),
+         menuItem("SNP Extraction", tabName = "markerExtract", icon = icon("dna")),
+         menuItem("Filtering", tabName = "FilterTab", icon = icon("filter")),
+         menuItem("Exploratory Analysis", tabName = "PCAtab", icon = icon("magnifying-glass-location")),
+         menuItem("Population Summary Statistics", tabName = "PopStatistics", icon = icon("users-gear")),
+         menuItem("Population Structure Analysis", tabName = "PopStructure", icon = icon("square-poll-vertical")),
+         menuItem("Forensic Parameters", tabName = "ForensicParams", icon = icon("magnifying-glass")), # addition 12 March 2026
+         menuItem("Classification", tabName = "Classification", icon = icon("diagram-project")),
+         menuItem("DNA Barcoding", tabName = "DNABarcoding", icon = icon("chart-bar")),
          menuItem("References", tabName = "AppRef", icon = icon("book-bookmark")),
          menuItem("About", tabName = "About", icon = icon("building-user"))
       ),
@@ -50,21 +48,22 @@ ui <- dashboardPage(
       ),
       tabItems(
          tabItem(tabName = "dashboard",
-                 fluidRow(
-                    tabBox(
-                       width = 12,
-                       tags$head(tags$style("img {max-width: 100%; height: auto; }")),
-                       div(tags$img(
-                          src = "readme/fulllogo.png",
-                          width = "600px"
-                       ),
-                       style = "text-align: center;"
-                       )
-                    )
-                 ), # end of fluid row
+            #     fluidRow(
+             #       tabBox(
+              #         width = 12,
+            #           tags$head(tags$style("img {max-width: 100%; height: auto; }")),
+            #           div(tags$img(
+            #              src = "readme/fulllogo.png",
+            #              width = "600px"
+            #           ),
+            #           style = "text-align: center;"
+            #           )
+            #        )
+            #     ), # end of fluid row
                  fluidRow(
                     tabBox(
                        title = "Introduction",
+                       side = "right",
                        width = 12,
                        h4("restFUL forensics is a toolkit dedicated for the forensic analysis of single nucleotide polymorphisms (SNPs) and DNA barcodes. It compiles population datasets extracted from publicly available databases for direct analysis of forensic marker panels.")
                     )
@@ -125,23 +124,22 @@ ui <- dashboardPage(
                                          conditionalPanel(
                                             condition = "input.poptype_vcf == 'multiplepop'",
                                             fileInput("multiplepop_vcf", "Reference file with sample ID and population"),
-                                            helpText("*Accepts XLSX and CSV files")
+                                            helpText("*Accepts XLSX and CSV files"),
+                                            
+                                            # --- Breakdowns
+                                            radioButtons("breakdown_vcf", "Calculate population breakdown?",
+                                                         choices = c("Yes" = "yesbreakdown_vcf", "No" = "nobreakdown_vcf"), selected = "No"),
+                                            conditionalPanel(
+                                               condition = "input.breakdown_vcf == 'yesbreakdown_vcf'",
+                                               helpText("Specify column name to serve as a basis for the summary count."),
+                                               textAreaInput("breakdown_column_vcf", "Enter column name", rows = 1)
+                                               
+                                            )
                                          ),
                                          conditionalPanel(
                                             condition = "input.poptype_vcf == 'single'",
                                             textAreaInput("typePop_vcf", "Enter population", rows = 1)
-                                         ),
-                                         
-                                         # --- Breakdowns
-                                         radioButtons("breakdown_vcf", "Calculate population breakdown?",
-                                                      choices = c("Yes" = "yesbreakdown_vcf", "No" = "nobreakdown_vcf")),
-                                         conditionalPanel(
-                                            condition = "input.breakdown_vcf == 'yesbreakdown_vcf'",
-                                            helpText("Specify column name to serve as a basis for the summary count."),
-                                            textAreaInput("breakdown_column_vcf", "Enter column name", rows = 1)
-                                            
                                          )
-                                         
                                       ) # end of conditional for csv2
                                    ),
                                    
@@ -160,21 +158,21 @@ ui <- dashboardPage(
                                          conditionalPanel(
                                             condition = "input.poptype_bcf == 'multiplepop'",
                                             fileInput("multiplepop_bcf", "Reference file with sample ID and population"),
-                                            helpText("*Accepts XLSX and CSV files")
+                                            helpText("*Accepts XLSX and CSV files"),
+                                            
+                                            # --- Breakdowns
+                                            radioButtons("breakdown_bcf", "Calculate population breakdown?",
+                                                         choices = c("Yes" = "yesbreakdown_bcf", "No" = "nobreakdown_bcf"), selected = "No"),
+                                            conditionalPanel(
+                                               condition = "input.breakdown_bcf == 'yesbreakdown_bcf'",
+                                               helpText("Specify column name to serve as a basis for the summary count."),
+                                               textAreaInput("breakdown_column_bcf", "Enter column name", rows = 1)
+                                               
+                                            )
                                          ),
                                          conditionalPanel(
                                             condition = "input.poptype_bcf == 'single'",
                                             textAreaInput("typePop_bcf", "Enter population", rows = 1)
-                                         ),
-                                         
-                                         # --- Breakdowns
-                                         radioButtons("breakdown_bcf", "Calculate population breakdown?",
-                                                      choices = c("Yes" = "yesbreakdown_bcf", "No" = "nobreakdown_bcf")),
-                                         conditionalPanel(
-                                            condition = "input.breakdown_bcf == 'yesbreakdown_bcf'",
-                                            helpText("Specify column name to serve as a basis for the summary count."),
-                                            textAreaInput("breakdown_column_bcf", "Enter column name", rows = 1)
-                                            
                                          )
                                       )
                                    ),
@@ -195,21 +193,22 @@ ui <- dashboardPage(
                                          conditionalPanel(
                                             condition = "input.poptype_plink == 'multiplepop'",
                                             fileInput("multiplepop_plink", "Reference file with sample ID and population"),
-                                            helpText("*Accepts XLSX and CSV files")
+                                            helpText("*Accepts XLSX and CSV files"),
+                                            
+                                            
+                                            # --- Breakdowns
+                                            radioButtons("breakdown_plink", "Calculate population breakdown?",
+                                                         choices = c("Yes" = "yesbreakdown_plink", "No" = "nobreakdown_plink"), selected = "No"),
+                                            conditionalPanel(
+                                               condition = "input.breakdown_plink == 'yesbreakdown_plink'",
+                                               helpText("Specify column name to serve as a basis for the summary count."),
+                                               textAreaInput("breakdown_column_plink", "Enter column name", rows = 1)
+                                               
+                                            )
                                          ),
                                          conditionalPanel(
                                             condition = "input.poptype_plink == 'single'",
                                             textAreaInput("typePop_plink", "Enter population", rows = 1)
-                                         ),
-                                         
-                                         # --- Breakdowns
-                                         radioButtons("breakdown_plink", "Calculate population breakdown?",
-                                                      choices = c("Yes" = "yesbreakdown_plink", "No" = "nobreakdown_plink")),
-                                         conditionalPanel(
-                                            condition = "input.breakdown_plink == 'yesbreakdown_plink'",
-                                            helpText("Specify column name to serve as a basis for the summary count."),
-                                            textAreaInput("breakdown_column_plink", "Enter column name", rows = 1)
-                                            
                                          )
                                       )
                                    ),
@@ -426,7 +425,10 @@ ui <- dashboardPage(
                                                      href="https://web.stanford.edu/group/pritchardlab/structure_software/release_versions/v2.3.4/html/structure.html",
                                                      target="_blank"))
                                             
-                                   )
+                                   ),
+                                   tabPanel("Sample Input Format",
+                                            DT::dataTableOutput("examplePop_STRUI")
+                                            )
                                 ) # end of tabbox
                              ), # end of fluidrow
                              fluidRow(
@@ -973,15 +975,15 @@ ui <- dashboardPage(
                        uiOutput("downloadStatsXLSX_UI")
                     ),
                     tabBox(
-                       tabPanel("Private Alleles",
+                       tabPanel("1. Private Alleles",
                                 h4("Private Alleles Summary"),
                                 DT::dataTableOutput("privateAlleleTable") %>% shinycssloaders::withSpinner(color = "blue")
                        ),
-                       tabPanel("Mean Allelic Richness",
+                       tabPanel("2. Mean Allelic Richness",
                                 h4("Mean Allelic Richness per site"),
                                 DT::dataTableOutput("meanallelic") %>% shinycssloaders::withSpinner(color = "blue")
                        ),
-                       tabPanel("Heterozygosity",
+                       tabPanel("3. Heterozygosity",
                                 h4("Observed vs Expected Heterozygosity"),
                                 DT::dataTableOutput("heterozygosity_table") %>% shinycssloaders::withSpinner(color = "blue"),
                                 br(),
@@ -989,21 +991,21 @@ ui <- dashboardPage(
                                 imageOutput("heterozygosity_plot") %>% shinycssloaders::withSpinner(color = "blue"),
                                 uiOutput("downloadHeterozygosityPlot_UI")
                        ),
-                       tabPanel("Inbreeding Coefficients",
+                       tabPanel("4. Inbreeding Coefficients",
                                 h4("Inbreeding Coefficient by Population"),
                                 DT::dataTableOutput("inbreeding_table") %>% shinycssloaders::withSpinner(color = "blue")
                        ),
-                       tabPanel("Allele Frequencies",
+                       tabPanel("5. Allele Frequencies",
                                 h4("Allele Frequency Table"),
                                 DT::dataTableOutput("allele_freq_table") %>% shinycssloaders::withSpinner(color = "blue")
                        ),
-                       tabPanel("Hardy-Weinberg Equilibrium",
+                       tabPanel("6. Hardy-Weinberg Equilibrium",
                                 h4("HWE P-value Summary"),
                                 uiOutput("hwe_summary") %>% shinycssloaders::withSpinner(color = "blue"),
                                 h4("Population-wise HWE Chi-Square Table"),
                                 DT::dataTableOutput("hwe_chisq_table") %>% shinycssloaders::withSpinner(color = "blue")
                        ),
-                       tabPanel("Fst Values",
+                       tabPanel("7. Fst Values",
                                 h4("Pairwise Fst Matrix"),
                                 uiOutput("fstMatrixUI") %>% shinycssloaders::withSpinner(color = "blue"),
                                 h4("Tidy Pairwise Fst Data"),
@@ -1022,7 +1024,7 @@ ui <- dashboardPage(
                        ),
                        tabPanel("Sample Input Format/s",
                                 h4("Example: Population File Format"),
-                                tableOutput("examplePop")
+                                DT::dataTableOutput("examplePop_UI")
                        ),
                        tabPanel("Download Sample Files",
                                 h4("Sample File"),
@@ -1110,14 +1112,20 @@ ui <- dashboardPage(
                                          href="https://web.stanford.edu/group/pritchardlab/structure_software/release_versions/v2.3.4/structure_doc.pdf",
                                          target="_blank"))
                        ),
+                       tabPanel("Sample Input File",
+                              DT::dataTableOutput("examplePop_STR2UI")
+                       ),
                        tabPanel("Download Sample File",
                                 h4("Download Sample File"),
                                 tags$ul(
                                    tags$a("Sample CSV file", href = "www/sample_files/sample.csv", download = NA)
                                 )     
                        )
-                    ),
+                    )
+                 ), # end of fluidrow
+                 fluidRow(
                     tabBox(
+                       width = 12,
                        title = "STRUCTURE Results",
                        uiOutput("downloadButtons"),
                        h4("STRUCTURE Visualization"),
@@ -1127,6 +1135,10 @@ ui <- dashboardPage(
                  )
                  
          ),
+         
+         tabItem(tabName = "ForensicParams",
+
+         ), # end of tabItem
          
          tabItem(tabName = "Classification",
                  fluidRow(
@@ -1141,14 +1153,20 @@ ui <- dashboardPage(
                                 p(strong("Input file/s:"), "CSV file"),
                                 p(strong("Expected output file:"), "XLSX file")
                        ), 
+                       tabPanel("Sample Input File",
+                                DT::dataTableOutput("classificationRef_UI")
+                       ),
                        tabPanel("Download Sample File",
                                 h4("Download Sample File"),
                                 tags$ul(
                                    tags$a("Sample CSV file", href = "www/sample_files/sample.csv", download = NA)
                                 )
                        )
-                    ),
-                    tabBox(
+                    )
+                 ), # end of fluid row
+                 fluidRow(
+                     tabBox(
+                              width = 12,
                        tabPanel("Prediction Table",
                                 verbatimTextOutput("predictionTableResult") %>% shinycssloaders::withSpinner(color = "blue")
                        ),
@@ -1395,8 +1413,16 @@ server <- function(input, output, session){
    convertedBreakdown <- reactiveVal(NULL)
    
    observe({
-      toggleState("ConvertFILES", !is.null(input$VCFFile) || !is.null(input$BCFFile) || !is.null(input$CSVFile) || (!is.null(input$bedFile) && !is.null(input$bimFile) && !is.null(input$famFile)))
+      hasfile <-!is.null(input$VCFFile) || !is.null(input$BCFFile) || !is.null(input$CSVFile) || (!is.null(input$bedFile) && !is.null(input$bimFile) && !is.null(input$famFile))
+      ready <- isTRUE(hasfile)
+      
+      forBreakdown <- !is.null(input$breakdown_vcf) || !is.null(input$breakdown_bcf) || !is.null(input$breakdown_plink)
+      stillReady <- isTRUE(forBreakdown) && (!is.null(input$breakdown_column_vcf) || !is.null(input$breakdown_column_bcf) || !is.null(input$breakdown_column_plink))
+      ready2 <- isTRUE(stillReady)
+      
+      toggleState("ConvertFILES", ready && ready2)
    })
+   
    
    exampleRefCSV <- data.frame(
          Sample.Name = c("sample1", "sample2", "sample3", "sample4", "..."),
@@ -1501,7 +1527,7 @@ server <- function(input, output, session){
    
    observeEvent(input$ConvertFILES, {
       req(input$ConvertFILES)
-      showPageSpinner()
+     # showPageSpinner()
      # Sys.sleep(1.5)
       disable("ConvertFILES")
       
@@ -1608,6 +1634,8 @@ server <- function(input, output, session){
                contentType = "application/zip"
             )
          }
+         hidePageSpinner()
+         enable("ConvertFILES")
       }
       
       #============= BCF ===============#
@@ -1705,6 +1733,8 @@ server <- function(input, output, session){
                contentType = "application/zip"
             )
          }
+         hidePageSpinner()
+         enable("ConvertFILES")
       }
       
       #============= PLINK ===============#
@@ -1768,6 +1798,8 @@ server <- function(input, output, session){
                convertedBreakdown(breakdown_results)
             }
          }
+         hidePageSpinner()
+         enable("ConvertFILES")
       }
       
       #============= CSV ===============#
@@ -1798,11 +1830,12 @@ server <- function(input, output, session){
             filename = function() { "tovcf.vcf" },
             content = function(file) { file.copy(convertedVCF(), file) }
          )
+         enable("ConvertFILES")
+         hidePageSpinner()
       }
       
-      enable("ConvertFILES")
-      hidePageSpinner()
-   })
+   }
+   )
    
    
    output$previewTable <- DT::renderDataTable({
@@ -2057,6 +2090,24 @@ server <- function(input, output, session){
    )
   
    # CSV TO STR #
+   examplePop_STR <-data.frame(
+      Sample = c("Sample1", "Sample2", "Sample3", "Sample4", "..."),
+      Population = c("POP1", "POP2", "POP3", "POP4", "..."),
+      rs101 = c("A/A", "A/T", "A/A", "T/T", "..."),
+      rs102 = c("G/G", "C/C", "G/C", "G/G", "..."),
+      rs_n = c("...", "...", "...", "...", "...")
+   )
+   
+   
+   output$examplePop_STRUI <- DT::renderDataTable({
+      req(examplePop_STR)
+      examplePop_STR
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 5
+   )
+   )
+   
    observe({
       toggleState("csv2str", !is.null(input$tostrFile) && !is.null(input$systemFile))
    })
@@ -2272,13 +2323,13 @@ server <- function(input, output, session){
                   writeLines(strsplit(input$typedRSIDs, "\n")[[1]], temp)
                   temp
                } else if (!is.null(input$markerList1)) {
-                  input$markerList1$datapath
+                  load_csv_xlsx_files(input$markerList1$datapath)
                }
-            } else NULL
+            } else {NULL}
             
             pos_list <- if (input$markerType == "pos" && !is.null(input$markerList2)) {
                load_csv_xlsx_files(input$markerList2$datapath)
-            } else NULL
+            } else {NULL}
             
             addSNPinfo <- !is.null(input$addRSID)
             
@@ -2286,6 +2337,8 @@ server <- function(input, output, session){
                if (grepl("\\.bcf$", input$markerFile$name, ignore.case = TRUE)) {
                   "bcf"
                } else if (grepl("\\.vcf.gz$", input$markerFile$name, ignore.case = TRUE)) {
+                  "vcf"
+               } else if (grepl("\\.vcf$", input$markerFile$name, ignore.case = TRUE)) {
                   "vcf"
                } else {
                   stop("Unsupported input file format.")
@@ -2948,15 +3001,24 @@ server <- function(input, output, session){
    
    
    # POP STAT
-   output$examplePop <- renderTable({
-      data.frame(
+   examplePop <-data.frame(
          Sample = c("Sample1", "Sample2", "Sample3", "Sample4", "..."),
          Population = c("POP1", "POP2", "POP3", "POP4", "..."),
          rs101 = c("A/A", "A/T", "A/A", "T/T", "..."),
          rs102 = c("G/G", "C/C", "G/C", "G/G", "..."),
          rs_n = c("...", "...", "...", "...", "...")
       )
-   })
+
+   
+   output$examplePop_UI <- DT::renderDataTable({
+      req(examplePop)
+      examplePop
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 5
+   )
+   )
+   
    
    observe({
       file_ready <- !is.null(input$popStatsFile)
@@ -3334,6 +3396,24 @@ server <- function(input, output, session){
    )
    
    ## STRUCTURE ANALYSIS
+   examplePop_STR2 <-data.frame(
+      Sample = c("Sample1", "Sample2", "Sample3", "Sample4", "..."),
+      Population = c("POP1", "POP2", "POP3", "POP4", "..."),
+      rs101 = c("A/A", "A/T", "A/A", "T/T", "..."),
+      rs102 = c("G/G", "C/C", "G/C", "G/G", "..."),
+      rs_n = c("...", "...", "...", "...", "...")
+   )
+   
+   
+   output$examplePop_STR2UI <- DT::renderDataTable({
+      req(examplePop_STR2)
+      examplePop_STR2
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 5
+   )
+   )
+   
    observe({
       file_ready <- !is.null(input$structureFile)
       shinyjs::toggleState("runStructure", condition = file_ready)
@@ -3483,6 +3563,24 @@ server <- function(input, output, session){
    })
    
    # Prediction #
+   classificationRef <-data.frame(
+      Sample = c("Sample1", "Sample2", "Sample3", "Sample4", "..."),
+      Population = c("POP1", "POP2", "POP3", "POP4", "..."),
+      rs101 = c("A/A", "A/T", "A/A", "T/T", "..."),
+      rs102 = c("G/G", "C/C", "G/C", "G/G", "..."),
+      rs_n = c("...", "...", "...", "...", "...")
+   )
+   
+   
+   output$classificationRef_UI <- DT::renderDataTable({
+      req(classificationRef)
+      classificationRef
+   }, options = list(
+      scrollX = TRUE,
+      pageLength = 5
+   )
+   )
+   
    observe({
       file_ready <- !is.null(input$forPredFile)
       shinyjs::toggleState("runNaiveBayes", condition = file_ready)
