@@ -580,16 +580,6 @@ to_snipper <- function(input,
       tosnipper$Sample <-  as.character(tosnipper$Sample)
    }
    
-   #if (tools::file_ext(references) %in% c("csv", "xlsx")){
-   #   reference <- load_csv_xlsx_files(references)
-   #   reference <- reference %>%
-   #      rename(Sample = 1)
-   #} else if (is.data.frame(references)) {
-   #   reference <- references
-   #} else {
-   #   stop("Not an xlsx, csv, or vcf file.")
-   #}
-   
    if (is.data.frame(references)) {
       reference <- references
    } else {
@@ -731,11 +721,8 @@ extract_by_ID_pgen <- function(pgen_prefix,
    )
    
    system(cmd)
-   
    return(paste0(out_prefix, ".vcf"))
 }
-
-
 
 
 extract_by_pos_pgen <- function(pos_list,

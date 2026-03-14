@@ -46,6 +46,12 @@ ui <- dashboardPage(
       tags$head(
          includeCSS("www/custom.css") 
       ),
+      shinybusy::add_busy_spinner(spin = "fading-circle", position = "full-page"),
+      tags$style(HTML("
+                      .shinybusy-overlay {
+                      background-color: rgba(0,0,0,0.25) !important;
+                      }
+                      ")),
       tabItems(
          tabItem(tabName = "dashboard",
             #     fluidRow(
@@ -2280,19 +2286,16 @@ server <- function(input, output, session){
    rsid_available <- reactiveVal(FALSE)
    extracted_file <- reactiveVal(NULL)
    
-   # Enable validate button only if input files exist
    observe({
       toggleState("validateBtn", (!is.null(input$markerFile) ||
                                      (!is.null(input$bedFile) && !is.null(input$bimFile) && !is.null(input$famFile))))
    })
    
-   # ---- Step 1: Validate input and detect RSIDs ----
    observeEvent(input$validateBtn, {
-      req(input$markerFile)  # Or PLINK files
+      req(input$markerFile)  
       
       temp_snplist <- file.path(tempdir(), "temp_snplist.txt")
       
-      # Determine input type
       input_type <- if (!is.null(input$markerFile)) {
          if (grepl("\\.bcf$", input$markerFile$name, ignore.case = TRUE)) "bcf"
          else "vcf"
@@ -2303,7 +2306,6 @@ server <- function(input, output, session){
       snps <- character(0)
       
       if(input_type %in% c("vcf","bcf")){
-         # PLINK2 call to generate snplist with automatic ID dedup
          cmd <- paste(
             shQuote(plink2_path),
             paste0("--", input_type), shQuote(input$markerFile$datapath),
@@ -2312,30 +2314,26 @@ server <- function(input, output, session){
          )
          system(cmd)
          
-         # Read the snplist safely
          snps <- tryCatch(readLines(paste0(temp_snplist, ".snplist")),
                           error = function(e) character(0))
          
          # Deduplicate automatically
          snps <- unique(snps)
          
-         # If empty, fill with a single placeholder "."
          if(length(snps) == 0) snps <- "."
       }
       
-      # Store in reactive values
       variant_ids(unique(snps))
       rsid_available(length(snps) > 1 || snps[1] != ".")
    })
    
-   # ---- Step 2: Dynamically show marker type or POS UI ----
    output$markerOptionsUI <- renderUI({
       req(variant_ids())
       
       if(rsid_available()){
          tagList(
             h4("Detected RSIDs:"),
-            DT::DTOutput("variantTable"),
+            shinycssloaders::withSpinner(DT::DTOutput("variantTable"), type = 4),
             radioButtons("markerType", "Choose Marker Type",
                          choices = c("rsid", "pos"), inline = TRUE),
             conditionalPanel(
@@ -2366,8 +2364,7 @@ server <- function(input, output, session){
          )
       }
    })
-   
-   # ---- Display DT ----
+
    output$variantTable <- DT::renderDT({
       snps <- variant_ids()
       req(!is.null(snps))
@@ -2402,7 +2399,6 @@ server <- function(input, output, session){
       shinyjs::toggleState("extractBtn", condition = can_extract())
    })
    
-   # ---- Step 3: Run marker extraction ----
    observeEvent(input$extractBtn, {
       
       disable("extractBtn")
@@ -2414,26 +2410,32 @@ server <- function(input, output, session){
          
          pgen_prefix <- file.path(temp_dir, "input_pgen")
          
-         # ---- STEP 1: Convert input → PGEN ----
          if (!is.null(input$markerFile)) {
-            
             input_file <- input$markerFile$datapath
-            input_type <- if (grepl("\\.bcf$", input$markerFile$name, ignore.case = TRUE)) "bcf" else "vcf"
+           
+            run_plink <- function(flag) {
+               cmd_args <- c(
+                  paste0("--", flag), shQuote(input_file),
+                  "--make-pgen",
+                  "--output-chr", "26",
+                  "--out", shQuote(pgen_prefix)
+               )
+               
+               system2(plink2_path, args = cmd_args, stdout = TRUE, stderr = TRUE)
+            }
             
-            cmd <- paste(
-               shQuote(plink2_path),
-               paste0("--", input_type), shQuote(input_file),
-               "--make-pgen",
-               "--output-chr 26",
-               "--out", shQuote(pgen_prefix)
-            )
+            # Try with --vcf first
+            res <- run_plink("vcf")
             
-            system(cmd)
+            # Check for BCF2 error
+            if (any(grepl("appears to be a BCF2 file", res))) {
+               message("Detected BCF2 file. Retrying with --bcf...")
+               res <- run_plink("bcf")
+            }
             
          } else {
             
             bed_prefix <- tools::file_path_sans_ext(input$bedFile$datapath)
-            
             cmd <- paste(
                shQuote(plink2_path),
                "--bfile", shQuote(bed_prefix),
@@ -2447,11 +2449,9 @@ server <- function(input, output, session){
          
          merged_name <- "extracted_markers"
          
-         # ---- STEP 2: RSID extraction ----
          if (rsid_available() && input$markerType == "rsid") {
             
             snps_list <- tempfile(fileext = ".txt")
-            
             if (input$rsidInputType == "manual") {
                
                rsids <- trimws(unlist(strsplit(input$typedRSIDs, "\n")))
@@ -2460,10 +2460,8 @@ server <- function(input, output, session){
                writeLines(rsids, snps_list)
                
             } else {
-               
                df <- load_csv_xlsx_files(input$markerList1$datapath)
                writeLines(as.character(df[[1]]), snps_list)
-               
             }
             
             extracted <- extract_by_ID_pgen(
@@ -2475,8 +2473,7 @@ server <- function(input, output, session){
             )
             
          } else {
-            
-            # ---- STEP 3: POS extraction ----
+         
             req(input$markerList2)
             
             pos_list <- as.data.frame(load_csv_xlsx_files(input$markerList2$datapath))
@@ -2486,7 +2483,6 @@ server <- function(input, output, session){
             
             colnames(pos_list)[1:3] <- c("rsID","chr","pos")
             
-            # ---- Create range file automatically ----
             range_file <- create_range_file(pos_list, temp_dir)
             
             if (isTRUE(input$addRSID)) {
