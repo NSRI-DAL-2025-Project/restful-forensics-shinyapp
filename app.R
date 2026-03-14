@@ -9,7 +9,7 @@ source("functions.R", local = TRUE)
 source("dal_functions.R", local = TRUE)
 source("global.R", local = TRUE)
 
-options(shiny.maxRequestSize = 2000*1024^2)
+options(shiny.maxRequestSize = 5000*1024^2)
 
 ui <- dashboardPage(
    dashboardHeader(
@@ -472,73 +472,56 @@ ui <- dashboardPage(
                                       fileInput("zippedPLINK", "Zipped PLINK Files")
                                    ),
                                    
-                                   radioButtons("markerType", "B. Choose Marker Type",
-                                                choices = c("rsid", "pos"), inline = TRUE),
-                                   
-                                   conditionalPanel(
-                                      condition = "input.markerType == 'rsid'",
-                                      radioButtons("rsidInputType", "RSID Input",
-                                                   choices = c("manual", "upload")),
-                                      
-                                      conditionalPanel(
-                                         condition = "input.rsidInputType == 'manual'",
-                                         textAreaInput("typedRSIDs", "Enter RSIDs (one per line)", rows = 5)
-                                      ),
-                                      conditionalPanel(
-                                         condition = "input.rsidInputType == 'upload'",
-                                         fileInput("markerList1", "Upload RSID List File")
-                                      )
-                                   ),
-                                   
-                                   conditionalPanel(
-                                      condition = "input.markerType == 'pos'",
-                                      fileInput("markerList2", "Upload POS List (.csv, .xlsx)"),
-                                      checkboxInput("addRSID", "C. Add marker information/rsID to VCF (output) file?", value = FALSE),
-                                      helpText("Some files have no rsID information. Check the box to add rsID to output file")
-                                   ),
-                                   
-                                   actionButton("extractBtn", "Run Marker Extraction", icon = icon("play"))
-                                   
+                                   actionButton("validateBtn", "Validate Input File Format", icon = icon("check")),
+                                   uiOutput("markerOptionsUI") 
                                 ),
+                                
                                 tabBox(
                                    tabPanel("Instructions",
-                                            h4("Extract SNPs based on rsID (marker identification) or GRCh37/GRCh38 position"),
+                                            h4("Extract SNPs based on rsID or GRCh37/GRCh38 position"),
                                             p(strong("Input file/s:")),
                                             p("(1) VCF, BCF, or PLINK (.bed, .bim, .fam) files."),
-                                            p("(2) Markers/position list — you may type rsIDs manually, upload a list, or use a POS txt file."),
-                                            p("The position list (txt file) should include:"),
+                                            p("(2) Markers/position list — type RSIDs manually, upload a list, or use a POS txt/csv file."),
+                                            p("Position list format:"),
                                             tags$ul(
                                                tags$li("[1] rsID/marker name"),
-                                               tags$li("[2] Chromosome number (integer)"),
-                                               tags$li("[3] Position in GRCh37 or GRCh38 (integer)")
+                                               tags$li("[2] Chromosome number"),
+                                               tags$li("[3] Position (bp)")
                                             ),
-                                            p(strong("Parameter/s:"), "Filtering options"),
-                                            p(strong("Expected output file/s:"), "VCF file")
-                                   ), # end of tabpanel
-                                   tabPanel("Sample Input Format/s",
+                                            p(strong("Expected output file:"), "VCF")
+                                   ),
+                                   tabPanel("Sample Input Format",
                                             h4("rsID Format"),
                                             tableOutput("exampleRSID"),
                                             h4("Position Format"),
                                             tableOutput("examplePOS")
                                    ),
                                    tabPanel("Download Sample Files",
-                                            h4("Sample File/s:"),
+                                            h4("Sample Files"),
                                             tags$ul(
-                                               tags$a("A. Sample VCF file", href = "www/sample_files/sample_hgdp.vcf", download = NA),
+                                               tags$a("Sample VCF file", href = "www/sample_files/sample_hgdp.vcf", download = NA),
                                                br(),
-                                               tags$a("B. Sample marker metadata file (to generate rsID names)", href = "www/sample_files/marker_info.csv", download = NA)
+                                               tags$a("Sample marker metadata file", href = "www/sample_files/marker_info.csv", download = NA)
                                             )
-                                   ) # end of tabpanel download sample input
-                                ) # end of tabbox
-                             ), # end of fluid row
+                                   )
+                                )
+                             ), # end fluidRow
+                             
                              fluidRow(
                                 tabBox(
-                                   title = "Extraction Results",
-                                   uiOutput("downloadExtracted_UI"),
-                                   helpText("Note: Some systems mislabel .vcf files as contact files. This is a reminder that the file is a genomic VCF.")
+                                   width = 12, 
+                                   tabPanel(
+                                      title = "Detected RSIDs",
+                                      DT::DTOutput("variantTable") %>% shinycssloaders::withSpinner(color = "blue")
+                                   ),
+                                   tabPanel(
+                                      title = "Extraction Results",
+                                      uiOutput("downloadVCF_UI"),
+                                      helpText("Note: File can appear as vCard files, it is still a VCF file.")
+                                   )
                                 )
                              )
-                    ), # end of tab panel for extraction
+         ), # end extraction
                     
                     # SNP Extraction: Concordance Analysis
                     tabPanel("Concordance Analysis",
@@ -1414,13 +1397,13 @@ server <- function(input, output, session){
    
    observe({
       hasfile <-!is.null(input$VCFFile) || !is.null(input$BCFFile) || !is.null(input$CSVFile) || (!is.null(input$bedFile) && !is.null(input$bimFile) && !is.null(input$famFile))
-      ready <- isTRUE(hasfile)
       
-      forBreakdown <- !is.null(input$breakdown_vcf) || !is.null(input$breakdown_bcf) || !is.null(input$breakdown_plink)
-      stillReady <- isTRUE(forBreakdown) && (!is.null(input$breakdown_column_vcf) || !is.null(input$breakdown_column_bcf) || !is.null(input$breakdown_column_plink))
-      ready2 <- isTRUE(stillReady)
+      breakdown_selected <- !is.null(input$breakdown_vcf) || !is.null(input$breakdown_bcf) || !is.null(input$breakdown_plink)
+      breakdown_ready <- !breakdown_selected || 
+                     (!is.null(input$breakdown_column_vcf) || !is.null(input$breakdown_column_bcf) || !is.null(input$breakdown_column_plink))
+
       
-      toggleState("ConvertFILES", ready && ready2)
+      toggleState("ConvertFILES", condition = hasfile && breakdown_ready)
    })
    
    
@@ -2292,108 +2275,287 @@ server <- function(input, output, session){
    })
    
    # START MARKER EXTRACTION
+   # Reactive values
+   variant_ids <- reactiveVal(NULL)
+   rsid_available <- reactiveVal(FALSE)
    extracted_file <- reactiveVal(NULL)
    
+   # Enable validate button only if input files exist
    observe({
-      isFileUploaded <- !is.null(input$markerFile) || (!is.null(input$bedFile) && !is.null(input$bimFile) && !is.null(input$famFile))
-      
-      isRSIDReady <- input$markerType == "rsid" && (
-         (input$rsidInputType == "manual" && nzchar(input$typedRSIDs)) ||
-            (input$rsidInputType == "upload" && !is.null(input$markerList1))
-      )
-      
-      isPOSReady <- input$markerType == "pos" && !is.null(input$markerList2)
-      
-      toggleState("extractBtn", isFileUploaded && (isRSIDReady || isPOSReady))
+      toggleState("validateBtn", (!is.null(input$markerFile) ||
+                                     (!is.null(input$bedFile) && !is.null(input$bimFile) && !is.null(input$famFile))))
    })
    
+   # ---- Step 1: Validate input and detect RSIDs ----
+   observeEvent(input$validateBtn, {
+      req(input$markerFile)  # Or PLINK files
+      
+      temp_snplist <- file.path(tempdir(), "temp_snplist.txt")
+      
+      # Determine input type
+      input_type <- if (!is.null(input$markerFile)) {
+         if (grepl("\\.bcf$", input$markerFile$name, ignore.case = TRUE)) "bcf"
+         else "vcf"
+      } else {
+         "plink"
+      }
+      
+      snps <- character(0)
+      
+      if(input_type %in% c("vcf","bcf")){
+         # PLINK2 call to generate snplist with automatic ID dedup
+         cmd <- paste(
+            shQuote(plink2_path),
+            paste0("--", input_type), shQuote(input$markerFile$datapath),
+            "--write-snplist allow-dups",
+            "--out", shQuote(temp_snplist)
+         )
+         system(cmd)
+         
+         # Read the snplist safely
+         snps <- tryCatch(readLines(paste0(temp_snplist, ".snplist")),
+                          error = function(e) character(0))
+         
+         # Deduplicate automatically
+         snps <- unique(snps)
+         
+         # If empty, fill with a single placeholder "."
+         if(length(snps) == 0) snps <- "."
+      }
+      
+      # Store in reactive values
+      variant_ids(unique(snps))
+      rsid_available(length(snps) > 1 || snps[1] != ".")
+   })
    
+   # ---- Step 2: Dynamically show marker type or POS UI ----
+   output$markerOptionsUI <- renderUI({
+      req(variant_ids())
+      
+      if(rsid_available()){
+         tagList(
+            h4("Detected RSIDs:"),
+            DT::DTOutput("variantTable"),
+            radioButtons("markerType", "Choose Marker Type",
+                         choices = c("rsid", "pos"), inline = TRUE),
+            conditionalPanel(
+               condition = "input.markerType == 'rsid'",
+               radioButtons("rsidInputType", "RSID Input", choices = c("manual", "upload")),
+               conditionalPanel(
+                  condition = "input.rsidInputType == 'manual'",
+                  textAreaInput("typedRSIDs", "Enter RSIDs (one per line)", rows = 5)
+               ),
+               conditionalPanel(
+                  condition = "input.rsidInputType == 'upload'",
+                  fileInput("markerList1", "Upload RSID List File")
+               )
+            ),
+            conditionalPanel(
+               condition = "input.markerType == 'pos'",
+               fileInput("markerList2", "Upload POS List (.csv, .xlsx)"),
+               checkboxInput("addRSID", "Add marker information/rsID to output?", value = FALSE)
+            ),
+            shinyjs::disabled(actionButton("extractBtn", "Run Marker Extraction", icon = icon("play")))
+         )
+      } else {
+         tagList(
+            h4("No RSIDs detected. Extraction will require a POS list."),
+            fileInput("markerList2", "Upload POS List (.csv, .xlsx)"),
+            checkboxInput("addRSID", "Add marker information/rsID to output?", value = FALSE),
+            shinyjs::disabled(actionButton("extractBtn", "Run Marker Extraction", icon = icon("play")))
+         )
+      }
+   })
+   
+   # ---- Display DT ----
+   output$variantTable <- DT::renderDT({
+      snps <- variant_ids()
+      req(!is.null(snps))
+      # Filter out placeholder if you want to display nothing when no RSIDs
+      display_snps <- if(all(snps == ".")) character(0) else snps
+      
+      DT::datatable(data.frame(Variant_ID = display_snps),
+                    options = list(scrollX = TRUE, pageLength = 10))
+   })
+   
+   can_extract <- reactive({
+      if(!rsid_available()){
+         # No RSIDs → POS file required
+         !is.null(input$markerList2)
+      } else {
+         if(is.null(input$markerType)) return(FALSE)
+         
+         if(input$markerType == "rsid"){
+            if(is.null(input$rsidInputType)) return(FALSE)
+            if(input$rsidInputType == "manual"){
+               nzchar(trimws(input$typedRSIDs))
+            } else if(input$rsidInputType == "upload"){
+               !is.null(input$markerList1)
+            } else FALSE
+         } else if(input$markerType == "pos"){
+            !is.null(input$markerList2)
+         } else FALSE
+      }
+   })
+   
+   observe({
+      shinyjs::toggleState("extractBtn", condition = can_extract())
+   })
+   
+   # ---- Step 3: Run marker extraction ----
    observeEvent(input$extractBtn, {
+      
       disable("extractBtn")
       showPageSpinner()
-      Sys.sleep(1.5)
       
       temp_dir <- tempdir()
       
-      withProgress(message = "Extracting markers...", value = 0, {
-         tryCatch({
-            snps_list <- if (input$markerType == "rsid") {
-               if (input$rsidInputType == "manual") {
-                  temp <- tempfile(fileext = ".txt")
-                  writeLines(strsplit(input$typedRSIDs, "\n")[[1]], temp)
-                  temp
-               } else if (!is.null(input$markerList1)) {
-                  load_csv_xlsx_files(input$markerList1$datapath)
-               }
-            } else {NULL}
+      tryCatch({
+         
+         pgen_prefix <- file.path(temp_dir, "input_pgen")
+         
+         # ---- STEP 1: Convert input → PGEN ----
+         if (!is.null(input$markerFile)) {
             
-            pos_list <- if (input$markerType == "pos" && !is.null(input$markerList2)) {
-               load_csv_xlsx_files(input$markerList2$datapath)
-            } else {NULL}
+            input_file <- input$markerFile$datapath
+            input_type <- if (grepl("\\.bcf$", input$markerFile$name, ignore.case = TRUE)) "bcf" else "vcf"
             
-            addSNPinfo <- !is.null(input$addRSID)
+            cmd <- paste(
+               shQuote(plink2_path),
+               paste0("--", input_type), shQuote(input_file),
+               "--make-pgen",
+               "--output-chr 26",
+               "--out", shQuote(pgen_prefix)
+            )
             
-            input_type <- if (!is.null(input$markerFile)){
-               if (grepl("\\.bcf$", input$markerFile$name, ignore.case = TRUE)) {
-                  "bcf"
-               } else if (grepl("\\.vcf.gz$", input$markerFile$name, ignore.case = TRUE)) {
-                  "vcf"
-               } else if (grepl("\\.vcf$", input$markerFile$name, ignore.case = TRUE)) {
-                  "vcf"
-               } else {
-                  stop("Unsupported input file format.")
-               }
+            system(cmd)
+            
+         } else {
+            
+            bed_prefix <- tools::file_path_sans_ext(input$bedFile$datapath)
+            
+            cmd <- paste(
+               shQuote(plink2_path),
+               "--bfile", shQuote(bed_prefix),
+               "--make-pgen",
+               "--output-chr 26",
+               "--out", shQuote(pgen_prefix)
+            )
+            
+            system(cmd)
+         }
+         
+         merged_name <- "extracted_markers"
+         
+         # ---- STEP 2: RSID extraction ----
+         if (rsid_available() && input$markerType == "rsid") {
+            
+            snps_list <- tempfile(fileext = ".txt")
+            
+            if (input$rsidInputType == "manual") {
+               
+               rsids <- trimws(unlist(strsplit(input$typedRSIDs, "\n")))
+               rsids <- rsids[nzchar(rsids)]
+               
+               writeLines(rsids, snps_list)
+               
             } else {
-               "plink"
+               
+               df <- load_csv_xlsx_files(input$markerList1$datapath)
+               writeLines(as.character(df[[1]]), snps_list)
+               
             }
             
-            if (addSNPinfo) {
-               extracted_markers <- extract_POStoID(
-                  pos.list = pos_list,
-                  input_type = input_type,
-                  input.file = if (input_type %in% c("vcf", "bcf")) input$markerFile$datapath else NULL,
-                  bed.file = input$bedFile$datapath,
-                  bim.file = input$bimFile$datapath,
-                  fam.file = input$famFile$datapath,
-                  output.dir  = temp_dir,
-                  plink_path  = plink_path
+            extracted <- extract_by_ID_pgen(
+               pgen_prefix = pgen_prefix,
+               snps_list = snps_list,
+               output_dir = temp_dir,
+               merged_file = merged_name,
+               plink_path = plink2_path
+            )
+            
+         } else {
+            
+            # ---- STEP 3: POS extraction ----
+            req(input$markerList2)
+            
+            pos_list <- as.data.frame(load_csv_xlsx_files(input$markerList2$datapath))
+            
+            if (ncol(pos_list) < 3)
+               stop("Position file must contain: rsID, chr, pos")
+            
+            colnames(pos_list)[1:3] <- c("rsID","chr","pos")
+            
+            # ---- Create range file automatically ----
+            range_file <- create_range_file(pos_list, temp_dir)
+            
+            if (isTRUE(input$addRSID)) {
+               
+               extracted <- extract_POStoID_pgen(
+                  pos_list = pos_list,
+                  pgen_prefix = pgen_prefix,
+                  output_dir = temp_dir,
+                  plink_path = plink2_path
                )
+               
             } else {
-               extracted_markers <- extract_markers(
-                  input_type = input_type,
-                  input.file  = if (input_type %in% c("vcf", "bcf")) input$markerFile$datapath else NULL,
-                  snps.list = snps_list,
-                  pos.list = pos_list,
-                  bed.file = input$bedFile$datapath,
-                  bim.file = input$bimFile$datapath,
-                  fam.file = input$famFile$datapath,
-                  output.dir  = temp_dir,
-                  merged.file = "final_merged.vcf",
-                  plink_path  = plink_path
+               
+               out_prefix <- file.path(temp_dir, merged_name)
+               
+               cmd_extract <- paste(
+                  shQuote(plink2_path),
+                  "--pfile", shQuote(pgen_prefix),
+                  "--extract range", shQuote(range_file),
+                  "--export vcf",
+                  "--out", shQuote(out_prefix)
                )
+               
+               system(cmd_extract)
+               
+               extracted <- paste0(out_prefix, ".vcf")
+               
+               if (!file.exists(extracted))
+                  stop("PLINK extraction failed: no VCF generated.")
+               
             }
-            extracted_file(extracted_markers)
-            showNotification("VCF file successfully extracted and ready for download!", type = "message")
-            enable("extractBtn")
-         }, error = function(e) {
-            showNotification(paste("Error:", e$message), type = "error")
-            enable("extractBtn")
-         })
+         }
+         
+         extracted_file(extracted)
+         
+         showNotification(
+            "Marker extraction completed successfully.",
+            type = "message"
+         )
+         
+      },
+      error = function(e) {
+         showNotification(
+            paste("Extraction error:", e$message),
+            type = "error",
+            duration = 10
+         )
+      },
+      finally = {
+         hidePageSpinner()
+         enable("extractBtn")
       })
-      hidePageSpinner()
+      
    })
-   output$downloadExtracted <- downloadHandler(
-      filename = function() { "final_merged.vcf" },
+   
+   
+   output$downloadVCF <- downloadHandler(
+      filename = function() {
+         paste0("extracted_markers_", Sys.Date(), ".vcf")
+      },
       content = function(file) {
          req(extracted_file())
-         file.copy(extracted_file(), file)
-      },
-      contentType = "text/vcf"
+         file.copy(extracted_file(), file, overwrite = TRUE)
+      }
    )
    
-   output$downloadExtracted_UI <- renderUI({
+   output$downloadVCF_UI <- renderUI({
       req(extracted_file())
-      downloadButton("downloadExtracted", "Download Extracted Markers (VCF)")
+      downloadButton("downloadVCF", "Download Extracted File (VCF)")
    })
    
    #############
@@ -2787,9 +2949,22 @@ server <- function(input, output, session){
       req(input$queBarcoding)
       
       # read file
-      # 13 Jan 2026: added "guess.format.msa" and "$datapath" for input files
-      barcoding_ref <- rphast::read.msa(input$refBarcoding$datapath, format = guess.format.msa(input$refBarcoding$datapath, method = "content"))
-      barcoding_que <- rphast::read.msa(input$queBarcoding$datapath, format = guess.format.msa(input$refBarcoding$datapath, method = "content"))
+      # 13 March 2026: removed rphast
+      file_ext_ref <- tools::file_ext(input$refBarcoding$name)
+      if (file_ext_ref == "msa") {
+         barcoding_ref <- Biostrings::ReadDNAStringSet(input$refBarcoding$datapath)
+      } else if (file_ext_ref %in% c("fasta", "msf", "aln")) {
+         if (file_ext_ref == "aln") { file_ext_ref <- "clustal" } 
+         barcoding_ref <- seqinr::read.alignment(file = input$refBarcoding$datapath, format = file_ext_ref)
+      }
+      
+      file_ext_que <- tools::file_ext(input$queBarcoding$name)
+      if (file_ext_que == "msa") {
+         barcoding_que <- Biostrings::ReadDNAStringSet(input$queBarcoding$datapath)
+      } else if (file_ext_que %in% c("fasta", "msf", "aln")) {
+         if (file_ext_que == "aln") { file_ext_que <- "clustal" } 
+         barcoding_que <- seqinr::read.alignment(file = input$queBarcoding$datapath, format = file_ext_que)
+      }
       
       ref_seq <- ape::as.DNAbin(as.character(barcoding_ref))
       que_seq <- ape::as.DNAbin(as.character(barcoding_que))

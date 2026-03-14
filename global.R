@@ -5,11 +5,11 @@ library(bslib)
 library(dplyr)
 library(waiter)
 
-if (!requireNamespace("rphast", quietly = TRUE)) {
-   devtools::install_github("CshlSiepelLab/RPHAST")
+if (!requireNamespace("seqinr", quietly = TRUE)) {
+   install.packages("seqinr")
 }
 
-library(rphast)
+library(seqinr)
 
 if (!requireNamespace("data.table", quietly = TRUE)) {
    install.packages("data.table")

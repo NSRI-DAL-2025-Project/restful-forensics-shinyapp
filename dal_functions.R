@@ -53,11 +53,11 @@ convert_to_plink <- function(input.file, output.dir, plink_path = plink_path, na
    output_file <- file.path(output.dir, name)
    
    if (grepl("\\.vcf\\.gz$", input.file)) {
-      cmd <- paste(plink_path, "--vcf", input.file, "--make-bed --out", output_file)
+      cmd <- paste(shQuote(plink_path), "--vcf", shQuote(input.file), "--double-id --make-bed --out", shQuote(output_file))
    } else if (file_extension == "vcf") {
-      cmd <- paste(plink_path, "--vcf", input.file, "--make-bed --out", output_file)
+      cmd <- paste(shQuote(plink_path), "--vcf", shQuote(input.file), "--double-id --make-bed --out", shQuote(output_file))
    } else if (file_extension == "bcf") {
-      cmd <- paste(plink_path, "--bcf", input.file, "--make-bed --out", output_file)
+      cmd <- paste(shQuote(plink_path), "--bcf", shQuote(input.file), "--double-id --make-bed --out", shQuote(output_file))
    } else {
       stop("Unsupported file type. Please provide a VCF, VCF.GZ, or BCF.")
    }
@@ -674,233 +674,128 @@ to_snipper <- function(input,
 #
 # Last revised 31 October 2025
 #============================
-# Error: argument must be coercible to non-negative integer
-#Warning in seq_len(nrow(pos.list)) :
-# first element used of 'length.out' argument
-
-extract_markers <- function(input_type,
-                           input.file = NULL, 
-                            snps.list = NULL, 
-                            pos.list = NULL, 
-                            bed.file = NULL, 
-                            bim.file = NULL, 
-                            fam.file = NULL,
-                            output.dir, 
-                            merged.file,
-                            plink_path) {
+create_range_file <- function(pos_input, output_dir){
    
-   if (!dir.exists(output.dir)) {
-      dir.create(output.dir, recursive = TRUE)
-   }
-   
-   plink_files_given <- !is.null(bed.file) || !is.null(bim.file) || !is.null(fam.file)
-   vcf_given <- !is.null(input.file)
-   
-   if (plink_files_given && vcf_given){
-      stop("Please provide either a single input file (VCF/VCF.GZ/BCF) or PLINK files (bed, bim, fam)")
-   }
-   
-   if (!is.null(snps.list)) {
-      return(extract_by_ID(snps.list, input_type, input.file,
-                           bed.file, bim.file, fam.file,
-                           output.dir, merged.file, plink_path))
-   } else if (!is.null(pos.list)){
-      return(extract_by_pos(pos.list, input_type, input.file,
-                            bed.file, bim.file, fam.file,
-                            output.dir, merged.file, plink_path))
+   if (is.character(pos_input)) {
+      pos_df <- load_csv_xlsx_files(pos_input)
    } else {
-      stop("Provide SNPs name (rsID) or list of POS")
-   }
-}
-
-
-extract_by_ID <- function(snps.list, input_type, input.file,
-                          bed.file, bim.file, fam.file,
-                          output.dir, merged.file,
-                          plink_path) {
-   
-   file_extracted <- file.path(output.dir, merged.file)
-   
-   if (input_type %in% c("vcf", "bcf")){
-      cmd <- paste(
-         shQuote(plink_path),
-         paste0("--", input_type), shQuote(input.file),
-         "--extract", shQuote(snps.list),
-         "--keep-allele-order --allow-no-sex --allow-extra-chr --recode vcf --out", shQuote(file_extracted)
-      )
-   } else {
-      cmd <- paste(
-         shQuote(plink_path),
-         "--bed", shQuote(bed.file),
-         "--bim", shQuote(bim.file),
-         "--fam", shQuote(fam.file),
-         "--extract", shQuote(snps.list),
-         "--keep-allele-order --allow-no-sex --allow-extra-chr --recode vcf --out", shQuote(file_extracted)
-      )
-   }
-   system(cmd)
-   return(paste0(file_extracted, ".vcf"))
-}
-
-
-extract_by_pos <- function(pos.list, 
-                           input_type,
-                           input.file,
-                           bed.file, bim.file, fam.file,
-                           output.dir, 
-                           merged.file,
-                           plink_path){
-   
-   for (i in seq_len(nrow(pos.list))){
-      chr_num <- pos.list[i, 2]
-      start_bp <- pos.list[i, 3]
-      
-      filename_base <- paste0("chr", chr_num, "_", start_bp - 1)
-      output_file <- file.path(output.dir, filename_base)
-      
-      if (input_type %in% c("vcf", "bcf")){
-         cmd <- paste(
-            shQuote(plink_path),
-            paste0("--", input_type), shQuote(input.file),
-            "--chr", chr_num,
-            "--from-bp", start_bp,
-            "--to-bp", start_bp,
-            "--keep-allele-order --allow-extra-chr --recode vcf",
-            "--out", shQuote(output_file)
-         )
-      } else {
-         cmd <- paste(
-            shQuote(plink_path),
-            "--bed", shQuote(bed.file),
-            "--bim", shQuote(bim.file),
-            "--fam", shQuote(fam.file),
-            "--chr", chr_num,
-            "--from-bp", start_bp,
-            "--to-bp", start_bp,
-            "--keep-allele-order --allow-extra-chr --recode vcf",
-            "--out", shQuote(output_file)
-         )
-      }
-      system(cmd)
-   }
-   final_vcf <- merge_vcf_files(output.dir, merged.file)
-   return(final_vcf)
-}
-
-
-extract_POStoID <- function(pos.list,
-                            input_type,
-                            input.file = NULL,
-                            bed.file = NULL, 
-                            bim.file = NULL, 
-                            fam.file = NULL,
-                            output.dir,
-                            plink_path){
-   
-   # generate a text file outside
-   list_plink <- file.path(output.dir, "plink_files.txt")
-   list_ID_names <- file.path(output.dir, "ID_names.txt")
-   
-   if (file.exists(list_plink)) file.remove(list_plink)
-   if (file.exists(list_ID_names)) file.remove(list_ID_names)
-   
-   for (i in seq_len(nrow(pos.list))) {
-      rsID <- pos.list[i, 1]
-      chr_num <- pos.list[i, 2]
-      start_bp <- pos.list[i, 3]
-      
-      # 1. Extraction
-      filename_base <- paste0("chr", chr_num, "_", start_bp - 1)
-      output_file <- file.path(output.dir, filename_base)
-      
-      if (input_type %in% c("vcf", "bcf")) {
-         extract_args <- paste(
-            shQuote(plink_path),
-            paste0("--", input_type), shQuote(input.file),
-            "--chr", chr_num,
-            "--from-bp", start_bp,
-            "--to-bp", start_bp,
-            "--make-bed",
-            "--out", shQuote(output_file)
-         )
-      } else {
-         extract_args <- paste(
-            shQuote(plink_path),
-            "--bed", shQuote(bed.file),
-            "--bim", shQuote(bim.file),
-            "--fam", shQuote(fam.file),
-            "--chr", chr_num,
-            "--from-bp", start_bp,
-            "--to-bp", start_bp,
-            "--make-bed",
-            "--out", shQuote(output_file)
-         )
-      }
-      system(extract_args)
-      
-      # 2. Adding rsID
-      bed_file <- paste0(output_file, ".bed")
-      bim_file <- paste0(output_file, ".bim")
-      fam_file <- paste0(output_file, ".fam")
-      
-      if (!file.exists(bed_file)){
-         warning("PLINK did not produce expected files for ", rsID)
-         next
-      }
-      
-      revised <- file.path(output.dir, rsID)
-      add_rsid <- paste(
-         shQuote(plink_path),
-         "--bed", shQuote(bed_file),
-         "--bim", shQuote(bim_file),
-         "--fam", shQuote(fam_file),
-         "--set-missing-var-ids @:#", rsID,
-         "--make-bed",
-         "--out", shQuote(revised)
-      )
-      message("Running: ", add_rsid)
-      system(add_rsid)
-      
-      # 2.1. Generate files
-      plink_lines <- paste(paste0(revised, ".bed"),
-                           paste0(revised, ".bim"),
-                           paste0(revised, ".fam"),
-                           sep = "\t"
-                           )
-      write(plink_lines, file = list_plink, append = TRUE)
-      
-      # 2.2 Append rsID to ID names
-      rsid_line <- paste0("chr", chr_num, ":", start_bp, ":", rsID, "\t", rsID)
-      write(rsid_line, file = list_ID_names, append = TRUE)
+      pos_df <- pos_input
    }
    
-   # 3. Merge PLINK files
-   merged_file <- file.path(output.dir, "merged")
-   merged_plink <- paste(
-      shQuote(plink_path),
-      "--merge-list", shQuote(list_plink),
-      "--recode vcf",
-      "--keep-allele-order",
-      "--out", shQuote(merged_file)
-      )
-   message("Running: ", merged_plink)
-   system(merged_plink)
+   pos_df <- as.data.frame(pos_df)
    
-   # 4. Rename rsID
-   input_vcf <- paste0(merged_file, ".vcf")
-   corrected_ID <- file.path(output.dir, "renamed_ID")
-   updated_plink <- paste(
-      shQuote(plink_path),
-      "--vcf", shQuote(input_vcf),
-      "--update-name", shQuote(list_ID_names),
-      "--recode vcf",
-      "--out", shQuote(corrected_ID)
+   if(ncol(pos_df) < 3){
+      stop("Input must contain at least 3 columns: SNP, Chromosome, Position")
+   }
+   
+   chr <- as.character(pos_df[[2]])
+   pos <- as.numeric(pos_df[[3]])
+   label <- as.character(pos_df[[1]])
+   
+   range_df <- data.frame(
+      CHR = chr,
+      START = pos,
+      END = pos,
+      LABEL = label,
+      stringsAsFactors = FALSE
    )
-   system(updated_plink)
    
-   return(paste0(corrected_ID, ".vcf"))
+   range_file <- file.path(output_dir, "range.txt")
+   
+   write.table(
+      range_df,
+      file = range_file,
+      row.names = FALSE,
+      col.names = FALSE,
+      quote = FALSE,
+      sep = "\t"
+   )
+   
+   return(range_file)
 }
 
+extract_by_ID_pgen <- function(pgen_prefix,
+                               snps_list,
+                               output_dir,
+                               merged_file,
+                               plink_path){
+   
+   out_prefix <- file.path(output_dir, merged_file)
+   
+   cmd <- paste(
+      shQuote(plink_path),
+      "--pfile", shQuote(pgen_prefix),
+      "--extract", shQuote(snps_list),
+      "--export vcf",
+      "--out", shQuote(out_prefix)
+   )
+   
+   system(cmd)
+   
+   return(paste0(out_prefix, ".vcf"))
+}
+
+
+
+
+extract_by_pos_pgen <- function(pos_list,
+                                pgen_prefix,
+                                output_dir,
+                                merged_file,
+                                plink_path){
+   
+   range_file <- create_range_file(pos_list, output_dir)
+   
+   out_prefix <- file.path(output_dir, merged_file)
+   
+   cmd <- paste(
+      shQuote(plink_path),
+      "--pfile", shQuote(pgen_prefix),
+      "--extract", "range", shQuote(range_file),
+      "--export vcf",
+      "--out", shQuote(out_prefix)
+   )
+   
+   system(cmd)
+   
+   vcf_file <- paste0(out_prefix, ".vcf")
+   
+   if(!file.exists(vcf_file)){
+      stop("PLINK extraction failed: no VCF generated.")
+   }
+   
+   return(vcf_file)
+}
+
+
+
+extract_POStoID_pgen <- function(pos_list,
+                                 pgen_prefix,
+                                 output_dir,
+                                 plink_path){
+   
+   range_file <- create_range_file(pos_list, output_dir)
+   
+   extracted_prefix <- file.path(output_dir, "pos_extract")
+   
+   cmd_extract <- paste(
+      shQuote(plink_path),
+      "--pfile", shQuote(pgen_prefix),
+      "--extract", "range", shQuote(range_file),
+      "--export vcf",
+      "--out", shQuote(extracted_prefix)
+   )
+   
+   system(cmd_extract)
+   
+   vcf_file <- paste0(extracted_prefix, ".vcf")
+   
+   if(!file.exists(vcf_file)){
+      stop("PLINK extraction failed: no VCF generated.")
+   }
+   
+   return(vcf_file)
+}
 
 #============================
 # CONCORDANCE ANALYSIS
