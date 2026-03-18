@@ -89,8 +89,8 @@ STRUCTURE v2.3.4 or other tools such as StrAuto or faststructure.
 This tab is specific for extracting markers via their
 GRCh37/GRCh38 position or their Reference SNP cluster ID (rsID). The
 extracted files can be processed in file conversion to generate an
-analysis-ready file.  
-**Known Issue/s**: Uses BCFtools for merging zipped VCF files (vcf.gz) not compatible with Windows.
+analysis-ready file. The functions would convert the input files to .pgen files
+for PLINK2.0 compatibility.
 
 
 **_B. Concordance Analysis_**
@@ -98,7 +98,6 @@ analysis-ready file.
 This tab compares the sequencing outputs of two
 different technologies. It expects either an XLSX or CSV file containing
 sample and marker information.  
-**Known Issue/s**: Takes a significant amount of time to load the results (table and plots)
 
 ### 🔽 Filtering
 
@@ -119,8 +118,37 @@ Standard filtering flags included:
 --qual-threshold  
 --hwe  
 --indep-pairwise  
+ 
+PLINK 1.9 flag options: https://www.cog-genomics.org/plink/  
 
-PLINK 1.9 flag options: https://www.cog-genomics.org/plink/
+### 🔍 Exploratory Analysis
+
+This tab performs principal component analysis (PCA) on a pre-processed data in CSV or XLSX format using the ade4 R package. This accepts a processed file similar to the output of the "Convert
+files to CSV" tab. Labels and colors can be personalized. 
+
+
+### 📝 Population Statistics
+
+This accepts a processed file similar to the output of the "Convert
+files to CSV" tab to calculate the common population statistics. 
+
+**For guidance on interpreting the following, see the references**
+
+[1] Private alleles (poppr package)  
+[2] Mean Allelic Richness (hierfstat package)  
+[3] Heterozygosity (hierfstat package)  
+[4] Inbreeding Coefficient (hierfstat package)  
+[5] Allele Frequency (adegenet package)  
+[6] Hardy-Weinberg Equilibrium (pegas package)  
+[7] FST values (hierfstat package)  
+**Known Issue/s**: Takes a significant amount of time to load the results (table and plots).
+
+
+### Forensic Parameters (iiSNPs)
+
+This tab calculates common forensic parameters for iiSNPS: random match probability (RMP), 
+power of discrimination (PD), polymorphic information content (PIC), power of exclusion (PE),
+and typical paternity index (TPI).
 
 
 ### ↔️ Multiple Sequence Alignment
@@ -131,7 +159,7 @@ performed using the DECIPHER package. Two functions, AdjustAlignment()
 and StaggerAlignment() is used and provided as an option for
 phylogenetic tree construction.
 **Known Issue/s**: PDF of the alignment is automatically being downloaded in the working directory of the repository.  
-Output is not properly appearing using the shiny app.
+
 
 ### 🌲Phylogenetic Tree
 
@@ -178,29 +206,6 @@ For Automatic Barcode Gap Discovery, several iTaxoTools webtool/webserver implem
 - Muséum national d'Histoire naturelle (MNHN) webserver: https://bioinfo.mnhn.fr/abi/public/abgd/
 
 For complete links and information, access iTaxoTools using https://itaxotools.org/links.
-
-### 📝 Population Statistics
-
-This accepts a processed file similar to the output of the "Convert
-files to CSV" tab to calculate the common population statistics. 
-
-**For guidance on interpreting the following, see the references**
-
-[1] Private alleles (poppr package)  
-[2] Mean Allelic Richness (hierfstat package)  
-[3] Heterozygosity (hierfstat package)  
-[4] Inbreeding Coefficient (hierfstat package)  
-[5] Allele Frequency (adegenet package)  
-[6] Hardy-Weinberg Equilibrium (pegas package)  
-[7] FST values (hierfstat package)  
-**Known Issue/s**: Takes a significant amount of time to load the results (table and plots).
-
-
-### 🔍 Exploratory Analysis
-
-This tab performs principal component analysis (PCA) on a pre-processed data in CSV or XLSX format using the ade4 R package. This accepts a processed file similar to the output of the "Convert
-files to CSV" tab. Labels and colors can be personalized. 
-
 
 
 ### 📊 STRUCTURE Analysis

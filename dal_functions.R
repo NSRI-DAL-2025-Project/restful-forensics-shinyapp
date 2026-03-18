@@ -548,19 +548,7 @@ to_snipper <- function(input,
       install.packages("pacman")
    }
    pacman::p_load(dplyr, purrr, tools, plyr, install = TRUE)
-   
-   #file_extension <- tools::file_ext(input)
-   
-   #if (file_extension %in% c("csv", "xlsx")){
-   #   input.file <- load_csv_xlsx_files(input)
-   #} else if (file_extension == "vcf"){
-   #   input.file <- load_vcf_files(input)
-   #} else if (is.data.frame(input)) {
-   #   input.file <- input
-   #} else {
-   #   stop("Not an xlsx, csv, or vcf file.")
-   #}
-   
+
    if (is.data.frame(input)) {
       input.file <- input
    } else {
@@ -793,8 +781,6 @@ extract_POStoID_pgen <- function(pos_list,
 #
 # Last revised 16 October 2025: Corrected discordant and concordant counts
 #============================
-
-
 calc_concordance <- function(file1, file2, haplotypes = FALSE){
    if(!require("pacman")) {
       install.packages("pacman")
@@ -961,7 +947,6 @@ plot_concordance <- function(dataframe){
 #
 # Last revised 31 October 2025
 #============================
-
 depth_from_vcf <- function(vcf, 
                            output.dir, 
                            reference, 
@@ -1052,12 +1037,6 @@ compute_pop_stats <- function(fsnps_gen) {
       round(3)
    fis_df <- data.frame(Population = names(fis_values), Fis = fis_values)
    
-   # Allele frequencies
-   fsnps_gpop <- adegenet::genind2genpop(fsnps_gen)
-   allele_freqs <- t(adegenet::makefreq(fsnps_gpop, quiet = FALSE, missing = NA)) %>%
-      as.data.frame()
-   
-   
    return(list(
       mar_list = mar_list,
       heterozygosity = heterozygosity_df,
@@ -1067,13 +1046,28 @@ compute_pop_stats <- function(fsnps_gen) {
    ))
 }
 
+compute_af <- function(fsnps_gen){
+   fsnps_gpop <- adegenet::genind2genpop(fsnps_gen)
+   allele_freqs <- t(adegenet::makefreq(fsnps_gpop, quiet = FALSE, missing = NA)) %>%
+      as.data.frame()
+   
+   allele_freqs <- data.frame(rownames(allele_freqs), allele_freqs)
+   allele_freqs <- dplyr::rename(allele_freqs, markers = 1)
+   rownames(allele_freqs) <- NULL
+   
+   return(allele_freqs)
+}
+
 compute_hwe <- function(fsnps_gen) {
    if(!require("pacman")) {
       install.packages("pacman")
    }
-   pacman::p_load(pegas, tibble, adegenet, install = TRUE)
+   pacman::p_load(pegas, dplyr, tibble, adegenet, install = TRUE)
    # Hardy-Weinberg Equilibrium (List for export)
-   fsnps_hwe <- as.numeric(round(pegas::hw.test(fsnps_gen, B = 1000), 6)) 
+   fsnps_hwe <- as.data.frame(round(pegas::hw.test(fsnps_gen, B = 1000), 6)) 
+   fsnps_hwe <- data.frame(rownames(fsnps_hwe), fsnps_hwe)
+   fsnps_hwe <- dplyr::rename(fsnps_hwe, rsID = 1)
+   rownames(fsnps_hwe) <- NULL
    
    # Chi-square test (Matrix for export, Data Frame for ggplot)
    fsnps_hwe_test <- data.frame(sapply(adegenet::seppop(fsnps_gen), 
@@ -1084,7 +1078,6 @@ compute_hwe <- function(fsnps_gen) {
    
    return(list(
       hw_summary = fsnps_hwe,
-      hw_matrix = fsnps_hwe_test,
       hw_dataframe = fsnps_hwe_chisq_df
    ))
 }
@@ -1167,7 +1160,7 @@ plot_fst <- function(fst_df, out_dir) {
 }
 
 
-export_pop_results <- function(stats_matrix, hw_matrix, fst_matrix, dir = tempdir()) {
+export_pop_results <- function(allele_freq, priv_alleles, stats_matrix, hw_matrix, fst_matrix, dir = tempdir()) {
    if(!require("pacman")) {
       install.packages("pacman")
    }
@@ -1176,20 +1169,154 @@ export_pop_results <- function(stats_matrix, hw_matrix, fst_matrix, dir = tempdi
    timestamp <- format(Sys.time(), "%Y%m%d_%H%M")
    out_file <- file.path(dir, paste0("population-statistics-results_", timestamp, ".xlsx"))
    
+   # Revise formats
+   #------ MAR
+   mar <- data.frame(rownames(stats_matrix$mar_list), stats_matrix$mar_list)
+   mar <- dplyr::rename(mar, Pop = 1)
+   rownames(mar) <- NULL
+   
+   #------ Heterozygosity
+   het <- stats_matrix$heterozygosity
+   het <-  tidyr::pivot_wider(data = het,
+                                 names_from = Variable,
+                                 values_from = Value)
+   
+   #------- IC
+   ic <- stats_matrix$inbreeding_coeff
+   rownames(ic) <- NULL
+   
    datasets <- list(
-      "Mean Allelic Richness"     = as.data.frame(stats_matrix$mar_list),
-      "Heterozygosities"          = as.data.frame(stats_matrix$heterozygosity),
-      "T-test per Locus"          = as.data.frame(stats_matrix$ttest),
-      "Inbreeding Coefficient"    = as.data.frame(stats_matrix$inbreeding_coeff),
-      "Allele Frequencies"        = as.data.frame(stats_matrix$allele_frequencies),
+      "Private Alleles" = as.data.frame(priv_alleles),
+      "Mean Allelic Richness" = mar,
+      "Heterozygosities" = het,
+      "T-test per Locus" = as.data.frame(stats_matrix$ttest),
+      "Inbreeding Coefficient" = as.data.frame(stats_matrix$inbreeding_coeff),
+      "Allele Frequencies" = allele_freq,
       "Hardy-Weinberg Equilibrium"= as.data.frame(hw_matrix$hw_summary),
-      "Chi-square Test Results"   = as.data.frame(hw_matrix$hwe_matrix),
-      "Pairwise Fst Matrix"       = as.data.frame(fst_matrix$fst_matrix)
+      "Chi-square Test Results" = as.data.frame(hw_matrix$hw_dataframe),
+      "Pairwise Fst Matrix" = as.data.frame(fst_matrix$fst_matrix)
    )
    
    openxlsx::write.xlsx(datasets, file = out_file)
    return(out_file)
 }
+
+#============================
+# FORENSIC PARAMETERS
+# 
+#============================
+
+evaluate_file <- function(df, sample_size = 50, genotype = "^[A-Z]/[A-Z]$"){
+   all_vals <- unlist(df, use.names = FALSE)
+   all_vals <- all_vals[!is.na(all_vals) & all_vals != "N"]
+   sample_vals <- if (length(all_vals) > sample_size){
+      sample(all_vals, sample_size)
+   } else { all_vals }
+   
+   num_gts <- sum(stringr::str_detect(sample_vals, genotype))
+   num_vals <- suppressWarnings(as.numeric(sample_vals))
+   num_freqs <- sum(!is.na(num_vals) & num_vals >= 0 & num_vals <= 1)
+   
+   if (num_gts > num_freqs){
+      return("gts")
+   } else if (num_freqs > num_gts) {
+      return("freqs")
+   } else {
+      return("unknown data format")
+   }
+}
+
+
+#------------------- genotype frequencies (marker/population)
+calc_genotype_freq <- function(df){
+   df <- dplyr::rename(df, markers = 1)
+   
+   df <- df %>% 
+      mutate(
+         marker = stringr::str_remove(markers, "\\..*"),
+         allele = stringr::str_remove(markers, ".*\\.")
+      ) %>%
+      dplyr::select(-markers)
+   
+   df_long <- df %>% tidyr::pivot_longer(
+      cols = -c(marker, allele),
+      names_to = "population",
+      values_to = "freq"
+   )
+   
+   # double check single alleles
+   geno_freqs <- df_long %>%
+      dplyr::group_by(marker, population) %>%
+      dplyr::summarise(
+         n_alleles = dplyr::n(),
+         allele1 = dplyr::first(allele),
+         allele2 = dplyr::last(allele),
+         p = dplyr::first(freq),
+         q = dplyr::last(freq),
+         .groups = "drop"
+      ) %>%
+      dplyr::mutate(
+         q = dplyr::if_else(n_alleles == 1, 0, q),
+         allele2 = dplyr::if_else(n_alleles == 1, NA_character_, allele2),
+         homozygous1 = p^2,
+         heterozygous = dplyr::if_else(n_alleles == 1, 0, 2*p*q),
+         homozygous2 = dplyr::if_else(n_alleles == 1, 0, q^2)
+      )
+   return(geno_freqs)
+}
+
+#------------------- RMP calculation
+calc_iisnps_params <- function(geno_freqs, profile = NULL, theta = 0){
+   marker_metrics <- geno_freqs %>%
+      dplyr::rowwise() %>%
+      dplyr::mutate(
+         RMP = homozygous1^2 + heterozygous^2 + homozygous2^2,
+         PD = 1 - RMP,
+         PIC = 2 * homozygous1 * homozygous2 * (1-2*homozygous1*homozygous2),
+         H = homozygous1 + homozygous2,
+         h = heterozygous,
+         PE = (h^2)*(1-2*h*H),
+         TPI = 1/(2*H)
+      ) %>%
+      dplyr::select(marker, population, RMP, PD, PIC, PE, TPI) %>%
+      dplyr::ungroup()
+   
+   if (!is.null(profile)){
+      geno_theta <- geno_freqs %>%
+         dplyr::mutate(
+            homozygous1 = p^2 + p*(1-p)*theta,
+            heterozygous = 2*p*q*(1-theta),
+            homozygous2 = q^2 + q*(1-q)*theta
+         )
+      
+      rmp_table <- profile %>%
+         dplyr::left_join(geno_theta, by = "marker") %>%
+         dplyr::mutate(
+            g1 = stringr::str_split(genotype, "/", simplify = TRUE)[,1], # second column of profile
+            g2 = stringr::str_split(genotype, "/", simplify = TRUE)[,2],
+            
+            genotype_freqs = dplyr::case_when(
+               g1 == allele1 & g2 == allele1 ~ homozygous1,
+               g1 == allele2 & g2 == allele2 ~ homozygous2,
+               g1 != g2 ~ heterozygous,
+               TRUE ~ NA_real_
+            )
+         )
+      
+      rmp <- prod(rmp_table$genotype_freqs, na.rm = TRUE)
+      
+      return(list(
+         RMP_profile = rmp,
+         marker_metrics = marker_metrics
+      ))
+      
+   } else {
+      return(marker_metrics)
+   }
+   
+}
+
+
 
 #============================
 # PRINCIPAL COMPONENT ANALYSIS
@@ -1350,7 +1477,7 @@ clean_input_data_str <- function(file) {
    pops <- pop_df_corr$num
    
    ### Change Ind to numeric
-   ind_only <- as.data.frame(file$Ind)
+   ind_only <- as.data.frame(file[,1])
    ind_only$num <- rownames(ind_only)
    
    ind <- as.character(ind_only$num)
