@@ -1228,7 +1228,7 @@ evaluate_file <- function(df, sample_size = 50, genotype = "^[A-Z]/[A-Z]$"){
 
 
 #------------------- genotype frequencies (marker/population)
-calc_genotype_freq <- function(df){
+calc_genotype_freq <- function(df, pop = NULL){
    df <- dplyr::rename(df, markers = 1)
    
    df <- df %>% 
@@ -1245,7 +1245,7 @@ calc_genotype_freq <- function(df){
    )
    
    # double check single alleles
-   geno_freqs <- df_long %>%
+   geno_freqs1 <- df_long %>%
       dplyr::group_by(marker, population) %>%
       dplyr::summarise(
          n_alleles = dplyr::n(),
@@ -1254,19 +1254,46 @@ calc_genotype_freq <- function(df){
          p = dplyr::first(freq),
          q = dplyr::last(freq),
          .groups = "drop"
-      ) %>%
-      dplyr::mutate(
-         q = dplyr::if_else(n_alleles == 1, 0, q),
-         allele2 = dplyr::if_else(n_alleles == 1, NA_character_, allele2),
-         homozygous1 = p^2,
-         heterozygous = dplyr::if_else(n_alleles == 1, 0, 2*p*q),
-         homozygous2 = dplyr::if_else(n_alleles == 1, 0, q^2)
-      )
-   return(geno_freqs)
+      ) 
+   
+      if (is.null(pop)) {
+         geno_freqs2 <- geno_freqs1 %>%
+            dplyr::mutate(
+            q = dplyr::if_else(n_alleles == 1, 0, q),
+            allele2 = dplyr::if_else(n_alleles == 1, NA_character_, allele2),
+            homozygous1 = p^2,
+            heterozygous = dplyr::if_else(n_alleles == 1, 0, 2*p*q),
+            homozygous2 = dplyr::if_else(n_alleles == 1, 0, q^2)
+         )
+   
+       } else if (!is.null(pop)) {
+          floor = 5/(2*pop)
+          
+          geno_freqs2 <- geno_freqs1 %>%
+            dplyr::mutate(
+            p = pmax(p, floor),
+            q = pmax(q, floor),
+            homozygous1 = p^2,
+            heterozygous = dplyr::if_else(n_alleles == 1, 0, 2*p*q),
+            homozygous2 = dplyr::if_else(n_alleles == 1, 0, q^2)
+            )}
+   
+   by_pop <- split(geno_freqs2, geno_freqs2$population)
+   by_pop <- lapply(by_pop, function(x){
+      x <- x[,-2]
+   })
+   
+   clean_names <- names(by_pop) %>%
+      stringr::str_replace_all("[._]", " ")
+   names(by_pop) <- clean_names
+   
+   return(list(gt_complete = geno_freqs2,
+               gt_by_pop = by_pop))
 }
 
 #------------------- RMP calculation
 calc_iisnps_params <- function(geno_freqs, profile = NULL, theta = 0){
+   
    marker_metrics <- geno_freqs %>%
       dplyr::rowwise() %>%
       dplyr::mutate(
@@ -1311,7 +1338,20 @@ calc_iisnps_params <- function(geno_freqs, profile = NULL, theta = 0){
       ))
       
    } else {
-      return(marker_metrics)
+      # breakdown 
+      by_pop <- split(marker_metrics, marker_metrics[,2])
+      by_pop <- lapply(by_pop, function(x){
+         x <- x[,-2]
+      })
+      
+      clean_names <- names(by_pop) %>%
+         stringr::str_replace_all("[._]", " ")
+      names(by_pop) <- clean_names
+      
+      return(list(
+         overall = marker_metrics,
+         by_population = by_pop
+      ))
    }
    
 }

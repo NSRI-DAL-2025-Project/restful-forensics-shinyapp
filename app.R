@@ -16,7 +16,12 @@ ui <- dashboardPage(
          tags$span("restFUL Forensics",
                    style = "font-family: Carme, sans-serif; font-size: 26px; color: #ffffff; vertical-align: middle; padding-left: 0px;")
       ),
-      titleWidth = 300
+      titleWidth = 300,
+      tags$li(
+         class = "dropdown",
+         style = "font-family: 'Carmen', sans-serif; padding: 10px;",
+         actionButton("refreshApp", "Refresh App", icon = icon("rotate"))
+      )
    ),
    dashboardSidebar(
       width = 300,
@@ -230,6 +235,7 @@ ui <- dashboardPage(
                                             ),
                                             p(strong("Expected output file/s:"), "VCF, PLINK, or CSV file."),
                                             br(),
+                                            p("Maximum accepted file size: 5GB.")
                                    ),
                                    tabPanel("Sample Input Format/s", 
                                             h4("To convert to a CSV file with population metadata:"),
@@ -481,7 +487,9 @@ ui <- dashboardPage(
                                                tags$li("[2] Chromosome number"),
                                                tags$li("[3] Position (bp)")
                                             ),
-                                            p(strong("Expected output file:"), "VCF")
+                                            p(strong("Expected output file:"), "VCF"),
+                                            br(),
+                                            p("Maximum accepted file size: 5GB.")
                                    ),
                                    tabPanel("Sample Input Format",
                                             h4("rsID Format"),
@@ -1120,17 +1128,42 @@ ui <- dashboardPage(
                              box(
                                 fileInput("iisnpsFile", "Upload Reference File"),
                                 helpText("See 'Sample Input File' for accepted formats. Frequency table and genotype files are accepted."),
+                                checkboxInput("floorCeiling", "Use 5/2n rule in calculating genotype frequency?", FALSE),
+                                conditionalPanel(
+                                   condition = "input.floorCeiling",
+                                   numericInput("totalPop", "Total individuals/samples", value = 100, min = 10,)
+                                ),
                                 checkboxInput("matchProfile", "Calculate RMP for a profile?", FALSE),
                                 conditionalPanel(
                                    condition = "input.matchProfile",
                                    fileInput("fileProfile", "Upload Profile"),
                                    numericInput("thetaValue", "Theta Value", min = 0, value = 0.01, max = 1)
                                 ),
-                                actionButton("calcIISNPs", "Calculate", icon = icon("calculator"))
+                                actionButton("calcIISNPs", "Calculate", icon = icon("calculator")),
+                                uiOutput("downloadMetrics_UI"),
+                                uiOutput("downloadRMP_UI")
                              ), # end of box
                              tabBox(
                                 tabPanel("Instructions",
-                                   h4("Calculate Forensic Parameters specific for iiSNPs")
+                                   h4("Calculate Forensic Parameters specific for iiSNPs"),
+                                   tags$ul(
+                                      tags$li("Random match probability (PM)"),
+                                      tags$li("Power of discrimination (PD)"),
+                                      tags$li("Polymorphism Information Content (PIC)"),
+                                      tags$li("Power of Exclusion (PE)"),
+                                      tags$li("Typical Paternity Index (TPI)")
+                                   ),
+                                   p(strong("Input file:"), "CSV or XLSX file in genotype format or as an allele frequency table"),
+                                   p(strong("Expected output file:"), "CSV file"),
+                                   br(),
+                                   p("Guidelines on statistical calculations for casework: ",
+                                     tags$a("Guidelines (for STR):",
+                                            href="https://dfs.dc.gov/sites/default/files/dc/sites/dfs/page_content/attachments/FBS22%20-%20STR%20Statistical%20Calculations%20Guidelines.pdf",
+                                            target="_blank")), 
+                                   p("Guidelines and interpretations: ",
+                                     tags$a("Based on the STRAF book:",
+                                            href="https://agouy.github.io/straf_book/forensic-parameters.html",
+                                            target="_blank")),
                                 ),
                                 tabPanel("Sample Input File",
                                          h4("Acceptable file inputs: genotype files or an allele frequency table:"),
@@ -1144,24 +1177,26 @@ ui <- dashboardPage(
                                 tabPanel("Download Sample Files",
                                          h4("Download Sample File"),
                                          tags$ul(
-                                            tags$a("Sample CSV file", href = "www/sample_files/sample.csv", download = NA),
+                                            tags$a("Sample CSV file", href = "www/sample_files/sample.csv", download = NA)
+                                         ),
+                                         tags$ul(
                                             tags$a("Sample Allele Frequency Table", href = "www/sample_files/pop_stat.xlsx", download = NA)
-                                         )     
+                                         )
                                 )
                              )
                           ), # end of fluid row
                           fluidRow(
                              tabBox(
                                 width = 12, 
-                                tabPanel("Forensic Params",
-                                   uiOutput("downloadMetrics_UI"),
-                                   uiOutput("downloadRMP_UI"),
+                                tabPanel("Overall Forensic Params",
+                                   selectInput("selected_pop", "Select Population", choices = NULL),
                                    div(
                                       style = "overflow-x: auto;",
-                                      DT::dataTableOutput("forensicTable")
+                                      DT::dataTableOutput("popTable")
                                    )
                                 ),
                                 tabPanel("Genotype Frequencies",
+                                         selectInput("selected_pop_gt", "Select Population", choices = NULL),
                                          div(
                                             style = "overflow-x: auto;",
                                             DT::dataTableOutput("genotypeFreqs_UI")
@@ -1275,6 +1310,11 @@ ui <- dashboardPage(
 
 server <- function(input, output, session){
 
+   observeEvent(input$refreshApp, {
+      session$reload()
+   })
+   
+   
    zoom <- reactiveVal(1)
    
    observeEvent(input$smaller_workplan, {
@@ -3497,10 +3537,13 @@ server <- function(input, output, session){
    
    # reactive storage
    results_rv <- reactiveValues(
-      marker_metrics = NULL,
+      overall_metrics = NULL,
+      pop_metrics = NULL,
       rmp_value = NULL
    )
    genotype_freqs <- reactiveVal(NULL)
+   gt_freq_all <- reactiveVal(NULL)
+   gt_freq_pop <- reactiveVal(NULL)
    snpsFile <- reactiveVal(NULL)
    
    # toggle action button only if a file is uploaded
@@ -3533,47 +3576,108 @@ server <- function(input, output, session){
       # optional profile
       profile_df <- NULL
       theta <- 0
+      pop <- NULL
       if (!is.null(input$fileProfile)){
          profile_df <- load_csv_xlsx_files(input$fileProfile$datapath)
          theta <- input$thetaValue
       }
       
+      if (!is.null(input$floorCeiling)){
+         pop <- input$totalPop 
+      }
+      
       # compute genotype frequencies
-      gt_freqs <- calc_genotype_freq(computed_af)
-      genotype_freqs(gt_freqs)
+      gt_freqs <- calc_genotype_freq(computed_af, pop = pop)
+      gt_freq_all(gt_freqs$gt_complete)
+      gt_freq_pop(gt_freqs$gt_by_pop)
       
       # calculate all forensic metrics
-      res <- calc_iisnps_params(gt_freqs, profile = profile_df, theta = theta)
+      res <- calc_iisnps_params(gt_freq_all(), profile = profile_df, theta = theta)
+      
       
       # save results
       if (!is.null(profile_df)){
          results_rv$rmp_value <- res$RMP_profile
-         results_rv$marker_metrics <- res$marker_metrics
+         results_rv$overall_metrics <- res$marker_metrics
+         results_rv$pop_metrices <- NULL
       } else {
-         results_rv$marker_metrics <- res
+         results_rv$overall_metrics <- res$overall
+         results_rv$pop_metrics <- res$by_population
          results_rv$rmp_value <- NULL
       }
       
       shinyjs::enable("calcIISNPs")
    })
    
-   # render marker metrics table
-   output$genotypeFreqs_UI <- DT::renderDataTable({
-      req(genotype_freqs())
-      DT::datatable(genotype_freqs(), rownames = FALSE, options = list(pageLength = 10))
+   observe({
+      req(results_rv$pop_metrics, results_rv$overall_metrics)
+      
+      updateSelectInput(
+         session,
+         "selected_pop",
+         choices = c(
+            "Overall",
+            names(results_rv$pop_metrics))
+      )
    })
    
-   output$forensicTable <- DT::renderDataTable({
-      req(results_rv$marker_metrics)
-      DT::datatable(results_rv$marker_metrics, rownames = FALSE, options = list(pageLength = 10))
+   observe({
+      req(gt_freq_pop())
+      
+      updateSelectInput(
+         session,
+         "selected_pop_gt",
+         choices = c(
+            "Overall",
+            names(gt_freq_pop()))
+      )
+   })
+   
+   # render marker metrics table
+   output$genotypeFreqs_UI <- DT::renderDataTable({
+      req(gt_freq_pop(), gt_freq_all())
+      
+      if (input$selected_pop == "Overall"){
+         req(gt_freq_all())
+         DT::datatable(gt_freq_all(), rownames = FALSE)
+      } else {
+         req(gt_freq_pop())
+         DT::datatable(gt_freq_pop()[[input$selected_pop_gt]],
+                       rownames = FALSE)
+      }
+   })
+   
+   output$popTable <- DT::renderDataTable({
+      req(input$selected_pop)
+      
+      if (input$selected_pop == "Overall"){
+         req(results_rv$overall_metrics)
+         DT::datatable(results_rv$overall_metrics, rownames = FALSE)
+      } else {
+         req(results_rv$pop_metrics)
+         DT::datatable(results_rv$pop_metrics[[input$selected_pop]],
+                       rownames = FALSE)
+      }
    })
    
    # download handlers
    output$downloadMetrics <- downloadHandler(
-      filename = function() { paste0("forensic_metrics_", Sys.Date(), ".csv") },
+      filename = function() { paste0("forensic_metrics_", Sys.Date(), ".xlsx") },
       content = function(file) {
-         req(results_rv$marker_metrics)
-         readr::write_csv(results_rv$marker_metrics, file)
+         req(results_rv$overall_metrics, results_rv$pop_metrics, gt_freq_pop(), gt_freq_all())
+         sheets <- list()
+         sheets[["Forensic Params (FP)"]] <- results_rv$overall_metrics
+         pop_sheets <- results_rv$pop_metrics
+         names(pop_sheets) <- paste0("FP_", substr(gsub("[^A-Za-z0-9]", "_",
+                                                        names(pop_sheets)), 1, 25))
+         sheets <- c(sheets, pop_sheets)
+         
+         sheets[["Genotype Frequency (GF)"]] <- gt_freq_all()
+         gt_pop <- gt_freq_pop()
+         names(gt_pop) <- paste0("FP_", substr(gsub("[^A-Za-z0-9]", "_",
+                                                        names(gt_pop)), 1, 25))
+         sheets <- c(sheets, gt_pop)
+         writexl::write_xlsx(sheets, path = file)
       }
    )
    
@@ -3587,7 +3691,7 @@ server <- function(input, output, session){
    
    # render UI for downloads
    output$downloadMetrics_UI <- renderUI({
-      req(results_rv$marker_metrics)
+      req(results_rv$overall_metrics)
       downloadButton("downloadMetrics", "Download Forensic Parameters")
    })
    
