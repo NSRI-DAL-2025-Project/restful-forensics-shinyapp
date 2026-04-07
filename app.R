@@ -1240,7 +1240,7 @@ ui <- dashboardPage(
                                             href="https://dfs.dc.gov/sites/default/files/dc/sites/dfs/page_content/attachments/FBS22%20-%20STR%20Statistical%20Calculations%20Guidelines.pdf",
                                             target="_blank")), 
                                    p("Guidelines and interpretations: ",
-                                     tags$a("Based on the STRAF book:",
+                                     tags$a("Based on the STRAF book",
                                             href="https://agouy.github.io/straf_book/forensic-parameters.html",
                                             target="_blank")),
                                 ),

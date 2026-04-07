@@ -214,23 +214,20 @@ To explore STRUCTURE v2.3.4: https://web.stanford.edu/group/pritchardlab/structu
 
 **Known Issue/s**: Takes a significant amount of time to load the results (zipped files and plots).
 
-### Forensic Parameters
+### 🔍 Forensic Parameters
 
+This tab calculates Forensic Parameters specific for individual identity SNPs:
+- Random match probability (PM)  
+- Power of discrimination (PD)  
+- Polymorphism Information Content (PIC)  
+- Power of Exclusion (PE)  
+- Typical Paternity Index (TPI)  
 
+Guidelines on [statistical calculations](https://dfs.dc.gov/sites/default/files/dc/sites/dfs/page_content/attachments/FBS22%20-%20STR%20Statistical%20Calculations%20Guidelines.pdf) for casework (for STR).
+Guidelines and interpretations: Based on the [STRAF book](https://agouy.github.io/straf_book/forensic-parameters.html)
 
 ### 🪪 Forensic DNA inference  
 
 This tab classifies individuals using Naive Bayes from the e1071 and caret R packages.
 It accepts a CSV/XLSX file with sample, population, and genotype information. 
 
-
-### References
-[1] Petit, R.J., El Mousadik, A., and Pons, O. (1998). Identifying populations for conservation on the basis of genetic markers. Conservation Biology, 12:844-855  
-[2] Foulley, J.F., and Ollivier, L. (2005). Estimating allelic richness and its diversity. Livestock Science, 101:150-158. https://doi.org/10.1016/j.livprodsci.2005.10.021  
-[3] Nei, M. (1978). Estimation of average heterozygosity and genetic distance from a small number of individuals. Genetics:89:583-590. https://doi.org/10.1093/genetics/89.3.583  
-[4] Rousset, F. (2002). Inbreeding and relatedness coefficients: what do they measure? Heredity, 88:371-380  
-[5] Rezaei, N., and Hedayat, M. (2013). Allele Frequency. Brenner's Encyclopedia of Genetics (Second Edition). https://doi.org/10.1016/B978-0-12-374984-0.00032-2  
-[6] Tiret, L., and Cambien, F. (1995). Departure from Hardy-Weinberg equilibrium should be systematically tested in studies of association between genetic markers and disease. Circulation, 92(11):3364-3365.  
-[7] Weir, B.S., and Cockerham, C.C. (1984). Estimating F-statistics for the analysis of population structure. Evolution; International Journal of Organic Evolution, 38(6): 1358-1370. https://doi.org/10.1111/j.1558-5646.1984.tb05657.x  
-[8] Archer, F., Adams, P., and Schneiders, B. (2016). strataG: an R package for manipulating, summarizing, and analyzing population genetic data. Molecular Ecology Resources 17: 5-11. https://doi.org/10.1111/1755-0998.12559  
-[9] Gruber, B., Unmack, P.J., Berry, O.F., and Georges, A. (2018). dartR: an R package to facilitate analysis of SNP data generated from reduced representation genome sequencing. Molecular Ecology Resources 18:691-699. https://doi.org/10.1111/1755-0998.12745  
