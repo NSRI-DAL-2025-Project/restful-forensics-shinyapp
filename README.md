@@ -6,33 +6,20 @@ For feedback on the tool, please fill up this google form: https://forms.gle/fA6
 
 ## I. Installation (installing without Docker)
 
-### From the terminal
-
-Clone the repository. Make sure that git is installed.
-
-```         
-git clone https://github.com/NSRI-DAL-2025-Project/restful-forensics-shinyapp.git
+Ensure that R is installed in the system then run the following:
 ```
-
-### Using RStudio
-
--   Under File \> New Project \> Version Control \> Git
--   Under Repository URL, paste:
-    "<https://github.com/NSRI-DAL-2025-Project/restful-forensics-shinyapp.git>"
-
-Open the "app.R" file and click the "Run App" button on the top right
-corner of the source panel. ![](www/readme/runapp.png)
+shiny::runGitHub("restful-forensics-shinyapp", "NSRI-DAL-2025-Project")
+```
 
 The shiny application will look like this:
 ![](www/readme/dashboard.png)
 
 
 
-
 ## II. Features
 
 This application is used for the pre-processing of standard genetic data
-files (VCF, VCF.GZ, BCF, PLINK files, and FASTA) and analysis to an
+files (.vcf, .vcf.gz, .bcf, PLINK files (.bed, .bim, .fam), and FASTA files) and analysis to an
 extent. The following tabs are available and offers certain
 functionalities.
 
@@ -42,7 +29,7 @@ functionalities.
 This tab has multiple features dedicated to converting file types to a different data structure structure.
 ![](www/fileconv.png)
 
-**_A. Convert files to CSV_**
+**_A. Convert files_**
 
 This tab converts genetic data files to a
 commonly used file in downstream analysis. If converting to CSV, 
@@ -61,7 +48,7 @@ population statistics, Principal Component Analysis, STRUCTURE analysis,
 and other tools not included in this toolkit.
 
 
-**_B. Widen ForenSeq UAS files_**
+**_B. ForenSeq Conversion_**
 
 This tab is specific to the work at the DNA
 Analysis Laboratory and to laboratories using the ForenSeq DNA Signature
@@ -69,22 +56,22 @@ Prep Kit. It builds upon the work of the Filipino Genomes Research
 Program 2. The output is similar to the first tab.
 
 
-**_C. Convert to SNIPPER-analysis ready file_**
+**_C. Convert to SNIPPER analysis-ready file_**
 
 This tab is specific to the
 ancestry work at the DNA Analysis Laboratory.
 
 
-**_D. CSV to STRUCTURE file_**
+**_D. To STRUCTURE file_**
 
 This tab converts a processed CSV file (similar
 to the output of tab A) to a STRUCTURE (.str) file that can be used in
 STRUCTURE v2.3.4 or other tools such as StrAuto or faststructure.
 
 
-### 🧬 SNP Extraction
+### 🧬 SNP Data Extraction
 
-**_A. SNP Extraction_**
+**_A. SNP Data Extraction_**
 
 This tab is specific for extracting markers via their
 GRCh37/GRCh38 position or their Reference SNP cluster ID (rsID). The
@@ -96,7 +83,7 @@ for PLINK2.0 compatibility.
 **_B. Concordance Analysis_**
 
 This tab compares the sequencing outputs of two
-different technologies. It expects either an XLSX or CSV file containing
+different technologies. It expects either an Excel (.xlsx) or CSV file containing
 sample and marker information.  
 
 ### 🔽 Filtering
@@ -123,7 +110,7 @@ PLINK 1.9 flag options: https://www.cog-genomics.org/plink/
 
 ### 🔍 Exploratory Analysis
 
-This tab performs principal component analysis (PCA) on a pre-processed data in CSV or XLSX format using the ade4 R package. This accepts a processed file similar to the output of the "Convert
+This tab performs principal component analysis (PCA) on a pre-processed data in .csv or .xlsx file format using the ade4 R package. This accepts a processed file similar to the output of the "Convert
 files to CSV" tab. Labels and colors can be personalized. 
 
 
@@ -146,7 +133,7 @@ files to CSV" tab to calculate the common population statistics.
 
 ### Forensic Parameters (iiSNPs)
 
-This tab calculates common forensic parameters for iiSNPS: random match probability (RMP), 
+This tab calculates common forensic parameters for individual identity SNPs (iiSNPs): random match probability (RMP), 
 power of discrimination (PD), polymorphic information content (PIC), power of exclusion (PE),
 and typical paternity index (TPI).
 
@@ -164,9 +151,7 @@ phylogenetic tree construction.
 ### 🌲Phylogenetic Tree
 
 This tab automatically accepts the alignment from the previous tab to
-build a phylogenetic tree using the common approaches (NJ, UPGMA,
-Maximum Parsimony, and Maximum Likelihood).  
-**Known Issue/s**: Occasionally throws an error that requires fsnps_gen() which is used in other functions.
+build a phylogenetic tree using the common approaches (Neighbor Joining (NJ), Unweight Pair Group Method using Arithmetic averages (UPGMA), Maximum Parsimony, and Maximum Likelihood).  
 
 ### 📑 Barcoding (*untested)
 
@@ -185,19 +170,19 @@ There is an option to additionally utilize the kmer method. The functions used a
 
 **_B. Optimize kmer values_**  
 
-Calculates the optimal kmer value per dataset (can be query or reference). It outputs a plot indicating the optimal value.
+This subtab calculates the optimal kmer value per dataset (can be query or reference). It outputs a plot indicating the optimal value.
 
 **_C. Barcoding Gap_**  
 
-Calculates the DNA barcoding gap using any of the following methods: K2P distance, euclidean, or raw.
+This subtab calculates the DNA barcoding gap using any of the following methods: K2P distance, euclidean, or raw.
 
 **_D. Evaluate Barcodes_**  
 
-Evaluates two barcodes using species identification success rate criteria. Kmer values can be identified by first running 'Optimize kmer values'.  
+This subtab evaluates two barcodes using species identification success rate criteria. Kmer values can be identified by first running 'Optimize kmer values'.  
 
 **_E. Species Membership Value (TDR)_**  
 
-Calculates the TDR value for a set of queries and one potential species.
+This subtab calculates the TDR value for a set of queries and one potential species.
 
 
 
@@ -208,7 +193,7 @@ For Automatic Barcode Gap Discovery, several iTaxoTools webtool/webserver implem
 For complete links and information, access iTaxoTools using https://itaxotools.org/links.
 
 
-### 📊 STRUCTURE Analysis
+### 📊 Population Structure Analysis
 
 This tab explores population structure using the STRUCTURE v2.3.4 software. 
 
@@ -229,12 +214,14 @@ To explore STRUCTURE v2.3.4: https://web.stanford.edu/group/pritchardlab/structu
 
 **Known Issue/s**: Takes a significant amount of time to load the results (zipped files and plots).
 
+### Forensic Parameters
 
-### 🪪 Classification  
 
-Classify individuals using Naive Bayes from the e1071 and caret R packages.
+
+### 🪪 Forensic DNA inference  
+
+This tab classifies individuals using Naive Bayes from the e1071 and caret R packages.
 It accepts a CSV/XLSX file with sample, population, and genotype information. 
-
 
 
 ### References
