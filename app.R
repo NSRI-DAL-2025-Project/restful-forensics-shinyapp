@@ -31,7 +31,7 @@ ui <- dashboardPage(
          tags$img(src = "readme/full.png", height = "auto", width = "300px", height = "100px"),
          menuItem("Homepage", tabName = "dashboard", icon = icon("dashboard")),
          menuItem("File Conversion", tabName = "FileConv", icon = icon("arrows-rotate")),
-         menuItem("SNP Extraction", tabName = "markerExtract", icon = icon("dna")),
+         menuItem("SNP Data Extraction", tabName = "markerExtract", icon = icon("dna")),
          menuItem("Filtering", tabName = "FilterTab", icon = icon("filter")),
          menuItem("Exploratory Analysis", tabName = "PCAtab", icon = icon("magnifying-glass-location")),
          menuItem("Population Summary Statistics", tabName = "PopStatistics", icon = icon("users-gear")),
