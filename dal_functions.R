@@ -689,7 +689,24 @@ create_range_file <- function(pos_input, output_dir){
       sep = "\t"
    )
    
-   return(range_file)
+   update_name <- data.frame(
+      new = paste0(chr, ":", start, sep = ""),
+      id = label,
+      stringsAsFactors = FALSE
+   )
+   
+   updated_file <- file.path(output_dir, "update_name.txt")
+   
+   write.table(
+      update_name,
+      file = updated_file,
+      row.names = FALSE,
+      col.names = FALSE,
+      quote = FALSE,
+      sep = "\t"
+   )
+   
+   return(list(range_file = range_file, updated_file = updated_file))
 }
 
 extract_by_ID_pgen <- function(pgen_prefix,
@@ -726,7 +743,7 @@ extract_by_pos_pgen <- function(pos_list,
    cmd <- paste(
       shQuote(plink_path),
       "--pfile", shQuote(pgen_prefix),
-      "--extract", "range", shQuote(range_file),
+      "--extract", "range", shQuote(range_file$range_file),
       "--export vcf",
       "--out", shQuote(out_prefix)
    )
@@ -756,14 +773,33 @@ extract_POStoID_pgen <- function(pos_list,
    cmd_extract <- paste(
       shQuote(plink_path),
       "--pfile", shQuote(pgen_prefix),
-      "--extract", "range", shQuote(range_file),
-      "--export vcf",
+      "--extract", "range", shQuote(range_file$range_file),
+      "--make-pgen",
       "--out", shQuote(extracted_prefix)
    )
-   
    system(cmd_extract)
    
-   vcf_file <- paste0(extracted_prefix, ".vcf")
+   renamed_prefix <- file.path(output_dir, "updated_file")
+   cmd_rename <- paste(
+      shQuote(plink_path),
+      "--pfile", shQuote(extracted_prefix),
+      "--set-all-var-ids @:#",
+      "--make-pgen",
+      "--out", shQuote(renamed_prefix)
+   )
+   system(cmd_rename)
+   
+   updated_prefix <- file.path(output_dir, "extracted_file")
+   cmd_updated <- paste(
+      shQuote(plink_path),
+      "--pfile", shQuote(renamed_prefix),
+      "--update-name", shQuote(range_file$updated_file),
+      "--recode vcf",
+      "--out", shQuote(updated_prefix)
+   )
+   system(cmd_updated)
+   
+   vcf_file <- paste0(updated_prefix, ".vcf")
    
    if(!file.exists(vcf_file)){
       stop("PLINK extraction failed: no VCF generated.")

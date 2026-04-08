@@ -223,7 +223,8 @@ This tab calculates Forensic Parameters specific for individual identity SNPs:
 - Power of Exclusion (PE)  
 - Typical Paternity Index (TPI)  
 
-Guidelines on [statistical calculations](https://dfs.dc.gov/sites/default/files/dc/sites/dfs/page_content/attachments/FBS22%20-%20STR%20Statistical%20Calculations%20Guidelines.pdf) for casework (for STR).
+Guidelines on [statistical calculations](https://dfs.dc.gov/sites/default/files/dc/sites/dfs/page_content/attachments/FBS22%20-%20STR%20Statistical%20Calculations%20Guidelines.pdf) for casework (for STR).  
+
 Guidelines and interpretations: Based on the [STRAF book](https://agouy.github.io/straf_book/forensic-parameters.html)
 
 ### 🪪 Forensic DNA inference  

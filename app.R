@@ -2732,7 +2732,7 @@ server <- function(input, output, session){
                cmd_extract <- paste(
                   shQuote(plink2_path),
                   "--pfile", shQuote(pgen_prefix),
-                  "--extract range", shQuote(range_file),
+                  "--extract range", shQuote(range_file$range_file),
                   "--export vcf",
                   "--out", shQuote(out_prefix)
                )
