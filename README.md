@@ -11,7 +11,7 @@ Ensure that R is installed in the system then run the following:
 shiny::runGitHub("restful-forensics-shinyapp", "NSRI-DAL-2025-Project")
 ```
 
-The shiny application will look like this:
+The expected appearance of the dashboard:
 ![](www/readme/dashboard.png)
 
 
