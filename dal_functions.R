@@ -66,6 +66,41 @@ convert_to_plink <- function(input.file, output.dir, plink_path = plink_path, na
    return(output_file)
 }
 
+converted_to_plink2 <- function(input.file, isplink = FALSE, plink_path = plink2_path, name = "converted_to_plink2"){
+   
+   if (isplink == TRUE) {
+      cmd <- paste(
+         shQuote(plink2_path),
+         "--bfile", shQuote(input.file),
+         "--make-pgen",
+         "--output-chr 26",
+         "--out", shQuote(name)
+      )
+      system(cmd)
+      
+   } else {
+      
+      run_plink <- function(flag) {
+         cmd_args <- c(
+            paste0("--", flag), shQuote(input.file),
+            "--make-pgen",
+            "--output-chr", "26",
+            "--out", shQuote(name)
+         )
+         system2(plink_path, args = cmd_args, stdout = TRUE, stderr = TRUE)
+      }
+      
+      res <- run_plink("vcf")
+      
+      # Check for BCF2 error
+      if (any(grepl("appears to be a BCF2 file", res))) {
+         message("Detected BCF2 file. Retrying with --bcf...")
+         res <- run_plink("bcf")
+      }
+   }
+   
+   return(name)
+}
 
 #============================
 # Convert BCF to VCF

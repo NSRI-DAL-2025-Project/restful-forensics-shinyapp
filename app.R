@@ -617,14 +617,29 @@ ui <- dashboardPage(
                  fluidRow(
                     box(
                        title = "Upload Files",
-                       fileInput("forFilter", "Upload VCF/BCF/PLINK files", accept = c(".vcf", ".bcf", ".vcf.gz", ".zip", ".tar")),
+                       #fileInput("forFilter", "Upload VCF/BCF/PLINK files", accept = c(".vcf", ".bcf", ".vcf.gz", ".zip", ".tar")),
+                       radioButtons("inputFileTypeFilter", "A. Input file format",
+                                    choices = c("VCF/VCF.GZ/BCF", "PLINK"), inline = TRUE),
+                       
+                       conditionalPanel(
+                          condition = "input.inputFileTypeFilter == 'VCF/VCF.GZ/BCF'",
+                          fileInput("markerFileFilter", "Upload Genotype (VCF, VCF.GZ, or BCF File)", accept = c(".vcf", ".bcf", ".vcf.gz"))
+                       ),
+                       
+                       conditionalPanel(
+                          condition = "input.inputFileTypeFilter == 'PLINK'",
+                          fileInput("bedFileFilter", "PLINK BED file", accept = c(".bed")),
+                          fileInput("bimFileFilter", "PLINK BIM file", accept = c(".bim")),
+                          fileInput("famFileFilter", "PLINK FAM file", accept = c(".fam"))
+                       ),
+                       
                        fileInput("highlightRef", "Optional Reference file for highlighting (CSV/XLSX)", accept = c(".xlsx", ".csv")),
                        checkboxInput("enableDP", "Plot Depth of Coverage", value = TRUE),
                        helpText("Depth of Coverage Plot only available if using a VCF file."),
                        selectInput("colorPalette", "Color Palette", choices = rownames(RColorBrewer::brewer.pal.info), selected = "Set2"),
                        hr(),
                        
-                       h4("PLINK 1.9 Filtering Options"),
+                       h4("PLINK 2.0 Filtering Options"),
                        checkboxInput("filterIndiv", "Filter Individuals (--mind)", value = FALSE),
                        helpText("Exclude individuals with a missing genotype rate greater than the threshold"),
                        conditionalPanel("input.filterIndiv == true",
@@ -648,7 +663,8 @@ ui <- dashboardPage(
                        checkboxInput("filterHWE", "Filter Variants (--hwe)", value = FALSE),
                        helpText("Exclude SNPs deviating from the Hardy-Weinberg Equilibrium."),
                        conditionalPanel("input.filterHWE == true",
-                                        numericInput("qualHWE == true", "Hardy-Weinberg equilibrium exact test p-value Threshold (--hwe)", value = 0.000001, min = 0.0000000001)
+                                        numericInput("qualHWE == true", "Hardy-Weinberg equilibrium exact test p-value Threshold (--hwe)", value = 0.000001, min = 0.0000000001),
+                                        numericInput("kval == true", "K parameter (Greer et al. 2024) to adjust p-value threshold", value = 0.001)
                        ),
                        checkboxInput("filterLD", "Filter Variants (--indep-pairwise)", value = FALSE),
                        helpText("Prune markers in approximate linkage equilibrium with each other."),
@@ -657,6 +673,11 @@ ui <- dashboardPage(
                                         numericInput("ldStep", "Step Size (variants)", value = 50, min = 1, step = 1),
                                         numericInput("ldR2", "r2 Threshold", value = 0.2, min = 0, max = 1, step = 0.01)
                        ),
+                       checkboxInput("cutoffKing", "Filter based on Relationships (--king-cutoff)", value = FALSE),
+                       helpText("Exclude a member of a pair with a kinship coefficient greater than the threshold. Use '0.354' to screen for monozygotic twins and duplicate amples, '0.177' for 1st-degree, '0.0884' for 2nd-degree, and '0.0442' for 3rd-degree relationships."),
+                       conditionalPanel("input.cutoffKing == true",
+                                        selectInput("kingThresh", "Kinship Coefficient", choices = c("0.354", "0.177", "0.0884", "0.0442"), selected = "0.354")
+                                        ),
                        textInput("customFilter", "Additional PLINK flags", placeholder = "--keep filestokeep.txt"),
                        fileInput("extraFile1", "Optional file for first flag", accept = c(".txt", ".ped", ".psam", ".pheno", ".xlsx", ".csv")),
                        fileInput("extraFile2", "Optional file for second flag", accept = c(".txt", ".ped", ".psam", ".pheno", ".xlsx", ".csv")),
@@ -666,8 +687,8 @@ ui <- dashboardPage(
                     ),
                     tabBox(
                        tabPanel("Instructions",
-                                h4("This filters individuals and variants using standard options in PLINK 1.9 (Purcell et al., 2007)."),
-                                p(strong("Input file/s:"), "VCF file"),
+                                h4("This filters individuals and variants using standard options in PLINK 2.0 (Chang et al., 2015)."),
+                                p(strong("Input file/s:"), ".vcf, .vcf.gz, .bcf, or PLINK files"),
                                 p(strong("Parameter/s:")),
                                 tags$ul(
                                    tags$li("--mind [value]"),
@@ -676,6 +697,7 @@ ui <- dashboardPage(
                                    tags$li("--qual-threshold [value]"),
                                    tags$li("--hwe [value]"),
                                    tags$li("--indep-pairwise [value]"),
+                                   tags$li("--king-cutoff [value]"),
                                    tags$li("Other additional PLINK flags")
                                 ),
                                 p(strong("Expected output/s:")),
@@ -685,8 +707,8 @@ ui <- dashboardPage(
                                 ),
                                 br(),
                                 p("Standard filtering flags are indicated. For other PLINK flags, see the following for options to be specified in the 'Additional PLINK flags' text box: ",
-                                  tags$a("PLINK 1.9 Documentation",
-                                         href="https://www.cog-genomics.org/plink/",
+                                  tags$a("PLINK 2.0 Documentation",
+                                         href="https://www.cog-genomics.org/plink/2.0/",
                                          target="_blank"))
                        ),
                        tabPanel("Download sample files",
@@ -2648,38 +2670,14 @@ server <- function(input, output, session){
          
          if (!is.null(input$markerFile)) {
             input_file <- input$markerFile$datapath
-           
-            run_plink <- function(flag) {
-               cmd_args <- c(
-                  paste0("--", flag), shQuote(input_file),
-                  "--make-pgen",
-                  "--output-chr", "26",
-                  "--out", shQuote(pgen_prefix)
-               )
-               
-               system2(plink2_path, args = cmd_args, stdout = TRUE, stderr = TRUE)
-            }
             
-            res <- run_plink("vcf")
-            
-            # Check for BCF2 error
-            if (any(grepl("appears to be a BCF2 file", res))) {
-               message("Detected BCF2 file. Retrying with --bcf...")
-               res <- run_plink("bcf")
-            }
+            converted_to_plink2(input_file, isplink = FALSE, plink_path = plink2_path, name = pgen_prefix)
             
          } else {
             
             bed_prefix <- tools::file_path_sans_ext(input$bedFile$datapath)
-            cmd <- paste(
-               shQuote(plink2_path),
-               "--bfile", shQuote(bed_prefix),
-               "--make-pgen",
-               "--output-chr 26",
-               "--out", shQuote(pgen_prefix)
-            )
-            
-            system(cmd)
+            converted_to_plink2(bed_prefix, isplink = TRUE, plink_path = plink2_path, name = pgen_prefix)
+
          }
          
          merged_name <- "extracted_markers"
@@ -2785,7 +2783,7 @@ server <- function(input, output, session){
 
    #===================== FILTERING =======================#
    observe({
-      hasFile <- !is.null(input$forFilter)
+      hasFile <- !is.null(input$markerFileFilter)
       anyFilter <- input$filterIndiv || input$filterVariant || input$filterAllele || input$filterQuality || input$filterHWE || input$filterLD
       shinyjs::toggleState("calcDP", condition = hasFile && anyFilter)
    })
@@ -2799,8 +2797,8 @@ server <- function(input, output, session){
    })
    
    # reset buttons with new file
-   observeEvent(input$forFilter, {
-      ext <- tools::file_ext(input$forFilter$name)
+   observeEvent(input$markerFileFilter, {
+      ext <- tools::file_ext(input$markerFileFilter$name)
       if (tolower(ext) == "vcf"){
          shinyjs::enable("enableDp")
       } else {
@@ -2815,15 +2813,15 @@ server <- function(input, output, session){
    filtered_plink_file <- reactiveVal(NULL)
    
    observeEvent(input$calcDP, {
-      req(input$forFilter)
+      req(input$markerFileFilter)
       
       Sys.sleep(1.5)
       
-      vcf_path <- input$forFilter$datapath
+      vcf_path <- input$markerFileFilter$datapath
       ref_path <- if (!is.null(input$highlightRef)) input$highlightRef$datapath else NULL
       palette <-  if (!is.null(input$colorPalette)) input$colorPalette else NULL
       
-      ext <- tools::file_ext(input$forFilter$name)
+      ext <- tools::file_ext(input$markerFileFilter$name)
       
       if (tolower(ext) == "vcf" && input$enableDP){
          dp <- depth_from_vcf(
@@ -2835,29 +2833,49 @@ server <- function(input, output, session){
          depth_outputs(dp)
       }
       
+      # CHECK THE FILE EXTENSIONS
+      input_type <- if (!is.null(input$markerFileFilter)) {
+         if (grepl("\\.bcf$", input$markerFileFilter$name, ignore.case = TRUE)) "bcf"
+         else "vcf"
+      } else {
+         "plink"
+      }
+      
+      # convert
+      pgen_prefix <- file.path(temp_dir, "converted_to_plink2")
+      if (input_type %in% c("vcf", "bcf")) {
+         converted_to_plink2(input$markerFileFilter$datapath, isplink = FALSE, plink_path = plink2_path, name = pgen_prefix)
+      } else {
+         bed_prefix <- tools::file_path_sans_ext(input$bedFileFilter$datapath)
+         converted_to_plink2(bed_prefix, isplink = TRUE, plink_path = plink2_path, name = pgen_prefix)
+      }
+      
       # Revised 14 November 2025 to first convert files to PLINK before filtering
-      input_file <- convert_to_plink(input$forFilter$datapath, temp_dir)
+      input_file <- convert_to_plink(input$markerFileFilter$datapath, temp_dir)
       
       # for plink filtering
-      plink_cmds <- c("plink", "--bfile", shQuote(paste(temp_dir, "converted_to_plink")), "--out", file.path(temp_dir, "filtered"))
+      plink_cmds <- c(shQuote(plink2_path), "--pfile", shQuote(pgen_prefix), "--out", file.path(temp_dir, "filtered"))
       
       if (input$filterIndiv){
          plink_cmds <- c(plink_cmds, "--mind", input$mindThresh)
       }
       if (input$filterVariant){
-         plink_cmds <- c(plink_cmds, "--mind", input$genoThresh)
+         plink_cmds <- c(plink_cmds, "--geno", input$genoThresh)
       }
       if (input$filterAllele){
-         plink_cmds <- c(plink_cmds, "--mind", input$mafThresh)
+         plink_cmds <- c(plink_cmds, "--maf", input$mafThresh)
       }
       if (input$filterQuality){
-         plink_cmds <- c(plink_cmds, "--mind", input$qualThresh)
+         plink_cmds <- c(plink_cmds, "--qual-threshold", input$qualThresh)
       }
       if (input$filterHWE){
-         plink_cmds <- c(plink_cmds, "--mind", input$qualHWE)
+         plink_cmds <- c(plink_cmds, "--hwe", input$qualHWE, input$kval)
       }
       if (input$filterLD){
-         plink_cmds <- c(plink_cmds, "--mind", input$ldWindow, input$ldStep, input$ldR2)
+         plink_cmds <- c(plink_cmds, "--indep-pairwise", input$ldWindow, input$ldStep, input$ldR2)
+      }
+      if (input$cutoffKing){
+         plink_cmds <- c(plink_cmds, "--king-cutoff", input$kingThresh)
       }
       
       # for custom flags
