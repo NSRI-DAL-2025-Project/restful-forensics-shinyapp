@@ -527,13 +527,13 @@ clean_input_data <- function(file) {
    pacman::p_load(dplyr, install = TRUE)
    
    file1 <- lapply(file, function(x) gsub("|", "/", x, fixed = TRUE))
-   file1 <- as.data.frame(file)
+   file1 <- as.data.frame(file1)
    file1[is.na(file1)] <- "N"
    
    file1 <- file1 %>%
+      mutate(across(everything(), as.character)) %>%
       mutate(across(everything(), ~ case_when(
-         . == "N/A" ~ "N",
-         . == "NA" ~ "N",
+         .x %in% c("N/A", "NA") ~ "N",
          TRUE ~ .x)))
    file1 <- as.data.frame(file1)
    
@@ -725,7 +725,7 @@ create_range_file <- function(pos_input, output_dir){
    )
    
    update_name <- data.frame(
-      new = paste0(chr, ":", start, sep = ""),
+      new = paste0(chr, ":", pos, sep = ""),
       id = label,
       stringsAsFactors = FALSE
    )
@@ -1188,6 +1188,9 @@ plot_heterozygosity <- function(Het_fsnps_df, out_dir) {
    pacman::p_load(ggplot2, install = TRUE)
 
    out_path <- file.path(out_dir, "heterozygosity_plot.png")
+   
+   Het_fsnps_df <- Het_fsnps_df %>%
+      dplyr::filter(Variable %in% c("Ho", "He"))
    
    Het_fsnps_df$Variable <- as.factor(Het_fsnps_df$Variable)
    

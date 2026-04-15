@@ -101,7 +101,7 @@ ui <- dashboardPage(
                     )
                  )
          ),
-         
+      
          tabItem(tabName = "FileConv",
                  tabsetPanel(
                     tabPanel("Convert Files",
@@ -653,18 +653,18 @@ ui <- dashboardPage(
                        checkboxInput("filterAllele", "Filter Variants (--maf)", value = FALSE),
                        helpText("Exclude SNPs with a minor allele frequency less than the threshold."),
                        conditionalPanel("input.filterAllele == true",
-                                        numericInput("mafThresh == true", "Minor Allele Frequency Threshold (--maf)", value = 0.1)
+                                        numericInput("mafThresh", "Minor Allele Frequency Threshold (--maf)", value = 0.1)
                        ),
                        checkboxInput("filterQuality", "Filter by Quality (--qual-threshold)", value = FALSE),
                        helpText("Exclude variants with quality scores below the threshold."),
                        conditionalPanel("input.filterQuality == true",
-                                        numericInput("qualThresh == true", "Quality Score Threshold (--qual-threshold)", value = 5)
+                                        numericInput("qualThresh", "Quality Score Threshold (--qual-threshold)", value = 5)
                        ),
                        checkboxInput("filterHWE", "Filter Variants (--hwe)", value = FALSE),
                        helpText("Exclude SNPs deviating from the Hardy-Weinberg Equilibrium."),
                        conditionalPanel("input.filterHWE == true",
-                                        numericInput("qualHWE == true", "Hardy-Weinberg equilibrium exact test p-value Threshold (--hwe)", value = 0.000001, min = 0.0000000001),
-                                        numericInput("kval == true", "K parameter (Greer et al. 2024) to adjust p-value threshold", value = 0.001)
+                                        numericInput("qualHWE", "Hardy-Weinberg equilibrium exact test p-value Threshold (--hwe)", value = 0.000001, min = 0.0000000001),
+                                        numericInput("kval", "K parameter (Greer et al. 2024) to adjust p-value threshold", value = 0.001)
                        ),
                        checkboxInput("filterLD", "Filter Variants (--indep-pairwise)", value = FALSE),
                        helpText("Prune markers in approximate linkage equilibrium with each other."),
@@ -1098,6 +1098,7 @@ ui <- dashboardPage(
                                 DT::dataTableOutput("fstDfTable"),
                                 br(),
                                 h4("Fst Heatmap"),
+                                uiOutput("downloadFstHeatmap_UI"),
                                 imageOutput("fst_heatmap_plot", width = "100%")
                        ),
                     )
@@ -2784,12 +2785,12 @@ server <- function(input, output, session){
    #===================== FILTERING =======================#
    observe({
       hasFile <- !is.null(input$markerFileFilter)
-      anyFilter <- input$filterIndiv || input$filterVariant || input$filterAllele || input$filterQuality || input$filterHWE || input$filterLD
+      anyFilter <- input$filterIndiv || input$filterVariant || input$filterAllele || input$filterQuality || input$filterHWE || input$filterLD || input$cutoffKing
       shinyjs::toggleState("calcDP", condition = hasFile && anyFilter)
    })
    
    output$filterWarning <- renderText({
-      if (!(input$filterIndiv || input$filterVariant || input$filterAllele || input$filterQuality || input$filterHWE || input$filterLD)){
+      if (!(input$filterIndiv || input$filterVariant || input$filterAllele || input$filterQuality || input$filterHWE || input$filterLD || input$cutoffKing)){
          "Please select at least one filtering option."
       } else {
          ""
@@ -2800,7 +2801,7 @@ server <- function(input, output, session){
    observeEvent(input$markerFileFilter, {
       ext <- tools::file_ext(input$markerFileFilter$name)
       if (tolower(ext) == "vcf"){
-         shinyjs::enable("enableDp")
+         shinyjs::enable("enableDP")
       } else {
          updateCheckboxInput(inputId = "enableDP", value = FALSE)
          shinyjs::disable("enableDP")
@@ -2850,11 +2851,8 @@ server <- function(input, output, session){
          converted_to_plink2(bed_prefix, isplink = TRUE, plink_path = plink2_path, name = pgen_prefix)
       }
       
-      # Revised 14 November 2025 to first convert files to PLINK before filtering
-      input_file <- convert_to_plink(input$markerFileFilter$datapath, temp_dir)
-      
       # for plink filtering
-      plink_cmds <- c(shQuote(plink2_path), "--pfile", shQuote(pgen_prefix), "--out", file.path(temp_dir, "filtered"))
+      plink_cmds <- c(shQuote(plink2_path), "--pfile", shQuote(pgen_prefix), "--recode", "vcf", "bgz", "--out", file.path(temp_dir, "filtered"))
       
       if (input$filterIndiv){
          plink_cmds <- c(plink_cmds, "--mind", input$mindThresh)
@@ -2883,22 +2881,22 @@ server <- function(input, output, session){
       if (length(custom_flag) == 1 && custom_flag[1] == "") custom_flag <-  NULL
       
       if (!is.null(custom_flag) && length(custom_flag) >= 2){
-         if (!is.null(input$extraFile1) && length(custom_flags) >=2){
+         if (!is.null(input$extraFile1) && length(custom_flag) >=2){
             custom_flag[2] <- shQuote(input$extraFile1$datapath)
          }
          
-         if (!is.null(input$extraFile2) && length(custom_flags) >=4){
+         if (!is.null(input$extraFile2) && length(custom_flag) >=4){
             custom_flag[4] <- shQuote(input$extraFile2$datapath)
          }
          
-         plink_cmds <- c(plink_cmds, custom_flags)}
+         plink_cmds <- c(plink_cmds, custom_flag)}
       
       system(paste(plink_cmds, collapse = " "))
       
-      filtered_path <- file.path(temp_dir, "filtered.vcf")
+      
+      filtered_path <- file.path(temp_dir, "filtered.vcf.gz")
       if (file.exists(filtered_path)){
          filtered_plink_file(filtered_path)
-         shinyjs::enable("downloadFilteredFile")
       }
       
       output$plinkCommandPreview <- renderText({
@@ -2919,7 +2917,7 @@ server <- function(input, output, session){
    }, deleteFile = FALSE)
    
    output$downloadFilteredFile <- downloadHandler(
-      filename = function(){"filtered.vcf"},
+      filename = function(){"filtered.vcf.gz"},
       content = function(file){
          req(filtered_plink_file())
          file.copy(filtered_plink_file(), file)
@@ -3451,18 +3449,18 @@ server <- function(input, output, session){
    hwMatrix <- reactiveVal(NULL)
    fstMatrix <- reactiveVal(NULL)
    
+   fsnps_gen <- reactive({
+      req(input$popStatsFile)
+      df <- load_csv_xlsx_files(input$popStatsFile$datapath)
+      cleaned <- clean_input_data(df)
+      convert_to_genind(cleaned)
+   })
+   
    observeEvent(input$runPopStats, {
       disable("runPopStats")
       req(input$popStatsFile)
       
       Sys.sleep(1.5)
-      
-      fsnps_gen <- reactive({
-         req(input$popStatsFile)
-         df <- load_csv_xlsx_files(input$popStatsFile$datapath)
-         cleaned <- clean_input_data(df)
-         convert_to_genind(cleaned)
-      })
       
       withProgress(message = "Running population analysis...", value = 0, {
          
@@ -3575,7 +3573,7 @@ server <- function(input, output, session){
    }, options = list(scrollX = TRUE))
    
    output$fstMatrixUI <- renderUI({
-      fst <- fstStats()$fsnps_fst_matrix
+      fst <- fstStats()$fst_matrix
       if (is.list(fst) && "message" %in% names(fst)) {
          tags$p(style = "color:gray;", fst$message)
       } else {
