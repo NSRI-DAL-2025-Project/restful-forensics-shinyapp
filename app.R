@@ -1894,11 +1894,10 @@ server <- function(input, output, session){
       #------------------------ BCF
       if (input$inputType1 == "bcf1") {
          req(input$BCFFile)
-         bcf_ext <- tools::file_ext(input$VCFFile$name)
+         bcf_ext <- tools::file_ext(input$BCFFile$name)
          
          if (bcf_ext %in% c("zip", "tar")) {
-            unpacked_files <- unpack_input_file(input$VCFFile$datapath, output.dir)
-            
+            unpacked_files <- unpack_input_file(input$BCFFile$datapath, output.dir)
             data_list <- unpacked_files$data_files
 
             # Convert each file to plink and create a list of output files
@@ -1915,7 +1914,7 @@ server <- function(input, output, session){
             
             # merge all the plink files
             merged_plink <- paste(
-               shQuote(plink_path),
+               shQuote(plink2_path),
                "--merge-list", shQuote(names_text),
                "--recode vcf",
                "--keep-allele-order",
@@ -1994,12 +1993,18 @@ server <- function(input, output, session){
       if (input$inputType1 == "plink1") {
          req((input$bedFile & input$bimFile & input$famFile) || input$zippedPLINK)
          
+         names_text <- file.path(output.dir, "merge_list.txt")
+         merged_file <- file.path(output.dir, "merged_plink")
+         file.remove(names_text)
+         file.remove(merged_file)
+         
          if (!is.null(input$zippedPLINK)) {
             zipped_files <- unpack_input_file(input$zippedPLINK$datapath)
             file_names <- zipped_files$data_files
             
             for (x in file_names) {
-               revised <- substr(x, 1, nchar(x)-4)
+               revised <- sub("\\.bed$", "", x)
+               
                plink_lines <- paste(paste0(revised, ".bed"),
                                     paste0(revised, ".bim"),
                                     paste0(revised, ".fam"),
@@ -2016,19 +2021,13 @@ server <- function(input, output, session){
                "--out", shQuote(merged_file)
             )
             system(merged_plink)
+            bfile_prefix <- merged_file
+         } else {
+            bfile_prefix <- sub("\\.bed$", "", input$bedFile$datapath)
          }
          
-         if (!is.null(input$zippedPLINK)) {
-            bed_file <- paste(merged_file, ".bed")
-            bim_file <- paste(merged_file, ".bim")
-            fam_file <- paste(merged_file, ".fam")
-         } else { 
-            bed_file <- input$bedFile$datapath
-            bim_file <- input$bimFile$datapath
-            fam_file <- input$famFile$datapath
-            }
          
-         converted.file <- plink_to_vcf(bed_file, bim_file, fam_file, output.dir = output.dir)
+         converted.file <- plink_to_vcf(bfile_prefix, output.dir = output.dir, plink_path = plink2_path, name = "tovcf")
          
          if (outputType == "vcf2") {
             convertedVCF(converted.file)
