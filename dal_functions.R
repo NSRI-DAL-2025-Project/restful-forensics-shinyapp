@@ -1383,6 +1383,8 @@ calc_iisnps_params <- function(geno_freqs, profile = NULL, theta = 0){
       dplyr::ungroup()
    
    if (!is.null(profile)){
+      profile <- dplyr::rename(profile, marker = 1)
+      
       geno_theta <- geno_freqs %>%
          dplyr::mutate(
             homozygous1 = p^2 + p*(1-p)*theta,
