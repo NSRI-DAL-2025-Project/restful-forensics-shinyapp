@@ -43,61 +43,70 @@ unpack_input_file <- function(files, output.dir = output.dir){
 # Description: Returns file path containing plink files
 #============================
 
-convert_to_plink <- function(input.file, output.dir, plink_path = plink_path, name = "converted_to_plink") {
+convert_to_plink <- function(input.file, 
+                             output.dir, 
+                             plink_path = plink2_path, 
+                             name = "converted_to_plink") {
    if(!require("pacman")) {
       install.packages("pacman")
    }
    pacman::p_load(tools, install = TRUE)
    
-   file_extension <- tools::file_ext(input.file)
    output_file <- file.path(output.dir, name)
    
-   if (grepl("\\.vcf\\.gz$", input.file)) {
-      cmd <- paste(shQuote(plink_path), "--vcf", shQuote(input.file), "--double-id --make-bed --out", shQuote(output_file))
-   } else if (file_extension == "vcf") {
-      cmd <- paste(shQuote(plink_path), "--vcf", shQuote(input.file), "--double-id --make-bed --out", shQuote(output_file))
-   } else if (file_extension == "bcf") {
-      cmd <- paste(shQuote(plink_path), "--bcf", shQuote(input.file), "--double-id --make-bed --out", shQuote(output_file))
+   is_vcf <- grepl("\\.vcf(\\.gz)?$", input.file, ignore.case = TRUE)
+   is_bcf <- grepl("\\.bcf$", input.file, ignore.case = TRUE)
+   
+   if (!is_vcf && !is_bcf){
+      stop("Unsupported file type. Please provide a VCF, VCF.GZ, or BCF.")
+   }
+   
+   input_flag <- if (is_bcf) "--bcf" else "--vcf"
+   args <- c(
+      input_flag, input.file,
+      "--allow-extra-chr",
+      "--make-bed",
+      "--out", output_file
+   )
+   
+   res <- system2(plink_path, args = args, stdout = TRUE, stderr = TRUE)
+   
+   return(output_file)
+}
+
+converted_to_plink2 <- function(input.file, 
+                                isplink = FALSE, 
+                                plink_path = plink2_path, 
+                                name = "converted_to_plink2",
+                                output_chr = "26"){
+   
+   is_vcf <- grepl("\\.vcf(\\.gz)?$", input.file, ignore.case = TRUE)
+   is_bcf <- grepl("\\.bcf$", input.file, ignore.case = TRUE)
+   
+   if (isplink == TRUE) {
+      args <- c(
+         "--bfile", input.file, 
+         "--make-pgen",
+         "--output-chr", output_chr,
+         "--out", name
+      )
+      
+   } else if (is_vcf || is_bcf) {
+      
+      input_flag <- if (is_bcf) "--bcf" else "--vcf"
+      
+      args <- c(
+         input_flag, input.file,
+         "--make-pgen",
+         "--output-chr", output_chr,
+         "--out", name
+      )
+      
    } else {
       stop("Unsupported file type. Please provide a VCF, VCF.GZ, or BCF.")
    }
    
-   system(cmd)
-   return(output_file)
-}
-
-converted_to_plink2 <- function(input.file, isplink = FALSE, plink_path = plink2_path, name = "converted_to_plink2"){
-   
-   if (isplink == TRUE) {
-      cmd <- paste(
-         shQuote(plink2_path),
-         "--bfile", shQuote(input.file),
-         "--make-pgen",
-         "--output-chr 26",
-         "--out", shQuote(name)
-      )
-      system(cmd)
-      
-   } else {
-      
-      run_plink <- function(flag) {
-         cmd_args <- c(
-            paste0("--", flag), shQuote(input.file),
-            "--make-pgen",
-            "--output-chr", "26",
-            "--out", shQuote(name)
-         )
-         system2(plink_path, args = cmd_args, stdout = TRUE, stderr = TRUE)
-      }
-      
-      res <- run_plink("vcf")
-      
-      # Check for BCF2 error
-      if (any(grepl("appears to be a BCF2 file", res))) {
-         message("Detected BCF2 file. Retrying with --bcf...")
-         res <- run_plink("bcf")
-      }
-   }
+   res <- system2(plink_path, args = args, stdout = TRUE, stderr = TRUE)
    
    return(name)
 }
@@ -109,31 +118,49 @@ converted_to_plink2 <- function(input.file, isplink = FALSE, plink_path = plink2
 bcf_to_vcf <- function(input.file, output.dir, plink_path = plink_path){
    output_file <- file.path(output.dir, "tovcf")
    
-   if (file_extension == "bcf"){
-      command <- paste(
-         plink_path, "--bcf", input.file,
-         "--const-fid 0 --keep-allele-order --allow-no-sex --allow-extra-chr",
-         "--recode vcf --out", output_file
+   if (tools::file_ext(input.file) == "bcf"){
+      args <- c(
+         "--bcf", input.file,
+         "--const-fid", "0",
+         "--keep-allele-order",
+         "--allow-no-sex",
+         "--allow-extra-chr",
+         "--export", "vcf",
+         "--out", output_file
       )
-      system(command)
+      
+      res <- system2(plink_path, args = args, stdout = TRUE, stderr = TRUE)
    } else {
-      stop("Input is not a BCF file.")
+      stop("Input file is not a BCF file.")
    }
+
    return(output_file)
 }
 
 #============================
 # Convert PLINK to VCF
 
-plink_to_vcf <- function(bed.file, bim.file, fam.file, output.dir, plink_path = plink_path){
+plink_to_vcf <- function(bfile_prefix, output.dir, plink_path = plink_path, name = "tovcf"){
    output_file <- file.path(output.dir, "tovcf")
    
-   command <- paste(
-      plink_path, "--bed", bed.file, "--bim", bim.file, "--fam", fam.file,
-      "--const-fid 0 --keep-allele-order --allow-no-sex --allow-extra-chr",
-      "--recode vcf --out", outputVCF
+   required <- paste0(bfile_prefix, c(".bed", ".bim", ".fam"))
+   missing <- required[!file.exists(required)]
+   
+   if (length(missing) > 0){
+      stop("Missing PLINK files")
+   }
+   
+   output_file <- file.path(output.dir, name)
+   args <- c(
+      "--bfile", bfile_prefix,
+      "--const-fid", "0",
+      "--keep-allele-order",
+      "--allow-no-sex",
+      "--allow-extra-chr",
+      "--export", "vcf",
+      "--out", output_file
    )
-   system(command)
+   res <- system2(plink_path, args = args, stdout = TRUE, stderr = TRUE)
    return(output_file)
 }
 
