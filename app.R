@@ -265,9 +265,11 @@ ui <- dashboardPage(
                                    tabPanel("Download Sample Files", 
                                             tags$a("A. Sample VCF", href = "sample_hgdp.vcf", download = "sample_hgdp.vcf"),
                                             br(),
-                                            tags$a("B. Sample CSV file (for VCF conversion)", href = "sample.csv", download = "sample.csv"),
+                                            tags$a("B. Sample zipped file (VCF files)", href = "vcf_sample_files.zip", download = "vcf_sample_files.zip"),
                                             br(),
-                                            tags$a("C. Sample marker metadata file (for CSV-VCF conversion)", href = "marker_info.csv", download = "marker_info.csv")
+                                            tags$a("C. Sample CSV file (for VCF conversion)", href = "sample.csv", download = "sample.csv"),
+                                            br(),
+                                            tags$a("D. Sample marker metadata file (for CSV-VCF conversion)", href = "marker_info.csv", download = "marker_info.csv")
                                    )
                                 )
                              ), # end of first fluid row
