@@ -117,9 +117,9 @@ ui <- dashboardPage(
                                    
                                    conditionalPanel(
                                       condition = "input.inputType1 == 'vcf1'",
-                                      fileInput("VCFFile", "Upload VCF File", accept = c(".vcf", ".zip", ".tar")),
+                                      fileInput("VCFFile", "Upload VCF File", accept = c(".vcf")),
                                       radioButtons("inputType2_vcf", "Choose final file type",
-                                                   choices = c("PLINK files (.psam/.pvar/.pgen)" = "plink2",
+                                                   choices = c("PLINK files (.bed/.bim/.fam)" = "plink2",
                                                                "CSV file" = "csv2",
                                                                "FASTA file" = "fasta")),
                                       
@@ -156,10 +156,10 @@ ui <- dashboardPage(
                                    
                                    conditionalPanel(
                                       condition = "input.inputType1 == 'bcf1'",
-                                      fileInput("BCFFile", "Upload BCF File", accept = c(".bcf", ".zip", ".tar")),
+                                      fileInput("BCFFile", "Upload BCF File", accept = c(".bcf")),
                                       radioButtons("inputType2_bcf", "Choose final file type",
                                                    choices = c("VCF file" = "vcf2",
-                                                               "PLINK files (.psam/.pvar/.pgen)" = "plink2",
+                                                               "PLINK files (.bed/.bim/.fam)" = "plink2",
                                                                "CSV file" = "csv2")),
                                       
                                       conditionalPanel(
@@ -246,7 +246,7 @@ ui <- dashboardPage(
                                                tags$li("(.vcf to FASTA) Reference sequence in FASTA (.fasta, .fas, .faa) format."),
                                                tags$li("(.csv to .vcf) Marker information with the following columns: [1] SNP, [2] CHR, [3] POS, [4] Genetic distance, [5] REF Allele [6] ALT Allele.")
                                             ),
-                                            p(strong("Expected output file/s:"), "VCF, PLINK (.psam/.pvar/.pgen), or CSV file."),
+                                            p(strong("Expected output file/s:"), "VCF, PLINK, or CSV file."),
                                             br(),
                                             p("Maximum accepted file size: 5GB. It is recommended to split files with sizes larger than 5GB into multiple smaller files.")
                                    ),
@@ -1778,106 +1778,316 @@ server <- function(input, output, session){
       return(NULL)
    }
    
-      observeEvent(input$ConvertFILES, {
-         req(input$ConvertFILES)
-         disable("ConvertFILES")
+   observeEvent(input$ConvertFILES, {
+      req(input$ConvertFILES)
+     # 
+     # Sys.sleep(1.5)
+      disable("ConvertFILES")
+      
+      outputType <- output_type(input)
+      req(outputType)
+      
+      refValue <- if (outputType == "csv2"){
+         getRefValue(input)
+      } else {
+         NULL
+      }
+      
+      names_text <- paste(output.dir, "list.txt")
+      merged_file <- file.path(output.dir, "merged")
+      
+      #-------------------------- VCF
+      if (input$inputType1 == "vcf1") {
+         req(input$VCFFile)
+         vcf_ext <- tools::file_ext(input$VCFFile$name)
          
-         outputType <- output_type(input)
-         req(outputType)
-         
-         input_file <- switch(input$inputType1,
-                              "vcf1"   = input$VCFFile$datapath,
-                              "bcf1"   = input$BCFFile$datapath,
-                              "csv1"   = input$CSVFile$datapath,
-                              "plink1" = input$bedFile$datapath
-         )
-         
-         prepared <- prepare_input_dataset(
-            input_file = input_file,
-            input_type = input$inputType1,
-            output.dir = output.dir,
-            plink2_path = plink2_path
-         )
-         
-         result <- convert_from_plink2(
-            prefix = prepared$prefix,
-            output_type = outputType,
-            output.dir = output.dir,
-            plink2_path = plink2_path,
-            bcftools_path = bcftools_path,
-            ref = getRefValue(input),
-            fasta_ref = if (!is.null(input$FASTARef)) input$FASTARef$datapath else NULL
-         )
-         
-         if (outputType == "vcf2") {
-            convertedVCF(result)
+         if (vcf_ext %in% c("zip", "tar")) {
+            unpacked_files <- unpack_input_file(input$VCFFile$datapath, output.dir)
+            
+            data_list <- unpacked_files$data_files
+            all.list <- list()
+            
+            
+            # Convert each file to plink and create a list of output files
+            for (x in data_list) {
+               revised <- substr(x, 1, nchar(x)-4)
+               file_name <- convert_to_plink(x, output.dir, plink_path, name = revised)
+               plink_lines <- paste(paste0(file_name, ".bed"),
+                                    paste0(file_name, ".bim"),
+                                    paste0(file_name, ".fam"),
+                                    sep = "\t"
+               )
+               write(plink_lines, file = names_text, append = TRUE)
+            }
+            
+            # merge all the plink files
+            merged_plink <- paste(
+               shQuote(plink_path),
+               "--merge-list", shQuote(names_text),
+               "--recode vcf",
+               "--keep-allele-order",
+               "--out", shQuote(merged_file)
+            )
+            system(merged_plink)
+            
          }
+         
+         vcf_file <- if (vcf_ext %in% c("zip", "tar")) {
+            paste(merged_file, ".vcf")
+         } else { input$VCFFile$datapath }
+         
          if (outputType == "csv2") {
-            convertedCSV(result)
-            csv_data <- result
             
-            if (is.character(result)) {
-               csv_data <- readr::read_csv(result, show_col_types = FALSE)
-            }
+            csv_file <- vcf_to_csv(
+               vcf_file, 
+               ref = refValue, 
+               output.dir = output.dir
+               )
+            convertedCSV(csv_file)
+            output$downloadConvertedCSV <- downloadHandler(
+               filename = function() { outputName },
+               content = function(file) { 
+                  readr::write_csv(convertedCSV(), file) 
+                  }
+            )
             
-            possible_cols <- c("Population", "population", "pop", "Pop")
-            found_col <- intersect(possible_cols, colnames(csv_data))
-            
-            if (length(found_col) > 0) {
-               
-               breakdown_col <- found_col[1]
-               breakdown_results <- pop_breakdown(csv_data, breakdown_col)
+            if (!is.null(input$breakdown_vcf)) {
+               req(input$breakdown_column_vcf)
+               breakdown_results <- pop_breakdown(csv_file, input$breakdown_column_vcf)
                convertedBreakdown(breakdown_results)
-               
-            } else {
-               convertedBreakdown(NULL)
-               message("No population column found for breakdown.")
             }
+            
          }
          
          if (outputType == "fasta") {
-            convertedFASTA(result)
+            req(input$FASTARef)
+            
+            converted.file <- vcf_to_fasta(
+               vcf_file, 
+               input$FASTARef$datapath,
+               bcftools_path = bcftools_path, 
+               output.dir = output.dir)
+            
+            convertedFASTA(converted.file)
+            output$downloadConvertedFASTA <- downloadHandler(
+               filename = function() { "consensus.fa" },
+               content = function(file) { file.copy(convertedFASTA(), file) }
+            )
          }
+         
          if (outputType == "plink2") {
-            convertedPLINK(result)
+            converted.file <- convert_to_plink(vcf_file, output.dir = output.dir, plink_path = plink_path)
+            convertedPLINK(converted.file)
+            output$downloadConvertedPLINK <- downloadHandler(
+               filename = function() { "convertedtoPLINK.zip" },
+               content = function(file) {
+                  data_files <- list.files(path = output.dir, pattern = "^converted_to_plink.", full.names = TRUE)
+                  zip::zipr(zipfile = file, files = data_files)
+               },
+               contentType = "application/zip"
+            )
          }
          
          enable("ConvertFILES")
-      })
+      }
       
-      output$downloadConvertedCSV <- downloadHandler(
-         filename = function() { outputName },
-         content = function(file) {
-            req(convertedCSV())
-            readr::write_csv(convertedCSV(), file)
-         }
-      )
-      
-      output$downloadConvertedVCF <- downloadHandler(
-         filename = function() { "converted.vcf" },
-         content = function(file) {
-            req(convertedVCF())
-            file.copy(convertedVCF(), file)
-         }
-      )
-      
-      output$downloadConvertedFASTA <- downloadHandler(
-         filename = function() { "consensus.fa" },
-         content = function(file) {
-            req(convertedFASTA())
-            file.copy(convertedFASTA(), file)
-         }
-      )
-      
-      output$downloadConvertedPLINK <- downloadHandler(
-         filename = function() { "plink2_files.zip" },
-         content = function(file) {
-            req(convertedPLINK())
-            file.copy(convertedPLINK(), file)
-         },
-         contentType = "application/zip"
-      )
+      #------------------------ BCF
+      if (input$inputType1 == "bcf1") {
+         req(input$BCFFile)
+         bcf_ext <- tools::file_ext(input$BCFFile$name)
+         
+         if (bcf_ext %in% c("zip", "tar")) {
+            unpacked_files <- unpack_input_file(input$BCFFile$datapath, output.dir)
+            data_list <- unpacked_files$data_files
 
+            # Convert each file to plink and create a list of output files
+            for (x in data_list) {
+               revised <- substr(x, 1, nchar(x)-4)
+               file_name <- convert_to_plink(x, output.dir, plink_path, name = revised)
+               plink_lines <- paste(paste0(file_name, ".bed"),
+                                    paste0(file_name, ".bim"),
+                                    paste0(file_name, ".fam"),
+                                    sep = "\t"
+               )
+               write(plink_lines, file = names_text, append = TRUE)
+            }
+            
+            # merge all the plink files
+            merged_plink <- paste(
+               shQuote(plink2_path),
+               "--merge-list", shQuote(names_text),
+               "--recode vcf",
+               "--keep-allele-order",
+               "--out", shQuote(merged_file)
+            )
+            system(merged_plink)
+         }
+         
+         bcf_file <- if (bcf_ext %in% c("zip", "tar")) {
+            paste(merged_file, ".vcf")
+         } else { input$BCFFile$datapath }
+         
+         
+         if (outputType == "vcf2" & bcf_ext == "bcf") {
+            converted.file <- bcf_to_vcf(bcf_file, output.dir = output.dir, plink_path = plink_path)
+            convertedVCF(converted.file)
+            output$downloadConvertedVCF <- downloadHandler(
+               filename = function() { "bcftovcf.vcf" },
+               content = function(file) { file.copy(convertedVCF(), file) }
+            )
+         } else if (outputType == "vcf2" & bcf_ext != "bcf"){
+            convertedVCF(bcf_file)
+            output$downloadConvertedVCF <- downloadHandler(
+               filename = function() { "bcftovcf.vcf" },
+               content = function(file) { file.copy(convertedVCF(), file) }
+            )
+         }
+         
+         if (outputType == "csv2" & bcf_ext == "bcf") {
+            file2 <- bcf_to_vcf(bcf_file, output.dir = output.dir)
+            csv_file <- vcf_to_csv(file2, ref = refValue, output.dir = output.dir)
+            convertedCSV(csv_file)
+            output$downloadConvertedCSV <- downloadHandler(
+               filename = function() { outputName },
+               content = function(file) { readr::write_csv(convertedCSV(), file) }
+            )
+            
+            if (!is.null(input$breakdown_bcf)) {
+               req(input$breakdown_column_bcf)
+               breakdown_results <- pop_breakdown(csv_file, input$breakdown_column_bcf)
+               convertedBreakdown(breakdown_results)
+            }
+         } else if (outputType == "csv2" & bcf_ext != "bcf") {
+            csv_file <- vcf_to_csv(bcf_file, ref = refValue, output.dir = output.dir)
+            convertedCSV(csv_file)
+            output$downloadConvertedCSV <- downloadHandler(
+               filename = function() { outputName },
+               content = function(file) { readr::write_csv(convertedCSV(), file) }
+            )
+            
+            if (!is.null(input$breakdown_bcf)) {
+               req(input$breakdown_column_bcf)
+               breakdown_results <- pop_breakdown(csv_file, input$breakdown_column_bcf)
+               convertedBreakdown(breakdown_results)
+            }
+         }
+         
+         if (outputType == "plink2") {
+            converted.file <- convert_to_plink(bcf_file, output.dir = output.dir, plink_path = plink_path)
+            convertedPLINK(converted.file)
+            
+            output$downloadConvertedPLINK <- downloadHandler(
+               filename = function() { "convertedtoPLINK.zip" },
+               content = function(file) {
+                  data_files <- list.files(path = output.dir, pattern = "^converted_to_plink.", full.names = TRUE)
+                  zip::zipr(zipfile = file, files = data_files)
+               },
+               contentType = "application/zip"
+            )
+         }
+         
+         enable("ConvertFILES")
+      }
+      
+      #---------------------- PLINK
+      if (input$inputType1 == "plink1") {
+         req((input$bedFile & input$bimFile & input$famFile) || input$zippedPLINK)
+         
+         names_text <- file.path(output.dir, "merge_list.txt")
+         merged_file <- file.path(output.dir, "merged_plink")
+         file.remove(names_text)
+         file.remove(merged_file)
+         
+         if (!is.null(input$zippedPLINK)) {
+            zipped_files <- unpack_input_file(input$zippedPLINK$datapath)
+            file_names <- zipped_files$data_files
+            
+            for (x in file_names) {
+               revised <- sub("\\.bed$", "", x)
+               
+               plink_lines <- paste(paste0(revised, ".bed"),
+                                    paste0(revised, ".bim"),
+                                    paste0(revised, ".fam"),
+                                    sep = "\t"
+               )
+               write(plink_lines, file = names_text, append = TRUE)
+            }
+            
+            # merge all the plink files
+            merged_plink <- paste(
+               shQuote(plink_path),
+               "--merge-list", shQuote(names_text),
+               "--make-bed",
+               "--out", shQuote(merged_file)
+            )
+            system(merged_plink)
+            bfile_prefix <- merged_file
+         } else {
+            bfile_prefix <- sub("\\.bed$", "", input$bedFile$datapath)
+         }
+         
+         
+         converted.file <- plink_to_vcf(bfile_prefix, output.dir = output.dir, plink_path = plink2_path, name = "tovcf")
+         
+         if (outputType == "vcf2") {
+            convertedVCF(converted.file)
+            output$downloadConvertedVCF <- downloadHandler(
+               filename = function() { "tovcf.vcf" },
+               content = function(file) { file.copy(convertedVCF(), file) }
+            )
+         }
+         
+         if (outputType == "csv2") {
+            csv_file <- vcf_to_csv(converted.file, ref = refValue, output.dir = output.dir)
+            convertedCSV(csv_file)
+            output$downloadConvertedCSV <- downloadHandler(
+               filename = function() { outputName },
+               content = function(file) { readr::write_csv(convertedCSV(), file) }
+            )
+            if (!is.null(input$breakdown_plink)) {
+               req(input$breakdown_column_plink)
+               breakdown_results <- pop_breakdown(csv_file, input$breakdown_column_plink)
+               convertedBreakdown(breakdown_results)
+            }
+         }
+         
+         enable("ConvertFILES")
+      }
+      
+      #------------------ CSV 
+      if (input$inputType1 == "csv1") {
+         req(input$CSVFile, input$lociMetaFile)
+         csv_ext <- tools::file_ext(input$CSVFile$name)
+         
+         if (csv_ext %in% c("zip", "tar")){
+            unpacked_files <- unpack_input_file(input$CSVFile$datapath, output.dir)
+            file_names <- unpacked_files$data_files
+            all.list <- list()
+            
+            for (x in file_names) {
+               all.list[[x]] = load_csv_xlsx_files(x)
+            }
+            
+            csv_merged <- data.table::rbindlist(all.list, fill = TRUE)
+         }
+         
+         csv_file <- if (csv_ext %in% c("zip", "tar")){
+            csv_merged
+         } else {input$CSVFile$datapath}
+         
+         file2 <- csv_to_gentibble(csv_file, loci.meta = input$lociMetaFile$datapath)
+         converted.file <- tidypopgen::gt_as_vcf(file2, file = "tovcf.vcf")
+         convertedVCF(converted.file)
+         output$downloadConvertedVCF <- downloadHandler(
+            filename = function() { "tovcf.vcf" },
+            content = function(file) { file.copy(convertedVCF(), file) }
+         )
+         enable("ConvertFILES")
+         
+      }
+   }
+   )
+   
    output$previewTable <- DT::renderDataTable({
       req(convertedCSV())
       convertedCSV()
