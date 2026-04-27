@@ -120,13 +120,12 @@ ui <- dashboardPage(
                                       fileInput("VCFFile", "Upload VCF File", accept = c(".vcf", ".zip", ".tar")),
                                       radioButtons("inputType2_vcf", "Choose final file type",
                                                    choices = c("PLINK files (.psam/.pvar/.pgen)" = "plink2",
-                                                               "CSV file" = "csv2",
-                                                               "FASTA file" = "fasta")),
+                                                               "CSV file" = "csv2")),
                                       
-                                      conditionalPanel(
-                                         condition = "input.inputType2_vcf == 'fasta'",
-                                         fileInput("FASTARef", "Reference sequence in FASTA format.", accept = c(".fasta", ".faa", ".fas"))
-                                      ),
+                                      #conditionalPanel(
+                                    #     condition = "input.inputType2_vcf == 'fasta'",
+                                    #     fileInput("FASTARef", "Reference sequence in FASTA format.", accept = c(".fasta", ".faa", ".fas"))
+                                    #  ),
                                       
                                       conditionalPanel(
                                          condition = "input.inputType2_vcf == 'csv2'",
@@ -243,7 +242,7 @@ ui <- dashboardPage(
                                             tags$ul(
                                                tags$li("(to .csv) .xlsx/.csv/.txt file containing metadata (sample ID and population). All columns will be merged to the genotype data. Remove unnecessary columns before running 'Convert files'."),
                                                tags$li("(to .csv) Single-line text indicating the 'Column name' to be used as basis for the calculation of population breakdown."),
-                                               tags$li("(.vcf to FASTA) Reference sequence in FASTA (.fasta, .fas, .faa) format."),
+                                               #tags$li("(.vcf to FASTA) Reference sequence in FASTA (.fasta, .fas, .faa) format."),
                                                tags$li("(.csv to .vcf) Marker information with the following columns: [1] SNP, [2] CHR, [3] POS, [4] Genetic distance, [5] REF Allele [6] ALT Allele.")
                                             ),
                                             p(strong("Expected output file/s:"), "VCF, PLINK (.psam/.pvar/.pgen), or CSV file."),
@@ -286,7 +285,7 @@ ui <- dashboardPage(
                                       br(),
                                       uiOutput("downloadVCF_UI"),
                                       uiOutput("downloadCSV_UI"),
-                                      uiOutput("downloadFASTA_UI"),
+                                     # uiOutput("downloadFASTA_UI"),
                                       uiOutput("downloadPLINK_UI")
                                    ),
                                    tabPanel(
@@ -300,7 +299,7 @@ ui <- dashboardPage(
                              )
                     ),
                     
-                    tabPanel("ForenSeq Conversion",
+                    tabPanel("Widen SNP calls",
                              fluidRow(
                                 box(
                                    fileInput("uas_zip", "Upload ZIP or TAR file",
@@ -312,11 +311,11 @@ ui <- dashboardPage(
                                 ),
                                 tabBox(
                                    tabPanel("Instructions",
-                                            h4("This converts zipped ",
-                                              tags$a("ForenSeq UAS",
-                                                     href="https://verogen.com/products/universal-analysis-software/",
-                                                     target="_blank"), "phenotype reports into a single file in a wide format."),
-                                            p("This section builds upon the work of Ms. Maeviviene Sosing as part of the Filipino Genomes Research Program 2"),
+                                            h4("This converts zipped excel (.xlsx) files containing SNP calls in long format into a single excel file in a wide format."),
+                                              #tags$a("ForenSeq UAS",
+                                              #       href="https://verogen.com/products/universal-analysis-software/",
+                                              #       target="_blank"), "phenotype reports into a single file in a wide format."),
+                                            #p("This section builds upon the work of Ms. Maeviviene Sosing as part of the Filipino Genomes Research Program 2"),
                                             p(strong("Input file/s:"), "Compressed folder (.zip or .tar) containing .xlsx files."),
                                             p(strong("Expected output file/s:"), "Single CSV file (merged .xlsx files).")
                                    ),
@@ -373,17 +372,17 @@ ui <- dashboardPage(
                                             p("The ",
                                                tags$a("SNIPPER app suite",
                                                       href="https://mathgene.usc.es/snipper/index.php",
-                                                      target="_blank"), " is a web portal for classification of individuals into phenotypes and biogeographical ancestry (BGA), developed and hosted by UniversIDade de Santiago de Compostela. SNIPPER is a companion site to several ",
-                                               tags$a("publications",
+                                                      target="_blank"), " is a web portal for classification of individuals into phenotypes and biogeographical ancestry (BGA), developed and hosted by Universidade de Santiago de Compostela. SNIPPER is a companion site to several ",
+                                               tags$a("publications.",
                                                       href="https://mathgene.usc.es/snipper4/papers.php",
                                                       target = "_blank"
                                                )
                                             ),
                                             br(),
-                                            h4("This converts CSV or Excel (.xlsx) files to a SNIPPER-compatible file"),
-                                            p(strong("Input file/s:"), "CSV or Excel (.xlsx) file."),
+                                            h4("This converts CSV or Excel (.xlsx) files into a SNIPPER-compatible input file."),
+                                            p(strong("Input file/s:"), "CSV or Excel (.xlsx) file"),
                                             p(strong("Parameter/s:"), "(optional) Target population name for classification."),
-                                            p(strong("Expected output file/s:"), "Excel file (.xlsx)")
+                                            p(strong("Expected output file/s:"), ".xlsx")
                                    ),
                                    tabPanel("Sample Input Format/s",
                                             h4("Sample Input File"),
@@ -436,14 +435,10 @@ ui <- dashboardPage(
                                                      href="https://web.stanford.edu/group/pritchardlab/structure.html",
                                                      target="_blank"), " is a free software package for investigating population structure using 
                                               multi-locus genotype data (Stephen and Donnelly, 2000; Falush et al., 2003; 
-                                              Falush et al., 2007; Hubisz et al., 2009).",
-                                              tags$a("publications",
-                                                     href="https://mathgene.usc.es/snipper4/papers.php",
-                                                     target = "_blank"
-                                              )
+                                              Falush et al., 2007; Hubisz et al., 2009)."
                                             ),
                                             br(),
-                                            p("This converts CSV files to STRUCTURE-compatible files. This module was tested on STRUCTURE version 2.3.4."),
+                                            p("This converts CSV files into STRUCTURE-compatible files. This module was tested on STRUCTURE version 2.3.4."),
                                             p(strong("Input file/s:"), "CSV file containing marker and population data.
                                               Each row should represent multi-locus data for an individual sample."),
                                             p(strong("Parameter/s:"), "User's operating system (for STRUCTURE input compatibility)"),
@@ -510,7 +505,7 @@ ui <- dashboardPage(
                                 
                                 tabBox(
                                    tabPanel("Instructions",
-                                            h4("This extracts SNPs based on reference SNP cluster ID (rsID) or GRCh37/GRCh38 position using PLINK 2.0 (Chang et al., 2015)."),
+                                            h4("This extracts SNPs based on reference SNP cluster ID (rsID) or GRCh37/GRCh38 position."),
                                             p(strong("Input file/s:")),
                                             p("(1) VCF, BCF, or PLINK (.bed, .bim, .fam) files."),
                                             p("(2) Markers/position list — type rsIDs manually, upload a list, or use a POS .txt/.csv file."),
@@ -570,6 +565,7 @@ ui <- dashboardPage(
                                             h4("This performs concordance analysis between files/datasets with overlapping samples."),
                                             p(strong("Input file/s:"), "Two .csv or .xlsx files with the same data format (i.e. same columns)."),
                                             p(strong("Parameter/s:"), "Indicate if using haplotypes."),
+                                            helpText("Markers will be directly compared and the order of the alleles is considered when matching for concordance."),
                                             p(strong("Expected output/s:")),
                                             tags$ul(
                                                tags$li("Concordance table (.xlsx)"),
@@ -690,7 +686,7 @@ ui <- dashboardPage(
                     tabBox(
                        tabPanel("Instructions",
                                 h4("This filters individuals and variants using standard options in PLINK 2.0 (Chang et al., 2015)."),
-                                p(strong("Input file/s:"), ".vcf, .vcf.gz, .bcf, or PLINK files"),
+                                p(strong("Input file/s:"), ".vcf, .vcf.gz, .bcf, or PLINK (bed/bim/fam) files"),
                                 p(strong("Parameter/s:")),
                                 tags$ul(
                                    tags$li("--mind [value]"),
@@ -855,15 +851,16 @@ ui <- dashboardPage(
                                             target = "_blank"
                                      ), "."
                                      ),
-                                   p(strong("Input file"), "used is the alignment output from the Multiple Sequence Alignment tab. There is an option of using the raw, adjusted, or staggered alignment for tree construction."),
+                                   p(strong("Input file"), "is a multiple sequence alignment. Results from the 'MSA' tab are also accepted. 
+                                     If using outputs from the 'MSA' tab, there is an option to use the raw, adjusted, or staggered alignment for tree construction."),
                                    p(strong("Parameters"), "vary based on the method."),
                                    p(strong("Expected output"), "is the phylogenetic tree in PNG format.")
                                 ),
                                 tabBox(
+                                   width = 12,
                                    tabPanel("View Results",
                                             h4("Phylogenetic Tree"),
                                             uiOutput("downloadTree_UI"),
-                                            p("This tab uses the multiple sequence alignment performed in the previous tab."),
                                             uiOutput("treeImage")
                                    )
                                 )
@@ -1131,9 +1128,13 @@ ui <- dashboardPage(
                                 p(strong("Input file:"), "CSV or XLSX file and color labels (optional)"),
                                 p(strong("Optional additional input file/s:")),
                                 tags$ul(
-                                   tags$li("PCA labels (.txt)"),
-                                   tags$li("Color palette (.txt)"),
-                                   tags$li("Desired point shapes (.txt)")
+                                   tags$li("PCA labels (.txt with one population per line)"),
+                                   tags$li("Color palette (.txt with one hex code per line)"),
+                                   tags$li("Desired point shapes (.txt with one number/name indicating the",
+                                           tags$a("shapes",
+                                            href="https://ggplot2.tidyverse.org/reference/scale_shape.html",
+                                            target = "_blank"
+                                     ), " per line)")
                                 ),
                                 p(strong("Expected output file:"), "PNG plots")
                        ),
@@ -1181,19 +1182,13 @@ ui <- dashboardPage(
                     ),
                     tabBox(
                        tabPanel("Instructions",
-                                p(tags$a("STRUCTURE",
-                                         href="https://web.stanford.edu/group/pritchardlab/structure.html",
-                                         target="_blank"), " is a free software package for investigating population structure using 
-                                              multi-locus genotype data (Stephen and Donnelly, 2000; Falush et al., 2003; 
-                                              Falush et al., 2007; Hubisz et al., 2009)."
-                                ),
-                                p("This runs STRUCTURE using the package without front-end and allows immediate 
-                                   visualization of results using revised functions based on the ",
+                                p("This runs the Windows implementation of STRUCTURE v2.3.4 without a front-end and allows immediate 
+                                   visualization of results using revised functions from the ",
                                    tags$a("starmie",
                                           href="https://github.com/sa-lee/starmie",
                                           target = "_blank"
                                    ), "R package. This generates STRUCTURE input files and qmatrices files compatible for
-                                   other visualization programs such as pong (Behr et al., 2016)"),
+                                   other visualization programs such as pong (Behr et al., 2016)."),
                                 p("Some functions were revised and adapted from the strataG and dartR packages such as 'gl.run.structure', '.structureParseQmat', 'structureRead', and 'utils.structure.evanno'"),
                                 #h4("Generate STRUCTURE input files and pong compatible files. Visualize the possible results"),
                                 p(strong("Input file:"), "CSV or XLSX file"),
@@ -1249,7 +1244,7 @@ ui <- dashboardPage(
                              ), # end of box
                              tabBox(
                                 tabPanel("Instructions",
-                                   h4("This calculates forensic parameters specific for individual identity SNPs"),
+                                   h4("Calculate forensic parameters specific for individual identity SNPs"),
                                    tags$ul(
                                       tags$li("Random match probability (PM)"),
                                       tags$li("Power of discrimination (PD)"),
@@ -1336,13 +1331,13 @@ ui <- dashboardPage(
                                 p("This tool may be used for rapid assessment of marker sets and training datasets. For
                                   more comprehensive forensic DNA inference of an individual, it is recommended to use this tool
                                   in conjunction with", 
-                                  tags$a(actionLink("topcatab", "PCA")),
+                                  tags$a(actionLink("topcatab", "PCA,")),
                                   tags$a(actionLink("tostructuretab", "STRUCTURE")), "and",
-                                  tags$a("SNIPPER",
+                                  tags$a("SNIPPER.",
                                          href="https://mathgene.usc.es/snipper/index.php",
                                          target="_blank"),
-                                  ". Multiple resources are available detailing the limiation of each classification method
-                                   (Barash et al., 2024)"),
+                                  " Multiple resources are available detailing the limiation of each classification method
+                                   (Cheung et al., 2016; Barash et al., 2024)."),
                                 
                                 p(strong("Input file/s:"), "CSV file containing training data or merged training and test data."),
                                 p(strong("Expected output file:"), "XLSX file")
@@ -1393,6 +1388,7 @@ ui <- dashboardPage(
                   title = tagList(icon("book-open-reader"), "Background"),
                   width = 12,
                   #height = "250px",
+                  h4("The restFUL forensics toolkit is an output of the project", strong("Development and validation of an automated web-based tool for efficient genomic marker extraction to assist in genomic research.")),
                   h4("This is based on the preliminary work on ancestry marker analysis at the DNA Analysis Laboratory, Natural Sciences Research Institute, University of the Philippines Diliman."),
                   
                   p(strong("Primary Developer:"), "Leda Celeste Samin (DNA-NSRI-UPD)"),
@@ -1563,6 +1559,10 @@ server <- function(input, output, session){
            tags$a("https://doi.org/10.18637/jss.v028.i05",
                   href="https://doi.org/10.18637/jss.v028.i05",
                   target="_blank")),
+         p("Cheung, E. Y. Y., Gahan, M. E., & McNevin, D. (2017). Prediction of biogeographical ancestry from genotype: a comparison of classifiers. International journal of legal medicine, 131(4), 901–912.",
+           tags$a("https://doi.org/10.1007/s00414-016-1504-3",
+                  href="https://doi.org/10.1007/s00414-016-1504-3",
+                  target="_blank")),
          p("Bodenhofer, U., Bonatesta, E., Horejš-Kainrath, C., & Hochreiter, S. (2015). msa: an R package for multiple sequence alignment. Bioinformatics (Oxford, England), 31(24), 3997–3999.",
            tags$a("https://doi.org/10.1093/bioinformatics/btv494",
                   href="https://doi.org/10.1093/bioinformatics/btv494",
@@ -1613,13 +1613,13 @@ server <- function(input, output, session){
       p_lists <- list(
          p("Calculation of common population statistics:"),
          tags$ul(
-            tags$li("Private alleles [1] calculated using the poppr R package"),
-            tags$li("Mean Allelic Richness [2] using the hierfstat R package"),
-            tags$li("Heterozygosity [3] using the hierfstat R package"),
-            tags$li("Inbreeding Coefficient [4] using the hierfstat R package"),
-            tags$li("Allele frequency [5] using the adegenet R package"),
-            tags$li("Hardy-Weinberg equilibrium [6] using the pegas R package"),
-            tags$li("FST values [7] using the hierfstat R package")
+            tags$li(strong("Private alleles"), "[1] calculated using the poppr R package (Kamvar et al., 2014)"),
+            tags$li(strong("Mean Allelic Richness"), "[2] using the hierfstat R package (Goudet, 2004)"),
+            tags$li(strong("Heterozygosity"), "[3] using the hierfstat R package (Goudet, 2004)"),
+            tags$li(strong("Inbreeding Coefficient"), "[4] using the hierfstat R package (Goudet, 2004)"),
+            tags$li(strong("Allele frequency"), "[5] using the adegenet R package (Jombart, 2008)"),
+            tags$li(strong("Hardy-Weinberg equilibrium"), "[6] using the pegas R package (Paradis, 2010)"),
+            tags$li(strong("FST values"), "[7] using the hierfstat R package (Goudet, 2004)")
          ),
          br(),
          p(strong("Input file:"), "CSV or .xlsx file"),
