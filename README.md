@@ -6,10 +6,12 @@ For feedback on the tool, please fill up this google form: https://forms.gle/fA6
 
 ## I. Installation (installing without Docker)
 
-Ensure that R is installed in the system then run the following:
+Ensure that R is installed in the system, then run the following (requires internet connection):
 ```
 shiny::runGitHub("restful-forensics-shinyapp", "NSRI-DAL-2025-Project")
 ```
+
+To run the application offline, clone the repository.
 
 The expected appearance of the dashboard:
 ![](www/readme/dashboard.png)
