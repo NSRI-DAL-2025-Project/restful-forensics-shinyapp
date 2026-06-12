@@ -2459,16 +2459,24 @@ server <- function(input, output, session){
       tryCatch({
          
          pgen_prefix <- file.path(temp_dir, "input_pgen")
+         print(input$markerFile$name)
+         print(input$markerFile$datapath)
          
          if (!is.null(input$markerFile)) {
             input_file <- input$markerFile$datapath
             
-            converted_to_plink2(input_file, isplink = FALSE, plink_path = plink2_path, name = pgen_prefix)
+            converted_to_plink2(input_file, 
+                                original_name = input$markerFile$name,
+                                isplink = FALSE,
+                                plink_path = plink2_path,
+                                name = pgen_prefix)
             
          } else {
             
             bed_prefix <- tools::file_path_sans_ext(input$bedFile$datapath)
-            converted_to_plink2(bed_prefix, isplink = TRUE, plink_path = plink2_path, name = pgen_prefix)
+            converted_to_plink2(bed_prefix,
+                                original_name = NULL,
+                                isplink = TRUE, plink_path = plink2_path, name = pgen_prefix)
 
          }
          

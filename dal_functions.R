@@ -74,14 +74,21 @@ convert_to_plink <- function(input.file,
    return(output_file)
 }
 
-converted_to_plink2 <- function(input.file, 
+converted_to_plink2 <- function(input.file,
+                                original_name = NULL,
                                 isplink = FALSE, 
                                 plink_path = plink2_path, 
                                 name = "converted_to_plink2",
                                 output_chr = "26"){
    
-   is_vcf <- grepl("\\.vcf(\\.gz)?$", input.file, ignore.case = TRUE)
-   is_bcf <- grepl("\\.bcf$", input.file, ignore.case = TRUE)
+   check_name <- if (is.null(original_name)) {
+      input.file
+   } else {
+      original_name
+   }
+   
+   is_vcf <- grepl("\\.vcf(\\.gz)?$", check_name, ignore.case = TRUE)
+   is_bcf <- grepl("\\.bcf$", check_name, ignore.case = TRUE)
    
    if (isplink == TRUE) {
       args <- c(
