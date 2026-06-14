@@ -1297,8 +1297,7 @@ compute_pop_stats <- function(fsnps_gen) {
       mar_list = mar_list,
       heterozygosity = heterozygosity_df,
       ttest = ttest_df,
-      inbreeding_coeff = fis_df,
-      allele_frequencies = allele_freqs
+      inbreeding_coeff = fis_df
    ))
 }
 

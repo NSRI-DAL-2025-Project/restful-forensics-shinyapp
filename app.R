@@ -4,9 +4,14 @@ library(shiny)
 library(shinyjs)
 library(shinydashboard)
 library(shinybusy)
+
 source("functions.R", local = TRUE)
 source("dal_functions.R", local = TRUE)
 source("global.R", local = TRUE)
+
+if (!requireNamespace("starmie", quietly = TRUE)){
+   remotes::install_github("sa-lee/starmie", upgrade = "ask")
+}
 
 options(shiny.maxRequestSize = 5000*1024^2)
 
@@ -2383,8 +2388,8 @@ server <- function(input, output, session){
       
       if(rsID_available()){
          tagList(
-            h4("Detected rsIDs:"),
-            shinycssloaders::withSpinner(DT::DTOutput("variantTable"), type = 4),
+            #h4("Detected rsIDs:"),
+            #shinycssloaders::withSpinner(DT::DTOutput("variantTable"), type = 4),
             radioButtons("markerType", "Choose Marker Type",
                          choices = c("rsID", "pos"), inline = TRUE),
             conditionalPanel(
@@ -3902,12 +3907,15 @@ server <- function(input, output, session){
          incProgress(1.0, detail = "Plotting...")
          populations_df <- fsnps_gen$pop_labels  
          str_files <- list.files(output_dir, pattern = "_f$", full.names = TRUE)
+         
+         
          str_data <- lapply(str_files, starmie::loadStructure)
+         message("Number of STRUCTURE files: ", length(str_files))
          
          plot_paths <- lapply(str_data, function(structure_obj){
             file_name <- file.path(output_dir, paste0(structure_obj$K, "_plot.png"))
             gg <- plotQ(structure_obj, populations_df, outfile = file_name)
-            ggplot2::ggsave(file_name, plot = gg, width = 12, height = 10, dpi = 600)
+            ggplot2::ggsave(file_name, plot = gg, width = 8, height = 5, dpi = 150)
             file_name
          })
          
