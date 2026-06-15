@@ -135,6 +135,7 @@ prepare_input_dataset_archive <- function(input_file, output.dir, plink2_path){
       
       converted <- converted_to_plink2(
          input.file = pref,
+         original_name = NULL,
          isplink = TRUE,
          plink_path = plink2_path,
          name = out_pref
@@ -173,7 +174,7 @@ prepare_input_dataset_archive <- function(input_file, output.dir, plink2_path){
 }
 
 prepare_input_dataset <- function(input_file,
-                                  input_type,
+                                  #input_type,
                                   output.dir,
                                   plink2_path) {
    
@@ -185,6 +186,7 @@ prepare_input_dataset <- function(input_file,
       
       converted <- converted_to_plink2(
          input.file = input_file,
+         original_name = NULL,
          plink_path = plink2_path,
          name = prefix
       )

@@ -231,8 +231,8 @@ ui <- dashboardPage(
                                    conditionalPanel(
                                       condition = "input.inputType1 == 'csv1'",
                                       p("This feature automatically converts a CSV file to VCF"),
-                                      fileInput("CSVFile", "Upload CSV File", accept = c(".csv")),
-                                      fileInput("lociMetaFile", "Upload loci/marker information", accept = c(".xlsx", ".csv"))
+                                      fileInput("CSVFile", "Upload File (.csv or .xlsx)", accept = c(".csv")),
+                                      fileInput("lociMetaFile", "Upload loci/marker information (.csv or .xlsx)", accept = c(".xlsx", ".csv"))
                                    ),
                                    
                                    actionButton("ConvertFILES", "Convert files", icon = icon("file-csv"))
@@ -259,9 +259,9 @@ ui <- dashboardPage(
                                             h4("This is a sample reference file. Only the first two columns are used."),
                                             DT::dataTableOutput("ExampleRefFile"),
                                             br(),
-                                            h4("For CSV to VCF conversion, a separate file on marker information is needed."),
+                                            h4("For File to VCF conversion, a separate file on marker information is needed."),
                                             h4("See the following formats:"),
-                                            h4("Required CSV format:"),
+                                            h4("Required format:"),
                                             DT::dataTableOutput("ExampleCSVFormat"),
                                             h4("Required marker info format:"),
                                             DT::dataTableOutput("markerInfoFormat")
@@ -501,7 +501,7 @@ ui <- dashboardPage(
                                       fileInput("bedFile", "PLINK BED file", accept = c(".bed")),
                                       fileInput("bimFile", "PLINK BIM file", accept = c(".bim")),
                                       fileInput("famFile", "PLINK FAM file", accept = c(".fam")),
-                                      helpText("If multiple PLINK files will be used, upload as a zipped file."),
+                                      helpText("If multiple PLINK files will be used, upload as a zipped file. Note that files will be merged."),
                                       fileInput("zippedPLINK", "Zipped PLINK Files", accept = c(".zip", ".tar"))
                                    ),
                                    actionButton("validateBtn", "Validate Input File Format", icon = icon("check")),
@@ -549,7 +549,7 @@ ui <- dashboardPage(
                                    ),
                                    tabPanel(
                                       title = "Extraction Results",
-                                      uiOutput("downloadVCF_UI"),
+                                      uiOutput("downloadVCF_UI_Extracted"),
                                       helpText("Note: File can appear as vCard files, it is still a VCF file.")
                                    )
                                 )
@@ -1175,9 +1175,9 @@ ui <- dashboardPage(
                        helpText("Input file should be similar to the output of the 'Convert to CSV' tab under 'File Conversion'"),
                        numericInput("kMin", "Min K", value = 2, min = 1),
                        numericInput("kMax", "Max K", value = 5, min = 1),
-                       numericInput("numKRep", "Replicates per K", value = 5, min = 1),
-                       numericInput("burnin", "Burn-in Period", value = 1000),
-                       numericInput("numreps", "MCMC Reps After Burn-in", value = 10000),
+                       numericInput("numKRep", "Replicates per K", value = 10, min = 1),
+                       numericInput("burnin", "Burn-in Period", value = 100000),
+                       numericInput("numreps", "MCMC Reps After Burn-in", value = 100000),
                        checkboxInput("noadmix", "No Admixture Model", value = FALSE),
                        checkboxInput("phased", "Phased Genotype", value = FALSE),
                        numericInput("ploidy", "Ploidy Level", value = 2),
@@ -1220,7 +1220,7 @@ ui <- dashboardPage(
                        title = "STRUCTURE Results",
                        h4("STRUCTURE Visualization"),
                        p("NOTE: The plots are expected to take some time to load."),
-                       imageOutput("structurePlotPreview")
+                       uiOutput("structurePlotPreview")
                     )
                  )
          ),
@@ -1799,9 +1799,35 @@ server <- function(input, output, session){
                               "plink1" = input$bedFile$datapath
          )
          
+         if (input$inputType1 == "csv1"){
+            csv_ext <- tools::file_ext(input$CSVFile$name)
+            if (csv_ext %in% c("zip", "tar")){
+               unpacked_files <- unpack_input_file(input$CSVFile$datapath, output.dir)
+               file_names <- unpacked_files$data_files
+               all.list <- list()
+               
+               for (x in file_names) {
+                  all.list[[x]] = load_csv_xlsx_files(x)
+               }
+               
+               csv_merged <- data.table::rbindlist(all.list, fill = TRUE)
+            }
+            
+            csv_file <- if (csv_ext %in% c("zip", "tar")) {
+               csv_merged
+            } else { input_file }
+            
+            csv_to_gen_obj <- csv_to_gentibble(csv_file, loci.meta = input$lociMetaFile$datapath)
+            
+            vcf_file <- file.path(tempdir(), paste0("csv_to_vcf_", timestamp, ".vcf"))
+            converted_file <- tidypopgen::gt_as_vcf(csv_to_gen_obj, file = vcf_file, overwrite = TRUE)
+            convertedVCF(converted_file)
+
+         } else {
+         
          prepared <- prepare_input_dataset(
             input_file = input_file,
-            input_type = input$inputType1,
+           # input_type = input$inputType1,
             output.dir = output.dir,
             plink2_path = plink2_path
          )
@@ -1811,14 +1837,15 @@ server <- function(input, output, session){
             output_type = outputType,
             output.dir = output.dir,
             plink2_path = plink2_path,
-            bcftools_path = bcftools_path,
+           # bcftools_path = bcftools_path,
             ref = getRefValue(input),
             fasta_ref = if (!is.null(input$FASTARef)) input$FASTARef$datapath else NULL
          )
          
-         if (outputType == "vcf2") {
+         if (outputType == "vcf2"){
             convertedVCF(result)
          }
+         
          if (outputType == "csv2") {
             convertedCSV(result)
             csv_data <- result
@@ -1842,11 +1869,10 @@ server <- function(input, output, session){
             }
          }
          
-         if (outputType == "fasta") {
-            convertedFASTA(result)
-         }
+
          if (outputType == "plink2") {
             convertedPLINK(result)
+         }
          }
          
          enable("ConvertFILES")
@@ -1861,7 +1887,7 @@ server <- function(input, output, session){
       )
       
       output$downloadConvertedVCF <- downloadHandler(
-         filename = function() { "converted.vcf" },
+         filename = function() { "csv_to_vcf.vcf" },
          content = function(file) {
             req(convertedVCF())
             file.copy(convertedVCF(), file)
@@ -1911,11 +1937,6 @@ server <- function(input, output, session){
    output$downloadVCF_UI <- renderUI({
       req(convertedVCF())
       downloadButton("downloadConvertedVCF", "Download VCF File")
-   })
-   
-   output$downloadFASTA_UI <- renderUI({
-      req(convertedFASTA())
-      downloadButton("downloadConvertedFASTA", "Download FASTA File")
    })
    
    output$downloadPLINK_UI <- renderUI({
@@ -2343,12 +2364,22 @@ server <- function(input, output, session){
    extracted_file <- reactiveVal(NULL)
    
    observe({
-      toggleState("validateBtn", (!is.null(input$markerFile) ||
+      toggleState("validateBtn", (!is.null(input$markerFile) || !is.null(input$zippedPLINK) ||
                                      (!is.null(input$bedFile) && !is.null(input$bimFile) && !is.null(input$famFile))))
    })
    
    observeEvent(input$validateBtn, {
-      req(input$markerFile)  
+      #req(input$markerFile)  
+      # check if zippedPLINK is not null
+      if (!is.null(input$zippedPLINK)){
+         plink_prefixes <- prepare_input_dataset(input_file = input$zippedPLINK$datapath,
+                                                 output.dir = tempdir(),
+                                                 plink2_path = plink2_path)
+         
+         plink_prefixes <- tools::file_path_sans_ext(plink_prefixes)
+      } else if (!is.null(input$bedFile)) {
+         plink_prefixes <- tools::file_path_sans_ext(input$bedFile$datapath)
+      }
       
       temp_snplist <- file.path(tempdir(), "temp_snplist.txt")
       
@@ -2356,7 +2387,7 @@ server <- function(input, output, session){
          if (grepl("\\.bcf$", input$markerFile$name, ignore.case = TRUE)) "bcf"
          else "vcf"
       } else {
-         "plink"
+         "bfile"
       }
       
       snps <- character(0)
@@ -2369,6 +2400,15 @@ server <- function(input, output, session){
             "--out", shQuote(temp_snplist)
          )
          system(cmd)
+      } else {
+         cmd <- paste(
+            shQuote(plink2_path),
+            paste0("--", input_type), shQuote(plink_prefixes),
+            "--write-snplist allow-dups",
+            "--out", shQuote(temp_snplist)
+         )
+         system(cmd)
+      }
          
          snps <- tryCatch(readLines(paste0(temp_snplist, ".snplist")),
                           error = function(e) character(0))
@@ -2377,8 +2417,7 @@ server <- function(input, output, session){
          snps <- unique(snps)
          
          if(length(snps) == 0) snps <- "."
-      }
-      
+       
       variant_ids(unique(snps))
       rsID_available(length(snps) > 1 || snps[1] != ".")
    })
@@ -2580,7 +2619,7 @@ server <- function(input, output, session){
       }
    )
    
-   output$downloadVCF_UI <- renderUI({
+   output$downloadVCF_UI_Extracted <- renderUI({
       req(extracted_file())
       downloadButton("downloadVCF", "Download Extracted File (VCF)")
    })
@@ -2649,10 +2688,10 @@ server <- function(input, output, session){
       # convert
       pgen_prefix <- file.path(temp_dir, "converted_to_plink2")
       if (input_type %in% c("vcf", "bcf")) {
-         converted_to_plink2(input$markerFileFilter$datapath, isplink = FALSE, plink_path = plink2_path, name = pgen_prefix)
+         converted_to_plink2(input$markerFileFilter$datapath, original_name = NULL, isplink = FALSE, plink_path = plink2_path, name = pgen_prefix)
       } else {
          bed_prefix <- tools::file_path_sans_ext(input$bedFileFilter$datapath)
-         converted_to_plink2(bed_prefix, isplink = TRUE, plink_path = plink2_path, name = pgen_prefix)
+         converted_to_plink2(bed_prefix, original_name = NULL, isplink = TRUE, plink_path = plink2_path, name = pgen_prefix)
       }
       
       # for plink filtering
@@ -2876,7 +2915,7 @@ server <- function(input, output, session){
       Sys.sleep(1.5)
       disable("buildTree")
       
-      if (!is.null(msaFileforPhylogen)) {
+      if (is.null(input$msaFileforPhylogen)) {
          req(alignment_msa())
          alignment_file <- alignment_msa()
       } else {
@@ -3904,13 +3943,14 @@ server <- function(input, output, session){
          incProgress(0.8, detail = "Extracting q matrices...")
          qmatrices_result(q_matrices(result$plot.paths))
          
-         incProgress(1.0, detail = "Plotting...")
+         
          populations_df <- fsnps_gen$pop_labels  
          str_files <- list.files(output_dir, pattern = "_f$", full.names = TRUE)
          
          
          str_data <- lapply(str_files, starmie::loadStructure)
-         message("Number of STRUCTURE files: ", length(str_files))
+         mess <- paste("Number of STRUCTURE files: ", length(str_files), sep = "")
+         incProgress(1.0, detail = mess)
          
          plot_paths <- lapply(str_data, function(structure_obj){
             file_name <- file.path(output_dir, paste0(structure_obj$K, "_plot.png"))
@@ -3920,6 +3960,7 @@ server <- function(input, output, session){
          })
          
          structure_plot_paths(plot_paths)
+         message(list(structure_plot_paths()))
          enable("runStructure")
          
       }) # end of with progress
@@ -3995,15 +4036,32 @@ server <- function(input, output, session){
       contentType = "application/zip"
    )
    
-   output$structurePlotPreview <- renderImage({
+   #output$structurePlotPreview <- renderImage({
+   #   req(structure_plot_paths())
+   #   list(
+   #      src = structure_plot_paths()[[1]],
+   #      contentType = "image/png",
+   #      alt = "STRUCTURE Plot Preview",
+   #      width = "100%"
+   #   )
+   #}, deleteFile = FALSE)
+   output$structurePlotPreview <- renderUI({
       req(structure_plot_paths())
-      list(
-         src = structure_plot_paths()[[1]],
-         contentType = "image/png",
-         alt = "STRUCTURE Plot Preview",
-         width = "100%"
-      )
-   }, deleteFile = FALSE)
+      plot_paths <- structure_plot_paths()
+      
+      if (length(plot_paths) == 0){
+         return(p("No plots generated"))
+      }
+      
+      img_tags <- lapply(plot_paths, function(path){
+         tags$div(
+            style = "display: inline-block; margin: 10px; padding:5px; border:1px solid #ddd;",
+            tags$img(src = path, width = "250px", height = "auto"),
+            tags$p(align = "center", tags$strong(path))
+         )
+      })
+      do.call(tagList, img_tags)
+   })
    
    output$downloadButtons <- renderUI({
       req(analysis_done())
