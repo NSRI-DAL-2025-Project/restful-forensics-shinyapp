@@ -1559,7 +1559,7 @@ calc_iisnps_params <- function(geno_freqs, profile = NULL, theta = 0){
       dplyr::mutate(
          RMP = homozygous1^2 + heterozygous^2 + homozygous2^2,
          PD = 1 - RMP,
-         PIC = 2 * homozygous1 * homozygous2 * (1-2*homozygous1*homozygous2),
+         PIC = 1 - (homozygous1 + homozygous2) - (2*(homozygous1*homozygous2)), #2 * homozygous1 * homozygous2 * (1-2*homozygous1*homozygous2),
          H = homozygous1 + homozygous2,
          h = heterozygous,
          PE = (h^2)*(1-2*h*H),
@@ -1830,10 +1830,10 @@ q_matrices <- function(dir){
 # READING FASTA FILES
 
 read_fasta <- function(zipped, directory){
-   if(!require("pacman")) {
-      install.packages("pacman")
-   }
-   pacman::p_load(utils, BiocManager, Biostrings, try.bioconductor = TRUE, install = TRUE)
+   #if(!require("pacman")) {
+   #   install.packages("pacman")
+   #}
+   #pacman::p_load(utils, BiocManager, Biostrings, try.bioconductor = TRUE, install = TRUE)
    
    utils::unzip(zipped, 
                 files = NULL, 
@@ -1851,10 +1851,10 @@ read_fasta <- function(zipped, directory){
 # ALIGNMENT
 
 calc_msa <- function(files, algorithm){
-   if(!require("pacman")) {
-      install.packages("pacman")
-   }
-   pacman::p_load(BiocManager, pwalign, tinytex, seqinr, msa, DECIPHER, Biostrings, try.bioconductor = TRUE, install = TRUE)
+   #if(!require("pacman")) {
+   #   install.packages("pacman")
+   #}
+   #pacman::p_load(BiocManager, pwalign, tinytex, seqinr, msa, DECIPHER, Biostrings, try.bioconductor = TRUE, install = TRUE)
    
    # Creating Substitution Matrix
    personal_matrix <- pwalign::nucleotideSubstitutionMatrix(
@@ -1912,8 +1912,35 @@ read_msa_file <- function(path, filename){
       file = path, 
       format = ext
    )
+}
+
+alignment_to_dnabin <- function(path){
+   ext <- tolower(tools::file_ext(path))
    
+   if (ext %in% c("fasta", "fa", "fas", "aln")){
+      alignment <- ape::read.dna(
+         file = path,
+         format = "fasta",
+         as.character = TRUE,
+         skip = 0,
+         as.matrix = FALSE
+      )
+      return(alignment)
+   } else if (ext == "msa"){
+      msa_alignment <- rphase::read.msa(
+         path, format = rphast::guess.format.msa(path, method = "content")
+      )
       
+      seqs <- msa_alignment$seq
+      names <- msa_alignment$nam
+      
+      matrix <- do.call(rbind, lapply(seqs, function(x){
+         strsplit(toupper(x), "")[[1]]
+      }))
+      rownames(matrix) <- names
+      return(ape::as.DNAbin(matrix))
+   }
+   stop("Unsupported file format: ", ext)
 }
 
 build_nj_tree <- function(alignment, outgroup = NULL, seed = 123, model = model){

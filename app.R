@@ -1028,7 +1028,7 @@ ui <- dashboardPage(
                                                p(strong("Parameter/s:"), "Boostrap value for query and reference samples.")
                                             ),
                                             tabBox(
-                                               verbatimTextOutput("tdrValues")
+                                               tableOutput("tdrValues")
                                             )
                                          )
                                 )
@@ -2893,10 +2893,28 @@ server <- function(input, output, session){
                              adjusted = alignment_adjusted(),
                              staggered = alignment_staggered())
          
-         pdf_name = "aligned_seqs.pdf"
-         msa::msaPrettyPrint(alignment, file = pdf_name,
-                             output="pdf", showNames= "left", showLogo = "none", askForOverwrite = FALSE)
-         file.copy(pdf_name, file, overwrite = TRUE)
+         tmp_dir <- tempfile("msa_")
+         dir.create(tmp_dir)
+         
+         old_wd <- getwd()
+         setwd(tmp_dir)
+         
+         on.exit(setwd(old_wd), add = TRUE)
+         
+         msa_file <- "alignment.pdf"
+         
+         msa::msaPrettyPrint(
+            alignment,
+            file = msa_file,
+            output = "pdf",
+            showNames = "left",
+            showLogo = "none",
+            askForOverwrite = FALSE
+         )
+         
+         file.copy(msa_file, file, overwrite = TRUE)
+         
+         unlink(tmp_dir, recursive = TRUE)
          
       }
    )
@@ -3056,7 +3074,6 @@ server <- function(input, output, session){
       refseq(ref_seq)
       queseq(que_seq)
       
-      cat("STEP 2: before model call\n")
       # If not using kmer method
       if (!isTRUE(input$kmerSelect)){
          result_identity <- BarcodingR::barcoding.spe.identify(refseq(), queseq(), method = input$barcodingMethod)
@@ -3069,8 +3086,6 @@ server <- function(input, output, session){
          }
       }
          
-      cat("STEP 3: after model call\n")
-      
       resultIdentity(result_identity)
       enable("identifySpecies")
       
@@ -3097,10 +3112,26 @@ server <- function(input, output, session){
       
       Sys.sleep(1.5)
       
-      barcoding_ref <- rphast::read.msa(input$optimizeKmerRef$datapath, format = rphast::guess.format.msa(input$optimizeKmerRef$datapath, method = "content"))
-      kmer_File <- ape::as.DNAbin(as.character(barcoding_ref))
-      optimal_Kmer <- BarcodingR::optimize.kmer(kmerFile, max.kmer = input$maxKmer)
-      kmerFile(kmer_File)
+      #barcoding_ref <- rphast::read.msa(
+      #   input$optimizeKmerRef$datapath,
+      #   format = rphast::guess.format.msa(input$optimizeKmerRef$datapath, method = "content")
+      #   )
+      #kmer_File <- ape::as.DNAbin(as.character(barcoding_ref))
+      kmer_File <- ape::read.dna(
+         input$optimizeKmerRef$datapath,
+         format = "fasta"
+      )
+      
+      tmp_file <- tempfile(fileext = ".png")
+      png(tmp_file, width = 1200, height = 800)
+      
+      optimal_Kmer <- BarcodingR::optimize.kmer(
+         kmer_File,
+         max.kmer = as.numeric(input$maxKmer)
+         )
+      
+      dev.off()
+      kmerFile(tmp_file)
       optimalKmer(optimal_Kmer)
       
       enable("calOptimumKmer")
@@ -3114,8 +3145,12 @@ server <- function(input, output, session){
    
    output$kmerPlot <- renderImage({
       req(kmerFile())
-      req(input$maxKmer)
-      BarcodingR::optimize.kmer(kmerFile(), max.kmer = input$maxKmer)
+      
+      list(
+         src = kmerFile(),
+         contentType = "image/png",
+         alt = "Optimum Kmer Plot"
+      )
    }, deleteFile = FALSE)
    
    output$downloadKmerPlot <- downloadHandler(
@@ -3142,22 +3177,33 @@ server <- function(input, output, session){
    
    refBarcode <- reactiveVal(NULL)
    barcodeGap <- reactiveVal(NULL)
+   gapPlotFile <- reactiveVal(NULL)
    
    observeEvent(input$gapBarcodes, {
       disable("gapBarcodes")
       req(input$barcodeRef)
+      req(input$gapModel)
       
       Sys.sleep(1.5)
       
-      barcoding_ref <- rphast::read.msa(input$barcodeRef$datapath, format = rphast::guess.format.msa(input$barcodeRef$datapath, method = "content"))
-      ref_Barcode <- ape::as.DNAbin(as.character(barcoding_ref))
+      ref_Barcode <- alignment_to_dnabin(input$barcodeRef$datapath)
       refBarcode(ref_Barcode)
       
-      gap <- BarcodingR::barcoding.gap(refBarcode(), dist = input$gapModel)
+      tmp_plot <- tempfile(fileext = ".png")
+      png(tmp_plot, width = 1200, height = 800)
+      gap <- tryCatch(
+         BarcodingR::barcoding.gap(ref_Barcode, dist = input$gapModel),
+         error = function(e){
+            message(e$message)
+            NULL
+         }
+      )
+      
+      dev.off()
       
       barcodeGap(gap)
+      gapPlotFile(tmp_plot)
       enable("gapBarcodes")
-      
    }) # end of observe event
    
    # download
@@ -3167,10 +3213,13 @@ server <- function(input, output, session){
    })
    
    output$BarcodingGapPlot <- renderImage({
-      req(refBarcode())
-      req(refseq())
-      req(input$gapModel)
-      BarcodingR::barcoding.gap(refseq(), dist = input$gapModel)
+      req(gapPlotFile())
+
+      list(
+         src = gapPlotFile(),
+         contentType = "image/png",
+         alt = "Barcoding Gap Plot"
+      )
    }, deleteFile = FALSE)
    
    output$downloadGapPlot <- downloadHandler(
@@ -3178,49 +3227,60 @@ server <- function(input, output, session){
          paste0("barcoding_gap_", Sys.Date(), ".png")
       },
       content = function(file){
-         req(refBarcode())
-         req(input$gapModel)
-         BarcodingR::barcoding.gap(refBarcode(), dist = input$gapModel)
+         req(gapPlotFile())
+         file.copy(gapPlotFile(), file, overwrite = TRUE)
       }, contentType = "image/png"
    )
    
    output$downloadGapPlot_UI <- renderUI({
-      req(refBarcode())
+      req(gapPlotFile())
       downloadButton("downloadGapPlot", "Download Gap Plot")
    })
    
    #--------------------------- barcodes eval
    observe({ 
-      barcode1 = !is.null(input$barcode1)
-      barcode2 = !is.null(input$barcode2)
-      toggleState("evalBarcodes", barcode1 && barcode2)
+      barcode1ready = !is.null(input$barcode1)
+      barcode2ready = !is.null(input$barcode2)
+      toggleState("evalBarcodes", barcode1ready && barcode2ready)
    })
    
-   resultBarcodes <- reactiveVal(NULL)
+   barcode1RV <- reactiveVal(NULL)
+   barcode2RV <- reactiveVal(NULL)
+   barcodeEvalRV <- reactiveVal(NULL)
    
    observeEvent(input$evalBarcodes, {
       disable("evalBarcodes")
       req(input$barcode1)
       req(input$barcode2)
+      req(input$kmer1)
+      req(input$kmer2)
       
       Sys.sleep(1.5)
       
-      b1 <- rphast::read.msa(input$barcode1$datapath, format = rphast::guess.format.msa(input$barcode1$datapath, method = "content"))
-      b2 <- rphast::read.msa(input$barcode2$datapath, format = rphast::guess.format.msa(input$barcode2$datapath, method = "content"))
-      barcode1 <- ape::as.DNAbin(as.character(b1))
-      barcode2 <- ape::as.DNAbin(as.character(b2))
+      b1 <- alignment_to_dnabin(input$barcode1$datapath)
+      b2 <- alignment_to_dnabin(input$barcode2$datapath)
+      barcode1RV(b1)
+      barcode2RV(b2)
       
       # convert to dataframe to download
-      result <- BarcodingR::barcodes.eval(barcode1, barcode2, kmer1 = kmer1, kmer2 = kmer2)
-      resultBarcodes(result)
+      result <- tryCatch({
+         BarcodingR::barcodes.eval(b1, 
+                                   b2, 
+                                   kmer1 = as.numeric(input$kmer1), 
+                                   kmer2 = as.numeric(input$kmer2))
+      }, error = function(e){
+         message(e$message)
+         NULL
+      })
+         
+      barcodeEvalRV(result)
       
    }) # end of observe event
    
    output$evalBarcodesResult <- renderTable({
-      req(resultBarcodes())
-      result2 <- as.data.frame(resultBarcodes())
-      result2
-   })
+      req(barcodeEvalRV())
+      as.data.frame(barcodeEvalRV())
+   }, rownames = TRUE)
    
    #---------------------------- tdr2
    observe({
@@ -3229,35 +3289,43 @@ server <- function(input, output, session){
       toggleState("calculateTDR2", file1Ready && file2Ready)
    })
    
-   queTDR <- reactiveVal(NULL)
-   refTDR <- reactiveVal(NULL)
+   oneSpeRV <- reactiveVal(NULL)
+   queSpeRV <- reactiveVal(NULL)
+   tdrRV <- reactiveVal(NULL)
    
    observeEvent(input$calculateTDR2, {
-      disable(calculateTDR2)
+      disable("calculateTDR2")
       req(input$oneSpe)
       req(input$queSpe)
+      req(input$bootValue1)
+      req(input$bootValue2)
       
       Sys.sleep(1.5)
       
-      que <- rphast::read.msa(input$oneSpe$datapath, format = rphast::guess.format.msa(input$oneSpe$datapath, method = "content"))
-      ref <- rphast::read.msa(input$queSpe$datapath, format = rphast::guess.format.msa(input$queSpe$datapath, method = "content"))
+      oneSpe <- alignment_to_dnabin(input$oneSpe$datapath)
+      queSpe <- alignment_to_dnabin(input$queSpe$datapath)
       
-      query <- ape::as.DNAbin(as.character(que))
-      reference <- ape::as.DNAbin(as.character(ref))
+      oneSpeRV(oneSpe)
+      queSpeRV(queSpe)
       
-      queTDR(query)
-      refTDR(reference)
+      result <- tryCatch({
+         BarcodingR::TDR2(oneSpe, queSpe, boot = as.numeric(input$bootValue1), boot2 = as.numeric(input$bootValue2)
+                          )
+      }, error = function(e){
+         message(e$message)
+         NULL
+      })
+      
+      tdrRV(result)
+      enable("calculateTDR2")
       
    })
    
    # issue with results, it prints and not stores
-   output$tdrValues <- renderPrint({
-      req(queTDR())
-      req(refTDR())
-      req(input$bootValue1)
-      req(input$bootValue2)
-      BarcodingR::TDR2(queTDR(), refTDR(), boot = input$bootValue1, boot2 = input$bootValue2)
-   })
+   output$tdrValues <- renderTable({
+      req(tdrRV())
+      data.frame(TDR = tdrRV())
+   }, rownames = TRUE)
    
    
    #=============== POPULATION STATISTICS =================#
