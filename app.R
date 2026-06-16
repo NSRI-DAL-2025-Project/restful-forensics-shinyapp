@@ -781,8 +781,8 @@ ui <- dashboardPage(
                                 tabBox(
                                    width = 12,
                                    tabPanel("Preview of Alignments",
-                                            msaR::msaROutput("msaView", width = "100%"),
-                                            br(),
+                                            #msaR::msaROutput("msaView", width = "100%"),
+                                            #br(),
                                             verbatimTextOutput("initialAlignmentText"),
                                             br(),
                                             verbatimTextOutput("adjustedAlignmentText"),
@@ -891,11 +891,11 @@ ui <- dashboardPage(
                                                                 radioButtons("kmerType", "Choose Method",
                                                                              choices = c("Fuzzy-set Method and kmer", "BP-based Method and kmer")),
                                                                 conditionalPanel("input.kmerType == 'Fuzzy-set Method and kmer'",
-                                                                                 numericInput("kmerValue", "K-mer value", value = 1, min = 0),
+                                                                                 numericInput("kmerValueFuzzy", "K-mer value", value = 1, min = 0),
                                                                                  checkboxInput("optimizationKMER", "Use different kmer length?", value = FALSE)
                                                                 ),
                                                                 conditionalPanel("input.kmerType == 'BP-based Method and kmer'",
-                                                                                 numericInput("kmerValue", "K-mer value", value = 1, min = 0),
+                                                                                 numericInput("kmerValueBP", "K-mer value", value = 1, min = 0),
                                                                                  checkboxInput("builtModel", "Use built model", value = FALSE),
                                                                                  numericInput("lrValue", "Parameter for weight decay", value = 0.00005),
                                                                                  numericInput("maxitValue", "Maximum number of iterations", value = 1000000)
@@ -917,7 +917,9 @@ ui <- dashboardPage(
                                                   tags$li("(with kmer method) Fuzzy-set Method or BP-based method")
                                                )
                                             ),
-                                            tabBox(
+                                            box(
+                                               title = "Results",
+                                               width = 12,
                                                verbatimTextOutput("identificationResult")
                                             )
                                          )
@@ -2849,19 +2851,27 @@ server <- function(input, output, session){
       alignment_scores()
    })
    
-   
-   # Changed writeLines to seqinr::write.fasta
-   # 20 Nov 2025 used bios2mds to download msa to fasta
    output$downloadAlignedFASTA <- downloadHandler(
-      filename = function() {paste0("aligned", input$msaDownloadType, "_sequence.fasta")},
+      filename = function() {"aligned_sequences.fa"},
       content = function(file){
          alignment <- switch(input$msaDownloadType,
                              initial = alignment_msa(),
                              adjusted = alignment_adjusted(),
                              staggered = alignment_staggered())
-
-         aligned <- msa::msaConvert(alignment, "bios2mds::align")
-         bios2mds::export.fasta(aligned, outfile = file, open = "w")
+         if (inherits(alignment, "MsaDNAMultipleAlignment")){
+            aln <- msa::msaConvert(alignment, type = "seqinr::alignment")
+            
+            seqs <- aln$seq
+            names(seqs) <- aln$nam
+            
+            seqinr::write.fasta(sequences = as.list(seqs),
+                                names = names(seqs),
+                                file.out = file)
+         } else if (inherits(alignment, "DNAStringSet")){
+            Biostrings::writeXStringSet(alignment, filepath = file, format = "fasta")
+         } else {
+            stop("Unsupported alignment type")
+         }
       }
    )
    
@@ -2893,11 +2903,6 @@ server <- function(input, output, session){
    
    
    output$downloadAlignedFASTA_UI <- renderUI({
-      alignment <- switch(input$msaDownloadType,
-                          initial = alignment_msa(),
-                          adjusted = alignment_adjusted(),
-                          staggered = alignment_staggered())
-      req(alignment)
       downloadButton("downloadAlignedFASTA", "Download Aligned Sequences")
    })
    output$downloadAlignmentScores_UI <- renderUI({
@@ -3014,8 +3019,8 @@ server <- function(input, output, session){
    #===================== BARCODING =======================#
    #------------------ Species identification
    observe({ 
-      refReady = !is.null(input$refBarcoding)
-      queReady = !is.null(input$queBarcoding)
+      refReady = !is.null(input$refBarcoding$datapath)
+      queReady = !is.null(input$queBarcoding$datapath)
       
       toggleState("identifySpecies", refReady && queReady)
    })
@@ -3027,60 +3032,54 @@ server <- function(input, output, session){
    observeEvent(input$identifySpecies, {
       disable("identifySpecies")
       
-      Sys.sleep(1.5)
       
       req(input$refBarcoding)
       req(input$queBarcoding)
       
-      # read file
-      # 13 March 2026: removed rphast
-      file_ext_ref <- tools::file_ext(input$refBarcoding$name)
-      if (file_ext_ref == "msa") {
-         barcoding_ref <- Biostrings::ReadDNAStringSet(input$refBarcoding$datapath)
-      } else if (file_ext_ref %in% c("fasta", "msf", "aln")) {
-         if (file_ext_ref == "aln") { file_ext_ref <- "clustal" } 
-         barcoding_ref <- seqinr::read.alignment(file = input$refBarcoding$datapath, format = file_ext_ref)
-      }
+      barcoding_ref <- read_msa_file(input$refBarcoding$datapath, input$refBarcoding$name)
+      barcoding_que <- read_msa_file(input$queBarcoding$datapath, input$queBarcoding$name)
       
-      file_ext_que <- tools::file_ext(input$queBarcoding$name)
-      if (file_ext_que == "msa") {
-         barcoding_que <- Biostrings::ReadDNAStringSet(input$queBarcoding$datapath)
-      } else if (file_ext_que %in% c("fasta", "msf", "aln")) {
-         if (file_ext_que == "aln") { file_ext_que <- "clustal" } 
-         barcoding_que <- seqinr::read.alignment(file = input$queBarcoding$datapath, format = file_ext_que)
-      }
+      ref_mat <- do.call(rbind, lapply(barcoding_ref$seq, function(x) {
+         strsplit(toupper(x), "")[[1]]
+      }))
       
-      ref_seq <- ape::as.DNAbin(as.character(barcoding_ref))
-      que_seq <- ape::as.DNAbin(as.character(barcoding_que))
+      que_mat <- do.call(rbind, lapply(barcoding_que$seq, function(x) {
+         strsplit(toupper(x), "")[[1]]
+      }))
+      
+      rownames(ref_mat) <- barcoding_ref$nam
+      rownames(que_mat) <- barcoding_que$nam
+      
+      ref_seq <- ape::as.DNAbin(ref_mat)
+      que_seq <- ape::as.DNAbin(que_mat)
+      
       refseq(ref_seq)
       queseq(que_seq)
       
+      cat("STEP 2: before model call\n")
       # If not using kmer method
-      if (input.kmerSelect == "false"){
+      if (!isTRUE(input$kmerSelect)){
          result_identity <- BarcodingR::barcoding.spe.identify(refseq(), queseq(), method = input$barcodingMethod)
+      } else {  
+         if (input$kmerType == 'Fuzzy-set Method and kmer'){
+            result_identity <- BarcodingR::barcoding.spe.identify2(refseq(), queseq(), kmer = input$kmerValueFuzzy, optimization = input$optimizationKMER)
+            
+         } else if (input$kmerType == 'BP-based Method and kmer') {
+            result_identity <- BarcodingR::bbsik(refseq(), queseq(), kmer = input$kmerValueBP, UseBuiltModel = input$builtModel, lr = input$lrValue, maxit = input$maxitValue)
+         }
       }
-      
-      if (input.kmerType == 'Fuzzy-set Method and kmer'){
-         req(input$kmerValue)
-         req(input$optimizationKMER)
          
-         result_identity <- BarcodingR::barcoding.spe.identify2(refseq(), queseq(), kmer = input$kmerValue, optimization = input$optimizationKMER)
-         
-      } else if (input.kmerType == 'BP-based Method and kmer') {
-         req(input$kmerValue)
-         req(input$builtModel)
-         req(input$lrValue)
-         req(input$maxitValue)
-         result_identity <- BarcodingR::bbsik(refseq(), queseq(), kmer = input$kmerValue, UseBuiltModel = input$builtModel, lr = input$lrValue, maxit = input$maxitValue)
-      }
+      cat("STEP 3: after model call\n")
       
       resultIdentity(result_identity)
+      enable("identifySpecies")
       
    })
    
    output$identificationResult <- renderPrint({
       req(resultIdentity())
-      resultIdentity()
+      
+      print(resultIdentity())
    })
    
    #----------------- Optimize kmer values
@@ -3104,7 +3103,7 @@ server <- function(input, output, session){
       kmerFile(kmer_File)
       optimalKmer(optimal_Kmer)
       
-      
+      enable("calOptimumKmer")
    }) # end of observe event
    
    # download
@@ -3152,9 +3151,12 @@ server <- function(input, output, session){
       
       barcoding_ref <- rphast::read.msa(input$barcodeRef$datapath, format = rphast::guess.format.msa(input$barcodeRef$datapath, method = "content"))
       ref_Barcode <- ape::as.DNAbin(as.character(barcoding_ref))
-      gap <- BarcodingR::barcoding.gap(refBarcode, dist = input$gapModel)
       refBarcode(ref_Barcode)
+      
+      gap <- BarcodingR::barcoding.gap(refBarcode(), dist = input$gapModel)
+      
       barcodeGap(gap)
+      enable("gapBarcodes")
       
    }) # end of observe event
    

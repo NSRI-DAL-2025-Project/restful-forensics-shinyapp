@@ -1895,6 +1895,27 @@ calc_msa <- function(files, algorithm){
    ))
 }
 
+read_msa_file <- function(path, filename){
+   ext <- tolower(tools::file_ext(filename))
+   
+   if (ext == "msa"){
+      return(Biostrings::readDNAStringSet(path))
+   }
+   
+   if (ext %in% c("fa", "fas", "fasta")){ ext <- "fasta" }
+      
+   if (ext == "aln"){ ext <- "clustal" }
+   
+   if (!ext %in% c("fasta", "msf", "clustal")){ stop(paste("Unsupported format")) }
+   
+   seqinr::read.alignment(
+      file = path, 
+      format = ext
+   )
+   
+      
+}
+
 build_nj_tree <- function(alignment, outgroup = NULL, seed = 123, model = model){
    if(!require("pacman")) {
       install.packages("pacman")
