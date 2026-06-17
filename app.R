@@ -1180,16 +1180,21 @@ ui <- dashboardPage(
                        numericInput("numKRep", "Replicates per K", value = 10, min = 1),
                        numericInput("burnin", "Burn-in Period", value = 100000),
                        numericInput("numreps", "MCMC Reps After Burn-in", value = 100000),
-                       checkboxInput("noadmix", "No Admixture Model", value = FALSE),
-                       checkboxInput("phased", "Phased Genotype", value = FALSE),
                        numericInput("ploidy", "Ploidy Level", value = 2),
+                       checkboxInput("noadmix", "Use 'No Admixture' Model", value = FALSE),
+                       checkboxInput("phased", "Phased Genotype", value = FALSE),
                        checkboxInput("linkage", "Use Linkage Model", value = FALSE),
+                       checkboxInput("useAlpha", "Use default alpha value", value = TRUE),
+                       conditionalPanel(
+                             condition = "!input.useAlpha",
+                             textInput("alphaval", "Alpha Value (integers only)", value = 1)
+                       ),
                        actionButton("runStructure", "Run STRUCTURE", icon = icon("play")),
                        uiOutput("downloadButtons")
                     ),
                     tabBox(
                        tabPanel("Instructions",
-                                p("This runs the Windows implementation of STRUCTURE v2.3.4 without a front-end and allows immediate 
+                                p("This runs the basic Windows implementation of STRUCTURE v2.3.4 without a front-end and allows immediate 
                                    visualization of results using revised functions from the ",
                                    tags$a("starmie",
                                           href="https://github.com/sa-lee/starmie",
@@ -1217,12 +1222,15 @@ ui <- dashboardPage(
                     )
                  ), # end of fluidrow
                  fluidRow(
-                    tabBox(
+                    box(
                        width = 12,
                        title = "STRUCTURE Results",
-                       h4("STRUCTURE Visualization"),
-                       p("NOTE: The plots are expected to take some time to load."),
                        uiOutput("structurePlotPreview")
+                    ),
+                    box(
+                       width = 12,
+                       title = "Evanno Plots",
+                       uiOutput("evannoPlotPreview")
                     )
                  )
          ),
@@ -3631,7 +3639,6 @@ server <- function(input, output, session){
    )
    )
    
-   # reactive storage
    results_rv <- reactiveValues(
       overall_metrics = NULL,
       pop_metrics = NULL,
@@ -3642,13 +3649,11 @@ server <- function(input, output, session){
    gt_freq_pop <- reactiveVal(NULL)
    snpsFile <- reactiveVal(NULL)
    
-   # toggle action button only if a file is uploaded
    observe({
       shinyjs::toggleState("calcIISNPs", !is.null(input$iisnpsFile))
    })
 
    
-   # main calculation
    observeEvent(input$calcIISNPs, {
       shinyjs::disable("calcIISNPs")
       req(input$iisnpsFile)
@@ -3669,7 +3674,6 @@ server <- function(input, output, session){
          computed_af <- snpsFile()
       }
       
-      # optional profile
       profile_df <- NULL
       theta <- 0
       pop <- NULL
@@ -3682,16 +3686,13 @@ server <- function(input, output, session){
          pop <- input$totalPop 
       }
       
-      # compute genotype frequencies
       gt_freqs <- calc_genotype_freq(computed_af, pop = pop)
       gt_freq_all(gt_freqs$gt_complete)
       gt_freq_pop(gt_freqs$gt_by_pop)
       
-      # calculate all forensic metrics
       res <- calc_iisnps_params(gt_freq_all(), profile = profile_df, theta = theta)
       
       
-      # save results
       if (!is.null(profile_df)){
          results_rv$rmp_value <- res$RMP_profile
          results_rv$overall_metrics <- res$marker_metrics
@@ -3729,7 +3730,6 @@ server <- function(input, output, session){
       )
    })
    
-   # render marker metrics table
    output$genotypeFreqs_UI <- DT::renderDataTable({
       req(gt_freq_pop(), gt_freq_all())
       
@@ -3756,7 +3756,6 @@ server <- function(input, output, session){
       }
    })
    
-   # download handlers
    output$downloadMetrics <- downloadHandler(
       filename = function() { paste0("forensic_metrics_", Sys.Date(), ".xlsx") },
       content = function(file) {
@@ -3785,7 +3784,6 @@ server <- function(input, output, session){
       }
    )
    
-   # render UI for downloads
    output$downloadMetrics_UI <- renderUI({
       req(results_rv$overall_metrics)
       downloadButton("downloadMetrics", "Download Forensic Parameters")
@@ -3838,7 +3836,6 @@ server <- function(input, output, session){
             
             incProgress(0.4, detail = "Preparing color and label sets...")
             
-            # Read custom labels/colors if needed
             labels <- NULL
             colors <- NULL
             shapes <- NULL
@@ -3970,7 +3967,9 @@ server <- function(input, output, session){
    analysis_done <- reactiveVal(FALSE)
    structure_result <- reactiveVal(NULL)
    qmatrices_result <- reactiveVal(NULL)
+   summary_plot_paths <- reactiveVal(NULL)
    structure_plot_paths <- reactiveVal(NULL)
+   evanno_plots <- reactiveVal(NULL)
    output_dir <- tempdir()
    out_path <- file.path(output_dir, "structure_input.str")
    
@@ -3993,6 +3992,15 @@ server <- function(input, output, session){
                      row.names = FALSE, col.names = FALSE)
          
          incProgress(0.6, detail = "Running STRUCTURE analysis...")
+         
+         if (isTRUE(input$useAlpha)) {
+            alphaValue <- 1
+         } else {
+            if (grepl("^-?[0-9]*\\.?[0-9]+$", input$alphaval)){
+               alphaValue <- as.numeric(input$alphaval)
+            } else { stop("Alpha value should strictly be integers/floats.")}
+         }
+         
          result <- running_structure(out_path,
                                      k.range = input$kMin:input$kMax,
                                      num.k.rep = input$numKRep,
@@ -4000,6 +4008,7 @@ server <- function(input, output, session){
                                      numreps = input$numreps,
                                      noadmix = input$noadmix,
                                      phased = input$phased,
+                                     alpha_value = alphaValue,
                                      ploidy = input$ploidy,
                                      linkage = input$linkage,
                                      structure_path = "structure/structure.exe",
@@ -4024,19 +4033,41 @@ server <- function(input, output, session){
          
          plot_paths <- lapply(str_data, function(structure_obj){
             file_name <- file.path(output_dir, paste0(structure_obj$K, "_plot.png"))
-            gg <- plotQ(structure_obj, populations_df, outfile = file_name)
+            gg <- plotQ(structure_obj, populations_df)
             ggplot2::ggsave(file_name, plot = gg, width = 8, height = 5, dpi = 150)
             file_name
          })
          
-         structure_plot_paths(plot_paths)
-         message(list(structure_plot_paths()))
-         enable("runStructure")
+         #plot_paths <- lapply(seq_along(str_data), function(i){
+         #   structure_obj <- str_data[[i]]
+         #   file_name <- file.path(
+         #      output_dir,
+         #      paste0(
+         #         "K",
+         #         structure_obj$K,
+         #         "_rep",
+         #         i,
+         #         ".png"
+         #      )
+         #   )
+         #   gg <- plotQ(structure_obj, populations_df)
+         #   ggsave(file_name, plot = gg, width = 10, height = 5, dpi = 150)
+         #   file_name
+         #})
          
+         summary_paths <- list.files(output_dir, pattern = "^[0-9]+_plot\\.png$", full.names = TRUE)
+         #k_reps <- list.files(output_dir, pattern = "^K[0-9]+_rep[0-9]+\\.png$", full.names = TRUE)
+         evanno_plot <- list.files(output_dir, pattern = "^Evanno.*\\.png$", full.names = TRUE)
+         
+         summary_plot_paths(summary_paths)
+         evanno_plots(evanno_plot)
+         #structure_plot_paths(plot_paths)
+         enable("runStructure")
+
       }) # end of with progress
-      
+
       analysis_done(TRUE)
-      
+
    }) # end of observe event for structure
    
    output$downloadLogs <- downloadHandler(
@@ -4099,38 +4130,81 @@ server <- function(input, output, session){
          paste0("structure_plots_", Sys.Date(), ".zip")
       },
       content = function(file) {
-         req(structure_plot_paths())
-         plot_files <- list.files(output_dir, pattern = "\\.png$", full.names = TRUE)
+         plot_files <- c(
+            list.files(output_dir, pattern = "^[0-9]+_plot\\.png$", full.names = TRUE),
+            list.files(output_dir, pattern = "^Evanno.*\\.png$", full.names = TRUE)
+         )
          zip::zipr(zipfile = file, files = plot_files)
       },
       contentType = "application/zip"
    )
    
-   #output$structurePlotPreview <- renderImage({
-   #   req(structure_plot_paths())
-   #   list(
-   #      src = structure_plot_paths()[[1]],
-   #      contentType = "image/png",
-   #      alt = "STRUCTURE Plot Preview",
-   #      width = "100%"
-   #   )
-   #}, deleteFile = FALSE)
    output$structurePlotPreview <- renderUI({
-      req(structure_plot_paths())
-      plot_paths <- structure_plot_paths()
+      req(summary_plot_paths())
       
-      if (length(plot_paths) == 0){
-         return(p("No plots generated"))
-      }
+      plot_paths <- summary_plot_paths()
       
-      img_tags <- lapply(plot_paths, function(path){
-         tags$div(
-            style = "display: inline-block; margin: 10px; padding:5px; border:1px solid #ddd;",
-            tags$img(src = path, width = "250px", height = "auto"),
-            tags$p(align = "center", tags$strong(path))
-         )
-      })
-      do.call(tagList, img_tags)
+      tagList(
+         lapply(plot_paths, function(path) {
+            
+            tags$div(
+               style = "
+          display:inline-block;
+          margin:10px;
+          border:1px solid #ddd;
+          padding:5px;
+          vertical-align:top;
+        ",
+               
+               tags$img(
+                  src = session$fileUrl(
+                     basename(path),
+                     path
+                  ),
+                  style = "max-width:500px;"
+               ),
+               
+               tags$br(),
+               
+               tags$small(basename(path))
+            )
+            
+         })
+      )
+   })
+   
+   output$evannoPlotPreview <- renderUI({
+      req(evanno_plots())
+      
+      plot_paths <- evanno_plots()
+      
+      tagList(
+         lapply(plot_paths, function(path) {
+            
+            tags$div(
+               style = "
+          display:inline-block;
+          margin:10px;
+          border:1px solid #ddd;
+          padding:5px;
+          vertical-align:top;
+        ",
+               
+               tags$img(
+                  src = session$fileUrl(
+                     basename(path),
+                     path
+                  ),
+                  style = "max-width:500px;"
+               ),
+               
+               tags$br(),
+               
+               tags$small(basename(path))
+            )
+            
+         })
+      )
    })
    
    output$downloadButtons <- renderUI({

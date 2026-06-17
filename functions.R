@@ -461,8 +461,9 @@ running_structure <- function(input_file,
                               numreps,
                               noadmix = FALSE,
                               phased = FALSE,
-                              ploidy = 2,
+                              ploidy = NULL,
                               linkage = FALSE,
+                              alpha_value = NULL,
                               structure_path = structure_path,
                               output_dir = dir #,
                               #plot_dir = file.path(output_dir, "evanno_plots")
@@ -496,10 +497,11 @@ running_structure <- function(input_file,
       extraparams <- file.path(output_dir, "extraparams")
       
       if(is.null(ploidy)){
-         ploidy = "2"
+         ploidy <-  "2"
       } else {
-         ploidy = ploidy
+         ploidy <- ploidy
       }
+      
       adm_burnin <- if (burnin < 500) burnin else 500
       
       for_mainparam <- paste("#define", c(
@@ -528,7 +530,7 @@ running_structure <- function(input_file,
       ))
       writeLines(for_mainparam, con = mainparams)
       
-      alpha = 1/max(k.range)
+      #alpha = 1/max(k.range)
       
       for_extraparam <- paste("#define", c(
          paste("NOADMIX", ifelse(noadmix, 1, 0)), 
@@ -540,7 +542,7 @@ running_structure <- function(input_file,
          "ONEFST 0",
          "INFERALPHA 1",
          "POPALPHAS 0",
-         paste("ALPHA", alpha),
+         paste("ALPHA", alpha_value),
          "INFERLAMBDA 0",
          "POPSPECIFICLAMBDA 0",
          "LAMBDA 1.0",
@@ -658,7 +660,7 @@ running_structure <- function(input_file,
 
 # Plot STRUCTURE
 # Adapted from the "starmiee" package
-plotQ <- function(qmat, populations_df, outfile = outfile) {
+plotQ <- function(qmat, populations_df) {
    if(!require("pacman")) {
       install.packages("pacman")
    }
