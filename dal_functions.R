@@ -1927,7 +1927,7 @@ alignment_to_dnabin <- function(path){
       )
       return(alignment)
    } else if (ext == "msa"){
-      msa_alignment <- rphase::read.msa(
+      msa_alignment <- rphast::read.msa(
          path, format = rphast::guess.format.msa(path, method = "content")
       )
       

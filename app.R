@@ -1,17 +1,6 @@
-library(bslib)
-library(dplyr)
-library(shiny)
-library(shinyjs)
-library(shinydashboard)
-library(shinybusy)
-
 source("functions.R", local = TRUE)
 source("dal_functions.R", local = TRUE)
 source("global.R", local = TRUE)
-
-if (!requireNamespace("starmie", quietly = TRUE)){
-   remotes::install_github("sa-lee/starmie", upgrade = "ask")
-}
 
 options(shiny.maxRequestSize = 5000*1024^2)
 

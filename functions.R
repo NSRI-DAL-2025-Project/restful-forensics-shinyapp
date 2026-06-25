@@ -356,7 +356,7 @@ utils.structure.evanno <- function (sr, plot = TRUE)
    if(!require("pacman")) {
       install.packages("pacman")
    }
-   pacman::p_load(ggplot2, purrr, grid, gridExtra, install = TRUE)
+   pacman::p_load(ggplot2, purrr, gridExtra, install = TRUE)
    
    if (!"structure.result" %in% class(sr)) {
       stop(error("'sr' is not a result from 'structure.run'."))
@@ -471,7 +471,7 @@ running_structure <- function(input_file,
    if(!require("pacman")) {
       install.packages("pacman")
    }
-   pacman::p_load(tools, grDevices, install = TRUE)
+   pacman::p_load(tools, install = TRUE)
    
    # Validate K range
    if (length(k.range) < 2) stop("Provide at least two K values for Evanno analysis.")
