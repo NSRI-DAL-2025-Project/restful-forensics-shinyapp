@@ -874,7 +874,7 @@ to_snipper <- function(input,
 #
 # Last revised 31 October 2025
 #============================
-create_range_file <- function(pos_input, output_dir){
+create_range_file <- function(pos_input, addID = FALSE, output_dir){
    
    if (is.character(pos_input)) {
       pos_df <- load_csv_xlsx_files(pos_input)
@@ -884,51 +884,74 @@ create_range_file <- function(pos_input, output_dir){
    
    pos_df <- as.data.frame(pos_df)
    
-   if(ncol(pos_df) < 3){
-      stop("Input must contain at least 3 columns: SNP, Chromosome, Position")
+   if (isTRUE(addID)){
+      chr <- as.character(pos_df[[2]])
+      pos <- as.numeric(pos_df[[3]])
+      label <- as.character(pos_df[[1]])
+      
+      range_df <- data.frame(
+         CHR = chr,
+         START = pos,
+         END = pos,
+         LABEL = label,
+         stringsAsFactors = FALSE
+      )
+      
+      range_file <- file.path(output_dir, "range.txt")
+      
+      write.table(
+         range_df,
+         file = range_file,
+         row.names = FALSE,
+         col.names = FALSE,
+         quote = FALSE,
+         sep = "\t"
+      )
+      
+      update_name <- data.frame(
+         new = paste0(chr, ":", pos, sep = ""),
+         id = label,
+         stringsAsFactors = FALSE
+      )
+      
+      updated_file <- file.path(output_dir, "update_name.txt")
+      
+      write.table(
+         update_name,
+         file = updated_file,
+         row.names = FALSE,
+         col.names = FALSE,
+         quote = FALSE,
+         sep = "\t"
+      )
+      
+      return(list(range_file = range_file, updated_file = updated_file))
+      
+      
+   } else {
+      chr <- as.character(pos_df[[1]])
+      pos <- as.numeric(pos_df[[2]])
+      
+      range_df <- data.frame(
+         CHR = chr,
+         START = pos,
+         END = pos,
+         stringsAsFactors = FALSE
+      )
+      
+      range_file <- file.path(output_dir, "range.txt")
+      
+      write.table(
+         range_df,
+         file = range_file,
+         row.names = FALSE,
+         col.names = FALSE,
+         quote = FALSE,
+         sep = "\t"
+      )
+      
+      return(list(range_file = range_file))
    }
-   
-   chr <- as.character(pos_df[[2]])
-   pos <- as.numeric(pos_df[[3]])
-   label <- as.character(pos_df[[1]])
-   
-   range_df <- data.frame(
-      CHR = chr,
-      START = pos,
-      END = pos,
-      LABEL = label,
-      stringsAsFactors = FALSE
-   )
-   
-   range_file <- file.path(output_dir, "range.txt")
-   
-   write.table(
-      range_df,
-      file = range_file,
-      row.names = FALSE,
-      col.names = FALSE,
-      quote = FALSE,
-      sep = "\t"
-   )
-   
-   update_name <- data.frame(
-      new = paste0(chr, ":", pos, sep = ""),
-      id = label,
-      stringsAsFactors = FALSE
-   )
-   
-   updated_file <- file.path(output_dir, "update_name.txt")
-   
-   write.table(
-      update_name,
-      file = updated_file,
-      row.names = FALSE,
-      col.names = FALSE,
-      quote = FALSE,
-      sep = "\t"
-   )
-   
-   return(list(range_file = range_file, updated_file = updated_file))
 }
 
 extract_by_ID_pgen <- function(pgen_prefix,
@@ -958,7 +981,7 @@ extract_by_pos_pgen <- function(pos_list,
                                 merged_file,
                                 plink_path){
    
-   range_file <- create_range_file(pos_list, output_dir)
+   range_file <- create_range_file(pos_list, addID = FALSE, output_dir)
    
    out_prefix <- file.path(output_dir, merged_file)
    
@@ -988,7 +1011,7 @@ extract_POStoID_pgen <- function(pos_list,
                                  output_dir,
                                  plink_path){
    
-   range_file <- create_range_file(pos_list, output_dir)
+   range_file <- create_range_file(pos_list, addID = TRUE, output_dir)
    
    extracted_prefix <- file.path(output_dir, "pos_extract")
    
