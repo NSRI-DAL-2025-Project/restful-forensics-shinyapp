@@ -505,7 +505,7 @@ ui <- dashboardPage(
                                             p("(2) Markers/position list — type rsIDs manually, upload a list, or use a POS .txt/.csv file."),
                                             p("Position list format:"),
                                             tags$ul(
-                                               tags$li("[1] rsID/marker name"),
+                                               tags$li("[1] (optional) rsID/marker name"),
                                                tags$li("[2] Chromosome number"),
                                                tags$li("[3] Position (bp)")
                                             ),
@@ -517,14 +517,17 @@ ui <- dashboardPage(
                                             h4("rsID Format"),
                                             tableOutput("examplersID"),
                                             h4("Position Format"),
-                                            tableOutput("examplePOS")
+                                            tableOutput("examplePOS"),
+                                            helpText("rsID column is required if rsID will be added to output.")
                                    ),
                                    tabPanel("Download Sample Files",
                                             h4("Sample Files"),
                                             tags$ul(
-                                               tags$a("Sample VCF file", href = "sample_hgdp.vcf", download = "sample_hgdp.vcf"),
+                                               tags$a("A. Sample VCF file", href = "sample_hgdp.vcf", download = "sample_hgdp.vcf"),
                                                br(),
-                                               tags$a("Sample marker metadata file", href = "marker_info.csv", download = "marker_info.csv")
+                                               tags$a("B. Sample marker metadata file (with rsID)", href = "marker_info2.csv", download = "marker_info2.csv"),
+                                               br(),
+                                               tags$a("C. Sample marker metadata file (wihout rsID)", href = "marker_noid.csv", download = "marker_noid.csv")
                                             )
                                    )
                                 )
@@ -2552,13 +2555,16 @@ server <- function(input, output, session){
             req(input$markerList2)
             pos_list <- as.data.frame(load_csv_xlsx_files(input$markerList2$datapath))
             
-            if (ncol(pos_list) < 3)
-               stop("Position file must contain: rsID, chr, pos")
+            if (ncol(pos_list) < 2)
+               stop("Position file must contain: chr and pos columns")
             
-            colnames(pos_list)[1:3] <- c("rsID","chr","pos")
-            range_file <- create_range_file(pos_list, temp_dir)
+            #colnames(pos_list)[1:3] <- c("rsID","chr","pos")
+            #range_file <- create_range_file(pos_list, temp_dir)
             
             if (isTRUE(input$addrsID)) {
+               
+               if (ncol(pos_list) < 3)
+                  stop("Position file must contain: rsID, chr, and pos columns")
                
                extracted <- extract_POStoID_pgen(
                   pos_list = pos_list,
@@ -2568,21 +2574,13 @@ server <- function(input, output, session){
                )
                
             } else {
-               
-               out_prefix <- file.path(temp_dir, merged_name)
-               cmd_extract <- paste(
-                  shQuote(plink2_path),
-                  "--pfile", shQuote(pgen_prefix),
-                  "--extract range", shQuote(range_file$range_file),
-                  "--export vcf",
-                  "--out", shQuote(out_prefix)
+               extracted <- extract_by_pos_pgen(
+                  pos_list = pos_list,
+                  pgen_prefix = pgen_prefix,
+                  output_dir = temp_dir,
+                  merged_file = merged_name,
+                  plink_path = plink2_path
                )
-               
-               system(cmd_extract)
-               extracted <- paste0(out_prefix, ".vcf")
-               
-               if (!file.exists(extracted))
-                  stop("PLINK extraction failed: no VCF generated.")
             }
          }
          extracted_file(extracted)
