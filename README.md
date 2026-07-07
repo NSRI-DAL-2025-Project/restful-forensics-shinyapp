@@ -1,6 +1,6 @@
 ![](www/readme/fulllogo.png)
 # restful-forensics-shinyapp
-The Windows implementation of restful-forensics in RStudio. To check the dockerized application, see https://github.com/NSRI-DAL-2025-Project/rstudio-shiny-verse-opencpu-dependencies-restful-forensics.
+The **Windows** implementation of restful-forensics in RStudio. To check the dockerized application, see https://github.com/NSRI-DAL-2025-Project/rstudio-shiny-verse-opencpu-dependencies-restful-forensics. It will be further revised for compatibility with Linux systems.
 
 For feedback on the tool, please fill up this google form: https://forms.gle/fA62Kwb2Ah2pC12H7
 
