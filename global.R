@@ -19,15 +19,14 @@ git_package_names <- c("rphast", "starmie")
 install_missing_cran_packages <- function(package){
    missing_packages <- package[!(package %in% installed.packages()[, "Package"])]
    if (length(missing_packages) > 0){
-      install.packages(missing_packages, dependencies = TRUE, repos = "https://r-project.org")
+      install.packages(missing_packages, dependencies = TRUE, repos = "https://cloud.r-project.org")
    }
 }
 
 install_missing_bioc_packages <- function(package){
    if (!requireNamespace("BiocManager", quietly = TRUE)){
-      install.packages("BiocManager", repos = "https://r-project.org")
+      install.packages("BiocManager", repos = "https://cloud.r-project.org")
    }
-   
    missing_packages <- package[!(package %in% installed.packages()[, "Package"])]
    if (length(missing_packages) > 0){
       BiocManager::install(missing_packages, update = FALSE, ask = FALSE)
@@ -36,12 +35,10 @@ install_missing_bioc_packages <- function(package){
 
 install_missing_git_packages <- function(repos, package){
    missing_packages <- repos[!(package %in% installed.packages()[, "Package"])]
-   
    if (length(missing_packages) > 0){
       if (!requireNamespace("remotes", quietly = TRUE)){
-         install.packages("remotes", repos = "https://r-project.org")
+         install.packages("remotes", repos = "https://cloud.r-project.org")
       }
-      
       remotes::install_github(missing_packages, upgrade = "never", dependencies = TRUE)
    }
 }
