@@ -260,7 +260,6 @@ merge_plink2_files <- function(plink2_path, merge_list, output_prefix){
 # Description: Generates a dataframe with markers as columns
 # Dependencies: tools, vcfR, janitor, tibble, utils, dplyr
 #============================
-
 load_vcf_files <- function(vcf, output.dir = NULL){
 
    if (tools::file_ext(vcf) == "vcf") {
@@ -527,8 +526,6 @@ widen_genotype_file <- function(files = files,
    }
 }
 
-
-# TO DO: MERGE AS ONE FUNCTION
 #============================
 # Convert file to genind object
 # Dependencies: dplyr, adegenet
@@ -1498,7 +1495,7 @@ compute_pca <- function(fsnps_gen) {
 # Organize labels for PCA plotting
 # Dependencies: ade4, adegenet, RColorBrewer
 #============================
-get_labels <- function(fsnps_gen, use_default, input_labels = NULL, input_colors = NULL, input_shapes = NULL) {
+get_labels <- function(fsnps_gen, use_default = TRUE, label_file = NULL) {
 
    if (use_default) {
       labels <- levels(as.factor(fsnps_gen@pop))
@@ -1509,18 +1506,39 @@ get_labels <- function(fsnps_gen, use_default, input_labels = NULL, input_colors
       )
       shapes <- rep(21:25, length.out = n)
    } else {
-      labels <- input_labels
-      colors <- input_colors
-      shapes <- input_shapes
       
-      if (is.null(labels) || is.null(colors) || is.null(shapes)) {
-         stop("Custom labels and colors must be provided if use_default is FALSE.")
+      if (is.null(label_file)) {
+         stop("Please provide a label file.")
       }
-      if (length(labels) != length(colors)) {
-         stop("Number of labels and colors must match.")
+      
+      df <- load_csv_xlsx_files(label_file)
+      if (ncol(df) < 3){
+         stop("Label file must contain at least three columns.")
       }
-      if (length(labels) != length(shapes)) {
-         stop("Number of labels and shapes must match.")
+      
+      labels <- trimws(as.character(df[[1]]))
+      colors <- trimws(as.character(df[[2]]))
+      colors <- setNames(colors, labels)
+      shapes <- as.numeric(df[[3]])
+      shapes <- setNames(shapes, labels)
+      
+      if (length(unique(labels)) != length(labels)){
+         stop("Duplicate population names found.")
+      }
+      
+      expected_labels <- sort(unique(as.character(fsnps_gen@pop)))
+      given_labels <- sort(unique(labels))
+      missing <- BiocGenerics::setdiff(expected_labels, given_labels)
+      extra <- BiocGenerics::setdiff(given_labels, expected_labels)
+      
+      if (length(missing) > 0 || length(extra) > 0){
+         stop("Populations in the dataset and given labels do not match.")
+      }
+      
+      if (length(labels) != length(colors) || 
+          length(labels) != length(shapes)
+      ) {
+         stop("Population, color, and shape columns must have the same length")
       }
    }
    return(list(labels = labels, colors = colors, shapes = shapes))
