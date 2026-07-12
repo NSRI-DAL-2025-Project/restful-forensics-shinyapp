@@ -238,7 +238,7 @@ ui <- dashboardPage(
                                    tabPanel("Instructions",
                                             h4("This interconverts common genetic files and formats with or without population information."),
                                             p(strong("Input file/s:")),
-                                            p("Required: VCF, BCF, or PLINK (.bed, .bim, .fam) files. It also accepts zipped files as long as it contains the same file type."),
+                                            p("Required: VCF, BCF, or PLINK (.bed, .bim, .fam) files. It also accepts zipped files as long as it contains the same file type, except if using PLINK files."),
                                             p("Optional input files:"),
                                             tags$ul(
                                                tags$li("(to .csv) .xlsx/.csv/.txt file containing metadata (sample ID and population). All columns will be merged to the genotype data. Remove unnecessary columns before running 'Convert files'."),
@@ -430,7 +430,7 @@ ui <- dashboardPage(
                                               Falush et al., 2007; Hubisz et al., 2009)."
                                             ),
                                             br(),
-                                            p("This converts CSV files into STRUCTURE-compatible files. This module was tested on STRUCTURE version 2.3.4."),
+                                            p("This converts CSV files into standard STRUCTURE-compatible files. This module was tested on STRUCTURE version 2.3.4."),
                                             p(strong("Input file/s:"), "CSV file containing marker and population data.
                                               Each row should represent multi-locus data for an individual sample."),
                                             p(strong("Parameter/s:"), "User's operating system (for STRUCTURE input compatibility)"),
@@ -1124,9 +1124,8 @@ ui <- dashboardPage(
                        checkboxInput("useDefaultColors", "Use Default Colors and Labels", TRUE),
                        conditionalPanel(
                           condition = "!input.useDefaultColors",
-                          fileInput("pcaLabels", "Upload PCA Labels (TXT)", accept = c(".csv", ".txt", ".xlsx")),
-                          fileInput("colorPalette", "Upload Color Palette (TXT)", accept = c(".csv", ".txt", ".xlsx")),
-                          fileInput("shapeList", "Upload desired point shapes (TXT)", accept = c(".csv", ".txt", ".xlsx")),
+                          fileInput("pcaStyleFile", "Customize population colors and shapes.", accept = c(".csv", ".xlsx", ".txt")),
+                          helpText("Columns should contain: [1] Population name, [2] Color (name or hex code), [3] Shapes"),
                           p("The order of the colors would match the order of PCA labels")
                        ),
                        br(),
@@ -2034,7 +2033,6 @@ server <- function(input, output, session){
    )
    
    #==================== To SNIPPER =======================#
-   
    exampleTableSnipper1 <- data.frame(
          Ind = c("sample1", "sample2", "sample3", "sample4", "..."),
          rs101 = c("A/A", "A/T", "T/T", "A/T", "..."),
@@ -3684,7 +3682,6 @@ server <- function(input, output, session){
    })
    
    #======================= PCA ===========================#
-   
    PCAResults <- reactiveVal(NULL)
    LabelColors <- reactiveVal(NULL)
    output$examplePCA <- renderTable({
@@ -3699,16 +3696,7 @@ server <- function(input, output, session){
    
    observe({
       hasDataFile <- !is.null(input$pcaFile)
-      hasLabelsFile <- !is.null(input$pcaLabels)
-      hasColorFile <- !is.null(input$colorPalette)
-      hasShapesFile <- !is.null(input$shapeList)
-      
-      usingDefaults <- input$useDefaultColors
-      
-      readyForPCA <- hasDataFile && 
-         (usingDefaults || (hasLabelsFile && hasColorFile && hasShapesFile))
-      
-      toggleState("runPCA", readyForPCA)
+      toggleState("runPCA", hasDataFile)
    })
    
    observeEvent(input$runPCA, {
@@ -3723,32 +3711,17 @@ server <- function(input, output, session){
             fsnps_gen <- convert_to_genind(cleaned, to_str = FALSE)
             
             incProgress(0.4, detail = "Preparing color and label sets...")
+            label_file <- NULL
             
-            labels <- NULL
-            colors <- NULL
-            shapes <- NULL
-            
-            if (!input$useDefaultColors) {
-               req(input$pcaLabels, input$colorPalette)
-               
-               labels <- readLines(input$pcaLabels$datapath)
-               colors <- readLines(input$colorPalette$datapath)
-               shapes <- readLines(input$shapeList$datapath)
-               labels <- trimws(labels)
-               colors <- trimws(colors)
-               shapes <- trimws(shapes)
-               
-               if (length(labels) != length(colors) || length(labels) != length(shapes)) {
-                  stop("Mismatch between number of labels and colors/shapes.")
-               }
+            if (!input$useDefaultColors){
+               req(input$pcaStyleFile)
+               label_file <- input$pcaStyleFile$datapath
             }
             
             labels_colors <- get_labels(
                fsnps_gen = fsnps_gen,
                use_default = input$useDefaultColors,
-               input_labels = labels,
-               input_colors = colors,
-               input_shapes = shapes
+               label_file = label_file
             )
             LabelColors(labels_colors)
             
