@@ -9,7 +9,7 @@ required_cran <- c(
 )
 
 required_bioc <- c(
-   "Biostrings", "pwalign", "msa", "DECIPHER", "ggtree"
+   "Biostrings", "pwalign", "msa", "DECIPHER", "ggtree", "BiocGenerics"
 )
 
 required_git <- c("CshlSiepelLab/RPHAST", "sa-lee/starmie")
