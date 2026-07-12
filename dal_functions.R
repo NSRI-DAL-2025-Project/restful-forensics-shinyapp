@@ -40,32 +40,6 @@ unpack_input_file <- function(files, output.dir = output.dir){
 # Description: Returns file path containing plink files
 # Dependencies: tools
 #============================
-
-convert_to_plink <- function(input.file, 
-                             output.dir, 
-                             plink_path = plink2_path, 
-                             name = "converted_to_plink") {
-   output_file <- file.path(output.dir, name)
-   
-   is_vcf <- grepl("\\.vcf(\\.gz)?$", input.file, ignore.case = TRUE)
-   is_bcf <- grepl("\\.bcf$", input.file, ignore.case = TRUE)
-   
-   if (!is_vcf && !is_bcf){
-      stop("Unsupported file type. Please provide a VCF, VCF.GZ, or BCF.")
-   }
-   
-   input_flag <- if (is_bcf) "--bcf" else "--vcf"
-   args <- c(
-      input_flag, input.file,
-      "--allow-extra-chr",
-      "--make-bed",
-      "--out", output_file
-   )
-   
-   res <- system2(plink_path, args = args, stdout = TRUE, stderr = TRUE)
-   return(output_file)
-}
-
 converted_to_plink2 <- function(input.file,
                                 original_name = NULL,
                                 isplink = FALSE, 
@@ -218,13 +192,31 @@ convert_from_plink2 <- function(prefix,
    
    if (output_type == "plink2") {
       files <- list.files(
-         path = dirname(prefix),
-         pattern = paste0("^", basename(prefix), "\\."),
+         path = dirname(out_prefix),
+         pattern = paste0("^", basename(out_prefix), "\\."),
          full.names = TRUE
       )
       zip_path <- paste0(out_prefix, ".zip")
       zip::zipr(zipfile = zip_path, files = files)
       
+      return(zip_path)
+   }
+   
+   if (output_type == "plink1"){
+      system2(plink2_path, args = c(
+         "--pfile", prefix,
+         "--make-bed",
+         "--out", out_prefix
+      ))
+      
+      files <- list.files(
+         path = dirname(out_prefix),
+         pattern = paste0("^", basename(out_prefix), "\\."),
+         full.names = TRUE
+      )
+      
+      zip_path <- paste0(out_prefix, "_plink.zip")
+      zip::zipr(zipfile = zip_path, files = files)
       return(zip_path)
    }
    
@@ -262,28 +254,6 @@ merge_plink2_files <- function(plink2_path, merge_list, output_prefix){
    return(output_prefix)
 }
 
-#======== Convert BCF to VCF
-bcf_to_vcf <- function(input.file, output.dir, plink_path = plink_path){
-   output_file <- file.path(output.dir, "tovcf")
-   
-   if (tools::file_ext(input.file) == "bcf"){
-      args <- c(
-         "--bcf", input.file,
-         "--const-fid", "0",
-         "--keep-allele-order",
-         "--allow-no-sex",
-         "--allow-extra-chr",
-         "--export", "vcf",
-         "--out", output_file
-      )
-      
-      res <- system2(plink_path, args = args, stdout = TRUE, stderr = TRUE)
-   } else {
-      stop("Input file is not a BCF file.")
-   }
-
-   return(output_file)
-}
 
 #============================
 # Load VCF/VCF.GZ
@@ -563,40 +533,17 @@ widen_genotype_file <- function(files = files,
 # Convert file to genind object
 # Dependencies: dplyr, adegenet
 #============================
-convert_to_genind_str <- function(file) {
+convert_to_genind <- function(file, to_str = FALSE){
    file <- dplyr::rename(file, Ind = 1, Pop = 2)
-   names(file)[names(file) == "Ind"] <- "Ind2"
-   file$Ind <- rownames(file)
-   file2 <- file
-   Ind <- file$Ind
-   data <- file[2:ncol(file)-1]
-   file <- data.frame(Ind, data)
-   ind <- as.character(file$Ind)
-   pop <- as.character(file$Pop)
-   fsnps_geno <- file[,3:ncol(file)]
    
-   fsnps_gen <- adegenet::df2genind(fsnps_geno, 
-                                    ind.names = ind, 
-                                    pop = pop, 
-                                    sep = "/", 
-                                    NA.char = "N", 
-                                    ploidy = 2, 
-                                    type = "codom")
-   
-   
-   fsnps_gen@pop <- as.factor(file$Pop)
-   
-   return(list(fsnps_gen = fsnps_gen, 
-               new_file = file2))
-}
-
-convert_to_genind <- function(file) {
-   #if(!require("pacman")) {
-   #   install.packages("pacman")
-   #}
-   pacman::p_load(dplyr, adegenet, install = TRUE)
-   
-   file <- dplyr::rename(file, Ind = 1, Pop = 2)
+   if (isTRUE(to_str)){
+      names(file)[names(file) == "Ind"] <- "Ind2"
+      file$Ind <- rownames(file)
+      file2 <- file
+      Ind <- file$Ind
+      data <- file[2:ncol(file)-1]
+      file <- data.frame(Ind, data)
+   }
    
    ind <- as.character(file$Ind)
    pop <- as.character(file$Pop)
@@ -610,10 +557,14 @@ convert_to_genind <- function(file) {
                                     ploidy = 2, 
                                     type = "codom")
    
-   
    fsnps_gen@pop <- as.factor(file$Pop)
    
-   return(fsnps_gen)
+   if (isTRUE(to_str)){
+      return(list(fsnps_gen = fsnps_gen, 
+                  new_file = file2))
+   } else {
+      return(fsnps_gen)
+   }
 }
 
 #============================

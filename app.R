@@ -121,7 +121,8 @@ ui <- dashboardPage(
                                       condition = "input.inputType1 == 'vcf1'",
                                       fileInput("VCFFile", "Upload VCF File", accept = c(".vcf", ".zip", ".tar")),
                                       radioButtons("inputType2_vcf", "Choose final file type",
-                                                   choices = c("PLINK files (.psam/.pvar/.pgen)" = "plink2",
+                                                   choices = c("PLINK2 files (.psam/.pvar/.pgen)" = "plink2",
+                                                               "PLINK1.9 files (.bed/.bim/.fam)" = "plink1",
                                                                "CSV file" = "csv2")),
                                       
                                       conditionalPanel(
@@ -156,7 +157,8 @@ ui <- dashboardPage(
                                       fileInput("BCFFile", "Upload BCF File", accept = c(".bcf", ".zip", ".tar")),
                                       radioButtons("inputType2_bcf", "Choose final file type",
                                                    choices = c("VCF file" = "vcf2",
-                                                               "PLINK files (.psam/.pvar/.pgen)" = "plink2",
+                                                               "PLINK2 files (.psam/.pvar/.pgen)" = "plink2",
+                                                               "PLINK1.9 files (.bed/.bim/.fam)" = "plink1",
                                                                "CSV file" = "csv2")),
                                       
                                       conditionalPanel(
@@ -192,7 +194,9 @@ ui <- dashboardPage(
                                       fileInput("famFile", "Upload FAM File", accept = c(".fam")),
                                       radioButtons("inputType2_plink", "Choose final file type",
                                                    choices = c("VCF file" = "vcf2",
-                                                               "CSV file" = "csv2")),
+                                                               "CSV file" = "csv2",
+                                                               "PLINK2 files (.psam/.pvar/.pgen)" = "plink2"
+                                                               )),
                                       
                                       conditionalPanel(
                                          condition = "input.inputType2_plink == 'csv2'",
@@ -1876,7 +1880,7 @@ server <- function(input, output, session){
             }
          }
          
-         if (outputType == "plink2") {
+         if (outputType %in% c("plink2", "plink1")) {
             convertedPLINK(result)
          }
          }
@@ -1908,7 +1912,13 @@ server <- function(input, output, session){
       )
       
       output$downloadConvertedPLINK <- downloadHandler(
-         filename = function() { "plink2_files.zip" },
+         filename = function(){
+            if (output_type(input) == "plink1"){
+               "plink1_files.zip"
+            } else {
+               "plink2_files.zip"
+            }
+         },
          content = function(file) {
             req(convertedPLINK())
             file.copy(convertedPLINK(), file)
@@ -2180,7 +2190,7 @@ server <- function(input, output, session){
          tryCatch({
             req(input$tostrFile$datapath, input$systemFile)
             csv_file <- load_csv_xlsx_files(input$tostrFile$datapath)
-            genind <- convert_to_genind_str(csv_file)
+            genind <- convert_to_genind(csv_file, to_str = TRUE)
             csv_revised(genind$new_file)
             strconvert(genind$fsnps_gen)
             directory <- tempdir()
@@ -3270,7 +3280,7 @@ server <- function(input, output, session){
       req(input$popStatsFile)
       df <- load_csv_xlsx_files(input$popStatsFile$datapath)
       cleaned <- clean_input_data(df)
-      convert_to_genind(cleaned)
+      convert_to_genind(cleaned, to_str = FALSE)
    })
    
    observeEvent(input$runPopStats, {
@@ -3547,7 +3557,7 @@ server <- function(input, output, session){
       
       if (data_type == "gts") {
          file <- clean_input_data(snpsFile())
-         file <- convert_to_genind(file)
+         file <- convert_to_genind(file, to_str = FALSE)
          computed_af <- compute_af(file)
          pop <- nrow(file)
       } else if (data_type == "freqs") {
@@ -3710,7 +3720,7 @@ server <- function(input, output, session){
             incProgress(0.2, detail = "Loading input file...")
             df <- load_csv_xlsx_files(input$pcaFile$datapath)
             cleaned <- clean_input_data(df)
-            fsnps_gen <- convert_to_genind(cleaned)
+            fsnps_gen <- convert_to_genind(cleaned, to_str = FALSE)
             
             incProgress(0.4, detail = "Preparing color and label sets...")
             
