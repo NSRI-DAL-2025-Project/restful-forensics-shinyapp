@@ -1,2023 +1,2184 @@
 source("global.R")
 source("functions.R")
 
-#===========================
-# UNPACK COMPRESSED FILES
-# Dependencies: tools, utils, zip
-#===========================
+#' Unpack compressed files
+#' 
+#' @param files the filepath of the zipped file
+#' @param output.dir the directory to save the unpacked files
+#' @returns file path of the directory where files are unpacked and the list of actual files
+#' 
+#' @importFrom utils unzip
+#' @importFrom tools file_ext
+#' 
+#' @export
+#' @examples
+#' unpack_input_file('my_zipped_file.zip', output.dir = "./unpacked")
 
-unpack_input_file <- function(files, output.dir = output.dir){
-   if(!file.exists(files)){
-      stop("File does not exist in the working directory")
-   } else {
-      if(tools::file_ext(files) == "zip"){
-         utils::unzip(files, 
-                      files = NULL, 
-                      list = FALSE, 
-                      overwrite = TRUE, 
-                      exdir = file.path(output.dir, "unpacked"))
-         
-         data_path <- file.path(output.dir, "unpacked")
-         data_files <- list.files(path = data_path, full.names = TRUE)
-      } else if(tools::file_ext(files) == "tar"){ 
-         
-         untar(files, files = NULL, list = FALSE, exdir = file.path(output.dir, "unpacked"))
-         
-         new <- list.files(path = file.path(output.dir, "unpacked"), recursive = TRUE, full.names = TRUE)
-         file.copy(from = new, to = file.path(output.dir, "unpacked"), overwrite = TRUE)
-         
-         data_path <- file.path(output.dir, "unpacked")
-         data_files <- list.files(path = data_path, full.names = TRUE)
-      } else {
-         stop("Not a zipped file. Accepted are zipped (.zip) and tar (.tar) files")
-      }
-      return(list(data_path = data_path, data_files = data_files))
-   }
+unpack_input_file <- function(files, output.dir = output.dir) {
+  if (!file.exists(files)) {
+    stop("File does not exist in the working directory")
+  } else {
+    if (tools::file_ext(files) == "zip") {
+      utils::unzip(files,
+        files = NULL,
+        list = FALSE,
+        overwrite = TRUE,
+        exdir = file.path(output.dir, "unpacked")
+      )
+
+      data_path <- file.path(output.dir, "unpacked")
+      data_files <- list.files(path = data_path, full.names = TRUE)
+    } else if (tools::file_ext(files) == "tar") {
+      untar(files, files = NULL, list = FALSE, exdir = file.path(output.dir, "unpacked"))
+
+      new <- list.files(path = file.path(output.dir, "unpacked"), recursive = TRUE, full.names = TRUE)
+      file.copy(from = new, to = file.path(output.dir, "unpacked"), overwrite = TRUE)
+
+      data_path <- file.path(output.dir, "unpacked")
+      data_files <- list.files(path = data_path, full.names = TRUE)
+    } else {
+      stop("Not a zipped file. Accepted are zipped (.zip) and tar (.tar) files")
+    }
+    return(list(data_path = data_path, data_files = data_files))
+  }
 }
 
-#============================
-# Convert files to PLINK
-# Description: Returns file path containing plink files
-# Dependencies: tools
-#============================
+#' Convert files to PLINK2.0 files
+#' 
+#' @param input.file the filepath of the dataset (either VCF, VCF.GZ, BCF, or PLINK1.9 files)
+#' @param original_name the filename of the input file, NULL if PLINK files
+#' @param isplink indicates whether input file/s are PLINK files
+#' @param plink_path file path of the PLINK 2.0 executable
+#' @param name output file prefix
+#' @param output_chr chromosome formatting for output files based on PLINK2.0. Default is '26' indicating numeric codes.
+#' @returns prefix of PLINK2.0 files
+#' 
+#' @export
+#' @examples
+#' converted_to_plink2('my_vcf.vcf', original_name = "my_vcf", isplink = FALSE, plink_path = "./plink2/plink2.exe, name = "converted_file", output_chr = "26")
+#' converted_to_plink2('my_vcf.vcf', original_name = "my_vcf", isplink = FALSE, plink_path = "./plink2/plink2.exe, name = "converted_file", output_chr = "MT")
+
 converted_to_plink2 <- function(input.file,
                                 original_name = NULL,
-                                isplink = FALSE, 
-                                plink_path = plink2_path, 
+                                isplink = FALSE,
+                                plink_path = plink2_path,
                                 name = "converted_to_plink2",
-                                output_chr = "26"){
-   
-   check_name <- if (is.null(original_name)) {
-      input.file
-   } else {
-      original_name
-   }
-   
-   is_vcf <- grepl("\\.vcf(\\.gz)?$", check_name, ignore.case = TRUE)
-   is_bcf <- grepl("\\.bcf$", check_name, ignore.case = TRUE)
-   
-   if (isplink == TRUE) {
-      args <- c(
-         "--bfile", input.file, 
-         "--make-pgen",
-         "--output-chr", output_chr,
-         "--out", name
-      )
-   } else if (is_vcf || is_bcf) {
-      
-      input_flag <- if (is_bcf) "--bcf" else "--vcf"
-      args <- c(
-         input_flag, input.file,
-         "--make-pgen",
-         "--output-chr", output_chr,
-         "--out", name
-      )
-      
-   } else {
-      stop("Unsupported file type. Please provide a VCF, VCF.GZ, or BCF.")
-   }
-   
-   res <- system2(plink_path, args = args, stdout = TRUE, stderr = TRUE)
-   return(name)
+                                output_chr = "26") {
+  check_name <- if (is.null(original_name)) {
+    input.file
+  } else {
+    original_name
+  }
+
+  is_vcf <- grepl("\\.vcf(\\.gz)?$", check_name, ignore.case = TRUE)
+  is_bcf <- grepl("\\.bcf$", check_name, ignore.case = TRUE)
+
+  if (isplink == TRUE) {
+    args <- c(
+      "--bfile", input.file,
+      "--make-pgen",
+      "--output-chr", output_chr,
+      "--out", name
+    )
+  } else if (is_vcf || is_bcf) {
+    input_flag <- if (is_bcf) "--bcf" else "--vcf"
+    args <- c(
+      input_flag, input.file,
+      "--make-pgen",
+      "--output-chr", output_chr,
+      "--out", name
+    )
+  } else {
+    stop("Unsupported file type. Please provide a VCF, VCF.GZ, or BCF.")
+  }
+
+  res <- system2(plink_path, args = args, stdout = TRUE, stderr = TRUE)
+  return(name)
 }
 
-#=========== Merge zipped files
-prepare_input_dataset_archive <- function(input_file, output.dir, plink2_path){
-   unpacked <- unpack_input_file(input_file, output.dir)
-   files <- unpacked$data_files
-   
-   work_dir <- file.path(output.dir, "for_processing")
-   dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
-   merge_list_path <- file.path(work_dir, "merge_list.txt")
-   prefixes <- c()
-   
-   bed_files <- files[grepl("\\.bed", files, ignore.case = TRUE)]
-   plink_prefixes <- tools::file_path_sans_ext(bed_files)
-   
-   for (pref in plink_prefixes){
-      out_pref <- file.path(work_dir, paste0(basename(pref), "_p2"))
-      
-      converted <- converted_to_plink2(
-         input.file = pref,
-         original_name = NULL,
-         isplink = TRUE,
-         plink_path = plink2_path,
-         name = out_pref
-      )
-   }
-   
-   vcf_bcf_files <- files[grepl("\\.(vcf(\\.gz)?|bcf)$", files, ignore.case =  TRUE)]
-   
-   for (f in vcf_bcf_files){
-      base <- tools::file_path_sans_ext(basename(f))
-      out_pref <- file.path(work_dir, paste0(base, "_p2"))
-      converted <- converted_to_plink2(
-         input.file = f,
-         isplink = FALSE,
-         plink_path = plink2_path,
-         name = out_pref
-      )
-      prefixes <- c(prefixes, converted)
-   } 
-   
-   if (length(prefixes) == 0){
-      stop("No valid files in the directory.")
-   }
-   
-   writeLines(prefixes, con = merge_list_path)
-   merged_prefix <- file.path(work_dir, "merged_dataset")
-   
-   merge_plink2_files(
-      plink2_path = plink2_path,
-      merge_list = merge_list_path,
-      output_prefix = merged_prefix
-   )
-   return(list(pgen_prefix = merged_prefix))
+#' Convert zipped files to PLINK2.0 files
+#' 
+#' @param input_file the filepath of the zipped file
+#' @param output.dir the directory to save the unpacked files
+#' @param plink_path file path of the PLINK 2.0 executable
+#' @returns prefix of the merged dataset
+#' 
+#' @export
+#' @examples
+#' prepare_input_dataset_archive('my_zipped_file.zip', output.dir = "./unpacked", plink2_path = "./plink2/plink2.exe")
+#' 
+prepare_input_dataset_archive <- function(input_file, output.dir, plink2_path) {
+  unpacked <- unpack_input_file(input_file, output.dir)
+  files <- unpacked$data_files
+
+  work_dir <- file.path(output.dir, "for_processing")
+  dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
+  merge_list_path <- file.path(work_dir, "merge_list.txt")
+  prefixes <- c()
+
+  bed_files <- files[grepl("\\.bed", files, ignore.case = TRUE)]
+  plink_prefixes <- tools::file_path_sans_ext(bed_files)
+
+  for (pref in plink_prefixes) {
+    out_pref <- file.path(work_dir, paste0(basename(pref), "_p2"))
+
+    converted <- converted_to_plink2(
+      input.file = pref,
+      original_name = NULL,
+      isplink = TRUE,
+      plink_path = plink2_path,
+      name = out_pref
+    )
+  }
+
+  vcf_bcf_files <- files[grepl("\\.(vcf(\\.gz)?|bcf)$", files, ignore.case = TRUE)]
+
+  for (f in vcf_bcf_files) {
+    base <- tools::file_path_sans_ext(basename(f))
+    out_pref <- file.path(work_dir, paste0(base, "_p2"))
+    converted <- converted_to_plink2(
+      input.file = f,
+      isplink = FALSE,
+      plink_path = plink2_path,
+      name = out_pref
+    )
+    prefixes <- c(prefixes, converted)
+  }
+
+  if (length(prefixes) == 0) {
+    stop("No valid files in the directory.")
+  }
+
+  writeLines(prefixes, con = merge_list_path)
+  merged_prefix <- file.path(work_dir, "merged_dataset")
+
+  merge_plink2_files(
+    plink2_path = plink2_path,
+    merge_list = merge_list_path,
+    output_prefix = merged_prefix
+  )
+  return(list(pgen_prefix = merged_prefix))
 }
+
+#' Handle file conversion to PLINK
+#' 
+#' @param input_file the filepath of the zipped or single file
+#' @param output.dir the directory to save the unpacked and merged files
+#' @param plink2_path file path of the PLINK 2.0 executable
+#' @returns prefix of the converted dataset
+#'
+#' @importFrom tools file_ext
+#' 
+#' @export
+#' @examples
+#' prepare_input_dataset('my_zipped_file.zip', output.dir = "./unpacked", plink2_path = "./plink2/plink2.exe")
 
 prepare_input_dataset <- function(input_file,
                                   output.dir,
                                   plink2_path) {
-   
-   ext <- tools::file_ext(input_file)
-   is_archive <- ext %in% c("zip", "tar")
-   
-   if (!is_archive) {
-      prefix <- file.path(output.dir, "single_input")
-      
-      converted <- converted_to_plink2(
-         input.file = input_file,
-         original_name = NULL,
-         plink_path = plink2_path,
-         name = prefix
-      )
-      
-      return(list(
-         prefix = converted
-      ))
-   }
-   
-   res <- prepare_input_dataset_archive(
-      input_file,
-      output.dir,
-      plink2_path
-   )
-   
-   return(list(
-      prefix = res$pgen_prefix
-   ))
+  ext <- tools::file_ext(input_file)
+  is_archive <- ext %in% c("zip", "tar")
+
+  if (!is_archive) {
+    prefix <- file.path(output.dir, "single_input")
+
+    converted <- converted_to_plink2(
+      input.file = input_file,
+      original_name = NULL,
+      plink_path = plink2_path,
+      name = prefix
+    )
+
+    return(list(
+      prefix = converted
+    ))
+  }
+
+  res <- prepare_input_dataset_archive(
+    input_file,
+    output.dir,
+    plink2_path
+  )
+
+  return(list(
+    prefix = res$pgen_prefix
+  ))
 }
 
-#============================
-# Convert PLINK to other files
-#============================
+#' Convert PLINK 1.9 files to other formats
+#' 
+#' @param prefix the prefix of the PLINK files
+#' @param output_type the desired output file type
+#' @param output.dir the directory to save file
+#' @param plink2_path file path of the PLINK 2.0 executable
+#' @param ref the population metadata of samples. Required only if output_type is CSV
+#' @returns file path of the output
+#'
+#' @importFrom zip zipr
+#' 
+#' @export
+#' @examples
+#' convert_from_plink2(prefix = "my_plink_files", output_type = "vcf2", output.dir = "./unpacked", plink2_path = "./plink2/plink2.exe")
+
 convert_from_plink2 <- function(prefix,
                                 output_type,
                                 output.dir,
                                 plink2_path,
-                                bcftools_path = NULL,
-                                ref = NULL,
-                                fasta_ref = NULL) {
-   
-   out_prefix <- file.path(output.dir, "converted")
-   
-   if (output_type == "vcf2") {
-      system2(plink2_path, args = c(
-         "--pfile", prefix,
-         "--recode", "vcf",
-         "--out", out_prefix
-      ))
-      return(paste0(out_prefix, ".vcf"))
-   }
-   
-   if (output_type == "plink2") {
-      files <- list.files(
-         path = dirname(out_prefix),
-         pattern = paste0("^", basename(out_prefix), "\\."),
-         full.names = TRUE
-      )
-      zip_path <- paste0(out_prefix, ".zip")
-      zip::zipr(zipfile = zip_path, files = files)
-      
-      return(zip_path)
-   }
-   
-   if (output_type == "plink1"){
-      system2(plink2_path, args = c(
-         "--pfile", prefix,
-         "--make-bed",
-         "--out", out_prefix
-      ))
-      
-      files <- list.files(
-         path = dirname(out_prefix),
-         pattern = paste0("^", basename(out_prefix), "\\."),
-         full.names = TRUE
-      )
-      
-      zip_path <- paste0(out_prefix, "_plink.zip")
-      zip::zipr(zipfile = zip_path, files = files)
-      return(zip_path)
-   }
-   
-   if (output_type == "csv2") {
-      vcf_file <- convert_from_plink2(prefix, "vcf2", output.dir, plink2_path)
-      
-      csv <- vcf_to_csv(
-         vcf_file,
-         ref = ref,
-         output.dir = output.dir
-      )
-      return(csv)
-   }
-   
-   if (output_type == "fasta") {
-      vcf_file <- convert_from_plink2(prefix, "vcf2", output.dir, plink2_path)
-      fasta <- vcf_to_fasta(
-         vcf_file,
-         fasta_ref,
-         bcftools_path = bcftools_path,
-         output.dir = output.dir
-      )
-      
-      return(fasta)
-   }
+                                ref = NULL) {
+  out_prefix <- file.path(output.dir, "converted")
+
+  if (output_type == "vcf2") {
+    system2(plink2_path, args = c(
+      "--pfile", prefix,
+      "--recode", "vcf",
+      "--out", out_prefix
+    ))
+    return(paste0(out_prefix, ".vcf"))
+  }
+
+  if (output_type == "plink2") {
+    files <- list.files(
+      path = dirname(out_prefix),
+      pattern = paste0("^", basename(out_prefix), "\\."),
+      full.names = TRUE
+    )
+    zip_path <- paste0(out_prefix, ".zip")
+    zip::zipr(zipfile = zip_path, files = files)
+
+    return(zip_path)
+  }
+
+  if (output_type == "plink1") {
+    system2(plink2_path, args = c(
+      "--pfile", prefix,
+      "--make-bed",
+      "--out", out_prefix
+    ))
+
+    files <- list.files(
+      path = dirname(out_prefix),
+      pattern = paste0("^", basename(out_prefix), "\\."),
+      full.names = TRUE
+    )
+
+    zip_path <- paste0(out_prefix, "_plink.zip")
+    zip::zipr(zipfile = zip_path, files = files)
+    return(zip_path)
+  }
+
+  if (output_type == "csv2") {
+    vcf_file <- convert_from_plink2(prefix, "vcf2", output.dir, plink2_path)
+
+    csv <- vcf_to_csv(
+      vcf_file,
+      ref = ref,
+      output.dir = output.dir
+    )
+    return(csv)
+  }
 }
 
-merge_plink2_files <- function(plink2_path, merge_list, output_prefix){
-   args <- c(
-      "--pmerge-list", merge_list,
-      "--make-pgen",
-      "--out", output_prefix
-   )
-   system2(plink2_path, args = args)
-   return(output_prefix)
+#' Merge PLINK2.0 files
+#' 
+#' @param merge_list the list of PLINK 2.0 files
+#' @param output_prefix the prefix of the output (expected to be PLINK2.0)
+#' @param plink2_path file path of the PLINK 2.0 executable
+#' @returns file path of the output
+#' 
+#' @export
+#' @examples
+#' merge_plink2_files(merge_list = "plink_files.txt", output_prefix = "mergedFile", plink2_path = "./plink2/plink2.exe")
+
+merge_plink2_files <- function(plink2_path, merge_list, output_prefix) {
+  args <- c(
+    "--pmerge-list", merge_list,
+    "--make-pgen",
+    "--out", output_prefix
+  )
+  system2(plink2_path, args = args)
+  return(output_prefix)
 }
 
+#' Read VCF file and convert to DF object
+#' 
+#' @param vcf the VCF file path
+#' @param output.dir the directory to save the unpacked and merged files
+#' @returns genotype dataframe with sample ID
+#'
+#' @importFrom tools file_ext
+#' @importFrom utils untar
+#' @importFrom janitor row_to_names
+#' @importFrom tibble rownames_to_column
+#' @importFrom vcfR read.vcfR extract.gt getFIX
+#' 
+#' @export
+#' @examples
+#' load_vcf_files('my_file.vcf')
 
-#============================
-# Load VCF/VCF.GZ
-# Description: Generates a dataframe with markers as columns
-# Dependencies: tools, vcfR, janitor, tibble, utils, dplyr
-#============================
-load_vcf_files <- function(vcf, output.dir = NULL){
+load_vcf_files <- function(vcf, output.dir = NULL) {
+  if (tools::file_ext(vcf) == "vcf") {
+    vcf_object <- vcfR::read.vcfR(vcf, verbose = FALSE)
+    genotypes <- vcfR::extract.gt(vcf_object, return.alleles = TRUE)
+    columns <- as.data.frame(vcfR::getFIX(vcf_object))
+    ID <- columns$ID
+    raw_df <- data.frame(ID, genotypes)
 
-   if (tools::file_ext(vcf) == "vcf") {
-      vcf_object <- vcfR::read.vcfR(vcf, verbose = FALSE)
-      genotypes <- vcfR::extract.gt(vcf_object, return.alleles = TRUE)
-      columns <- as.data.frame(vcfR::getFIX(vcf_object))
+    final_df <- data.frame(t(raw_df)) %>%
+      janitor::row_to_names(row_number = 1) %>%
+      tibble::rownames_to_column(var = "Sample")
+  } else if (tools::file_ext(vcf) == ".gz") {
+    utils::untar(vcf, exdir = output.dir)
+
+    wb <- list.files(path = file.path(output.dir), pattern = ".vcf$", full.names = TRUE)
+    dflist <- lapply(wb, function(x) {
+      vcf_obj <- vcfR::read.vcfR(x, verbose = FALSE)
+      genotypes <- vcfR::extract.gt(vcf_obj, return.alleles = TRUE)
+      columns <- as.data.frame(vcfR::getFIX(vcf_obj))
       ID <- columns$ID
-      raw_df <- data.frame(ID, genotypes)
-      
-      final_df <- data.frame(t(raw_df)) %>%
-         janitor::row_to_names(row_number = 1) %>%
-         tibble::rownames_to_column(var = "Sample")
-      
-   } else if (tools::file_ext(vcf) == ".gz") {
-      utils::untar(vcf, exdir = output.dir)
-      
-      wb <- list.files(path = file.path(output.dir), pattern = ".vcf$", full.names = TRUE)
-      dflist <- lapply(wb, function(x) {
-         vcf_obj <- vcfR::read.vcfR(x, verbose = FALSE)
-         genotypes <- vcfR::extract.gt(vcf_obj, return.alleles = TRUE)
-         columns <- as.data.frame(vcfR::getFIX(vcf_obj))
-         ID <- columns$ID
-         temp_df <- data.frame(ID, genotypes)
-         
-         data.frame(t(temp_df)) %>%
-            janitor::row_to_names(row_number = 1) %>%
-            tibble::rownames_to_column(var = "Sample")
-      })
-      
-      final_df <- dplyr::bind_rows(dflist, .id = "source", .fill = TRUE)
-      
-   } else {
-      stop("Unsupported file type for VCF input.")
-   }
-   return(final_df)
+      temp_df <- data.frame(ID, genotypes)
+
+      data.frame(t(temp_df)) %>%
+        janitor::row_to_names(row_number = 1) %>%
+        tibble::rownames_to_column(var = "Sample")
+    })
+
+    final_df <- dplyr::bind_rows(dflist, .id = "source", .fill = TRUE)
+  } else {
+    stop("Unsupported file type for VCF input.")
+  }
+  return(final_df)
 }
 
-#============================
-# Load XLSX/CSV/TXT files
-# Description: Generates a dataframe from XLSX/CSV/TXT files
-# Dependencies: tools, readr, readxl
-#============================
+#' Read CSV/XLSX/TXT files
+#' 
+#' @param input file path of input
+#' @returns dataframe
+#'
+#' @importFrom tools file_ext
+#' @importFrom readr read_csv
+#' @importFrom readxl read_excel
+#' 
+#' @export
+#' @examples
+#' load_csv_xlsx_files('my_text_file.csv')
+
 load_csv_xlsx_files <- function(input) {
-   if (tools::file_ext(input) == "csv") {
-      return(readr::read_csv(input))
-   } else if (tools::file_ext(input) == "xlsx") {
-      return(readxl::read_excel(input))
-   } else if (tools::file_ext(input) == "txt") {
-      return(read.table(input, quote="\"", comment.char=""))
-   } else {
-      stop("Input file should be in csv, txt, or xlsx format.")
-   }
+  if (tools::file_ext(input) == "csv") {
+    return(readr::read_csv(input))
+  } else if (tools::file_ext(input) == "xlsx") {
+    return(readxl::read_excel(input))
+  } else if (tools::file_ext(input) == "txt") {
+    return(read.table(input, quote = "\"", comment.char = ""))
+  } else {
+    stop("Input file should be in csv, txt, or xlsx format.")
+  }
 }
 
-#============================
-# VCF FILE CONVERSION TO CSV
-# 
-# Description: Function converts VCF and/or VCF.GZ to CSV files containing
-# sample names in the first column and marker information (A/T) in succeeding cols
-# and merges it with population metadata (Superpopulation/Continental level).
-#
-# Dependencies: dplyr, tools
-#============================
+#' Convert VCF to CSV
+#' 
+#' @param files file path of input
+#' @param ref (optional) reference file containing metadata of samples
+#' @param output.dir (optional) output directory to save input files if zipped
+#' @returns dataframe
+#'
+#' @importFrom tools file_ext
+#' @importFrom dplyr rename left_join
+#' @importFrom readxl read_excel
+#' 
+#' @export
+#' @examples
+#' vcf_to_csv('extracted_markers.vcf', ref = "reference_file.xlsx")
 
 vcf_to_csv <- function(files, ref = NULL, output.dir = NULL) {
-   extension <- tools::file_ext(files)
-   
-   if (extension %in% c("vcf", "gz")){
-      raw_file <- load_vcf_files(files, output.dir = output.dir)
-      raw_file <- dplyr::rename(raw_file, Sample = 1)
-   } else {
-      stop("Input is not a VCF file.")
-   } 
-   
-   final_df <- raw_file
-   
-   if (is.null(ref) || ref == "") stop("Reference should be provided")
-   
-   if (file.exists(ref)) {
-      ref_data <- load_csv_xlsx_files(ref)
-      ref_data <- dplyr::rename(ref_data, Sample = 1, Population = 2)
-      ref_data <- ref_data[,1:2]
-      final_df <- dplyr::left_join(raw_file, ref_data, by = "Sample")
-   } else if (is.character(ref)) {
-      final_df$Population <- ref
-   } else {
-      stop("Invalid reference input: must be a file path or string.")
-   }
-   
-   # solution to the pop and sample organization (06 August 2025)
-   sample <- final_df[,1]
-   nosample <- final_df[,-1]
-   data_cols <- ncol(nosample) - 1 
-   total_cols <- as.integer(ncol(final_df))
-   data_gt <- final_df[, 2:data_cols]
-   pop <- final_df[,total_cols]
-   final_df <- bind_cols(sample, pop, data_gt)
-   final_df <- dplyr::rename(final_df, Sample = 1, Population = 2)
-   
-   return(final_df)
+  extension <- tools::file_ext(files)
+
+  if (extension %in% c("vcf", "gz")) {
+    raw_file <- load_vcf_files(files, output.dir = output.dir)
+    raw_file <- dplyr::rename(raw_file, Sample = 1)
+  } else {
+    stop("Input is not a VCF file.")
+  }
+
+  final_df <- raw_file
+
+  if (is.null(ref) || ref == "") stop("Reference should be provided")
+
+  if (file.exists(ref)) {
+    ref_data <- load_csv_xlsx_files(ref)
+    ref_data <- dplyr::rename(ref_data, Sample = 1, Population = 2)
+    ref_data <- ref_data[, 1:2]
+    final_df <- dplyr::left_join(raw_file, ref_data, by = "Sample")
+  } else if (is.character(ref)) {
+    final_df$Population <- ref
+  } else {
+    stop("Invalid reference input: must be a file path or string.")
+  }
+
+  # solution to the pop and sample organization (06 August 2025)
+  sample <- final_df[, 1]
+  nosample <- final_df[, -1]
+  data_cols <- ncol(nosample) - 1
+  total_cols <- as.integer(ncol(final_df))
+  data_gt <- final_df[, 2:data_cols]
+  pop <- final_df[, total_cols]
+  final_df <- bind_cols(sample, pop, data_gt)
+  final_df <- dplyr::rename(final_df, Sample = 1, Population = 2)
+
+  return(final_df)
 }
 
-#============================
-# Calculate population breakdown 
-# Description: Generate a tally of individuals per population
-# Dependencies: dplyr
-#============================
-pop_breakdown <- function(file, column){
-   
-   col_name <- as.character(column)
-   file <- file %>%
-      rename(Sample = 1, Pop = col_name)
-   
-   for_breakdown <- data.frame(file$Sample, file$Pop)
-   for_breakdown <- for_breakdown %>%
-      rename(Sample = 1, Population = 2)
-   
-   total <- for_breakdown %>%
-      unique() %>%
-      group_by(Population) %>%
-      summarize(Total = n())
-   
-   return(total)
+
+#' Calculate the population breakdown of samples
+#' 
+#' @param file input as dataframe
+#' @param column (string) the basis for grouping samples, it should exist as a column in the dataframe
+#' @returns dataframe of tally count
+#' 
+#' @export
+#' @examples
+#' pop_breakdown(info_with_meta, column = "Population")
+
+pop_breakdown <- function(file, column) {
+  col_name <- as.character(column)
+  file <- file %>%
+    rename(Sample = 1, Pop = col_name)
+
+  for_breakdown <- data.frame(file$Sample, file$Pop)
+  for_breakdown <- for_breakdown %>%
+    rename(Sample = 1, Population = 2)
+
+  total <- for_breakdown %>%
+    unique() %>%
+    group_by(Population) %>%
+    summarize(Total = n())
+
+  return(total)
 }
 
-#============================
-# Convert to GT calls
-# Description: Generate genotype calls from REF/ALT VCF info
-# marker.file requires txt/csv [1] rsID [2] REF [3] ALT
-# Dependencies: dplyr, tidyselect
-#============================
-to_binary <- function(df, markers = marker.file){ 
-   df <- as.data.frame(df)
-   rownames(df) <- paste(df[,1], "id", sep = "_")
-   data <- df[,-c(1,2)]
-   data <- data.frame(t(data))
-   row_name <- data.frame(rownames(data))
-   data <- lapply(data, function(x) gsub("/", "", x, fixed = TRUE))
-   data <- as.data.frame(data)
-   revised_data <- data.frame(row_name, data)
-   revised_data <- dplyr::rename(revised_data, ID = 1)
-   
-   marker <- as.data.frame(markers)
-   marker <- marker[,-c(2,3,4)]
-   marker <- marker[,1:3]
-   marker <- marker %>% mutate(across(tidyselect::everything(), ~ case_when(
-      . == "A" ~ "AA",
-      . == "T" ~ "TT",
-      . == "C" ~ "CC",
-      . == "G" ~ "GG",
-      TRUE ~ .x)))
-   marker <- dplyr::rename(marker, ID = 1, REF = 2, ALT = 3)
-   
-   df_marker <- merge(marker, revised_data, by = "ID", all.x = TRUE)
-   df_marker <- df_marker %>%
-      mutate(across(ends_with("_id"),
-                    ~ case_when(.x == df_marker$REF ~ 0,
-                                .x == df_marker$ALT ~ 2)))
-   
-   df_marker[is.na(df_marker)] <- 1
-   final_df <- df_marker[,-c(1,2,3)]
-   final_df <- data.frame(t(final_df))
-   return(final_df)
+
+#' Convert SNP genotypes to dosages
+#' 
+#' @param df dataframe of SNP calls
+#' @param markers reference file containing metadata of samples with information on [1] rsID [2] REF [3] ALT
+#' @returns dataframe of dosages per marker and samples
+#'
+#' @importFrom dplyr rename
+#' @importFrom tidyselect everything
+#' 
+#' @export
+#' @examples
+#' to_binary(snp_calls, markers = marker_list)
+
+to_binary <- function(df, markers = marker.file) {
+  df <- as.data.frame(df)
+  rownames(df) <- paste(df[, 1], "id", sep = "_")
+  data <- df[, -c(1, 2)]
+  data <- data.frame(t(data))
+  row_name <- data.frame(rownames(data))
+  data <- lapply(data, function(x) gsub("/", "", x, fixed = TRUE))
+  data <- as.data.frame(data)
+  revised_data <- data.frame(row_name, data)
+  revised_data <- dplyr::rename(revised_data, ID = 1)
+
+  marker <- as.data.frame(markers)
+  marker <- marker[, -c(2, 3, 4)]
+  marker <- marker[, 1:3]
+  marker <- marker %>% mutate(across(tidyselect::everything(), ~ case_when(
+    . == "A" ~ "AA",
+    . == "T" ~ "TT",
+    . == "C" ~ "CC",
+    . == "G" ~ "GG",
+    TRUE ~ .x
+  )))
+  marker <- dplyr::rename(marker, ID = 1, REF = 2, ALT = 3)
+
+  df_marker <- merge(marker, revised_data, by = "ID", all.x = TRUE)
+  df_marker <- df_marker %>%
+    mutate(across(
+      ends_with("_id"),
+      ~ case_when(
+        .x == df_marker$REF ~ 0,
+        .x == df_marker$ALT ~ 2
+      )
+    ))
+
+  df_marker[is.na(df_marker)] <- 1
+  final_df <- df_marker[, -c(1, 2, 3)]
+  final_df <- data.frame(t(final_df))
+  return(final_df)
 }
 
-#============================
-# File to gen_tibble object
-# Description: Convert a CSV/XLSX/TXT file to gen_tibble
-# Dependencies: dplyr, tidypopgen
-#============================
-csv_to_gentibble <- function(file, loci.meta = loci.meta){
-   df <- load_csv_xlsx_files(file)
-   meta <- df[,1:2]
-   meta <-  dplyr::rename(meta, id = 1, population = 2)
-   
-   loci_meta <- load_csv_xlsx_files(loci.meta)
-   loci_meta <-  dplyr::rename(loci_meta, 
-                               name = 1, 
-                               chromosome = 2, 
-                               position = 3, 
-                               genetic_dist = 4, 
-                               allele_ref = 5, 
-                               allele_alt = 6
-                               )
-   
-   geno <- to_binary(df, markers = loci_meta)
-   geno <- as.matrix(geno)
-   
-   gentibble <- tidypopgen::gen_tibble(
-      x = geno,
-      loci = loci_meta,
-      indiv_meta = meta,
-      valid_alleles = c("A", "T", "C", "G"),
-      quiet = TRUE
-   )
-   
-   return(gentibble)
+
+#' Convert file to gen_tibble object
+#' 
+#' @param file dataframe of SNP calls
+#' @param loci.meta reference file containing metadata of markers with rsID, chr, pos, genetic distance, ref allele, and alt allele information.
+#' @returns gentibble object
+#'
+#' @importFrom dplyr rename
+#' @importFrom tidypopgen gen_tibble
+#' 
+#' @export
+#' @examples
+#' csv_to_gentibble('snp_calls.csv', loci.meta = "markers_meta.xlsx")
+
+csv_to_gentibble <- function(file, loci.meta = loci.meta) {
+  df <- load_csv_xlsx_files(file)
+  meta <- df[, 1:2]
+  meta <- dplyr::rename(meta, id = 1, population = 2)
+
+  loci_meta <- load_csv_xlsx_files(loci.meta)
+  loci_meta <- dplyr::rename(loci_meta,
+    name = 1,
+    chromosome = 2,
+    position = 3,
+    genetic_dist = 4,
+    allele_ref = 5,
+    allele_alt = 6
+  )
+
+  geno <- to_binary(df, markers = loci_meta)
+  geno <- as.matrix(geno)
+
+  gentibble <- tidypopgen::gen_tibble(
+    x = geno,
+    loci = loci_meta,
+    indiv_meta = meta,
+    valid_alleles = c("A", "T", "C", "G"),
+    quiet = TRUE
+  )
+
+  return(gentibble)
 }
 
-#============================
-# Widen long genotype file
-# Dependencies: dplyr, purrr, readxl, stats, tidyr
-#============================
-widen_genotype_file <- function(files = files, 
-                                population = pop_file, 
-                                reference = FALSE, 
-                                output.dir = output.dir){
-   if (!file.exists(files)){
-      stop("File does not exist in the working directory")
-   } else {
-      files_raw <- unpack_input_file(files, output.dir = output.dir)
-   }
-   
-   data_list <- files_raw$data_files
-   all.list <- list()
-   
-   for (x in data_list) {
-      all.list[[x]] = readxl::read_excel(x,
-                                         sheet = 1,
-                                         col_names = TRUE,
-                                         row.names(data_files))}
-   
-   new_colnames <- c("Sample", "ID", "Allele")
-   dflist_new <- lapply(all.list, setNames, new_colnames)
-   
-   dflist_corrected <- lapply(
-      dflist_new, 
-      function(x){ 
-         stats::aggregate(Allele ~ Sample + ID, x, paste, collapse = "/")
-      })
-   
-   df_list <- purrr::map(dflist_corrected, ~(tidyr::pivot_wider(.x,
-                                                                names_from= Sample,
-                                                                values_from = Allele)))
-   
-   merged <- df_list %>% purrr::reduce(full_join, by= "ID")
-   id <- merged$ID 
-   
-   correct_alleles <- merged
-   correct_alleles <- data.frame(t(correct_alleles))
-   names(correct_alleles) <- correct_alleles[1,] 
-   correct_alleles <- correct_alleles[-1,] 
-   
-   samples <- data.frame(colnames(merged[,-1]))
-   corrected <- correct_alleles
-   
-   Samples <- rownames(corrected)
-   corrected <- data.frame(Samples, corrected)
-   
-   if (reference == FALSE){
-      return(corrected)
-   } else {
-      pop_data <- load_csv_xlsx_files(population)
-      pop_data <- dplyr::rename(pop_data, Sample = 1, Population = 2)
-      matched <- corrected %>% dplyr::left_join(pop_data, by = "Sample")
-      data_length <- as.integer(ncol(corrected) - 1)
-      data_matched <- matched[,2:data_length]
-      meta_begin <- as.integer(ncol(corrected) + 1)
-      meta <- matched[,meta_begin:ncol(matched)]
-      
-      final_df <- dplyr::bind_cols(matched$Sample, meta, data_matched)
-      names(final_df)[names(final_df) == "matched$Sample"] <- "Sample"
-      return(final_df)
-   }
+
+#' Widen long genotype file
+#' 
+#' @param files zipped file containing long genotype files
+#' @param population (optional) metadata of samples. Default is NULL.
+#' @param output.dir directory to save unpacked files
+#' @returns dataframe of widened and merged genotype files
+#'
+#' @importFrom readxl read_excel
+#' @importFrom stats aggregate
+#' @importFrom purrr map reduce
+#' @importFrom tidyr pivot_wider
+#' @importFrom dplyr rename left_join bind_cols
+#' 
+#' @export
+#' @examples
+#' widen_genotype_file(files = "zipped_files.zip", output.dir = "./new_dir")
+
+widen_genotype_file <- function(files = files,
+                                population = NULL,
+                                output.dir = output.dir) {
+  if (!file.exists(files)) {
+    stop("File does not exist in the working directory")
+  } else {
+    files_raw <- unpack_input_file(files, output.dir = output.dir)
+  }
+
+  data_list <- files_raw$data_files
+  all.list <- list()
+  
+  # check file extension
+  f_ext <- tools::file_ext(data_list[1])
+  
+  if (f_ext == "xlsx"){
+    for (x in data_list) {
+      all.list[[x]] <- readxl::read_excel(x,
+        sheet = 1,
+        col_names = TRUE,
+        row.names(data_files)
+      )
+    }
+  } else if (f_ext == "csv"){
+    for (x in data_list) {
+      all.list[[x]] <- read.csv(x, check.names = FALSE, row.names = 1)
+    }
+  } else {
+    stop("Zippes files in unsupported format. Ensure they are CSV/XLSX files.")
+  }
+
+  new_colnames <- c("Sample", "ID", "Allele")
+  dflist_new <- lapply(all.list, setNames, new_colnames)
+
+  dflist_corrected <- lapply(
+    dflist_new,
+    function(x) {
+      stats::aggregate(Allele ~ Sample + ID, x, paste, collapse = "/")
+    }
+  )
+
+  df_list <- purrr::map(dflist_corrected, ~ (tidyr::pivot_wider(.x,
+    names_from = Sample,
+    values_from = Allele
+  )))
+
+  merged <- df_list %>% purrr::reduce(full_join, by = "ID")
+  id <- merged$ID
+
+  correct_alleles <- merged
+  correct_alleles <- data.frame(t(correct_alleles))
+  names(correct_alleles) <- correct_alleles[1, ]
+  correct_alleles <- correct_alleles[-1, ]
+
+  samples <- data.frame(colnames(merged[, -1]))
+  corrected <- correct_alleles
+
+  Samples <- rownames(corrected)
+  corrected <- data.frame(Samples, corrected)
+
+  if (is.null(population)) {
+    return(corrected)
+  } else {
+    pop_data <- load_csv_xlsx_files(population)
+    pop_data <- dplyr::rename(pop_data, Sample = 1, Population = 2)
+    matched <- corrected %>% dplyr::left_join(pop_data, by = "Sample")
+    data_length <- as.integer(ncol(corrected) - 1)
+    data_matched <- matched[, 2:data_length]
+    meta_begin <- as.integer(ncol(corrected) + 1)
+    meta <- matched[, meta_begin:ncol(matched)]
+
+    final_df <- dplyr::bind_cols(matched$Sample, meta, data_matched)
+    names(final_df)[names(final_df) == "matched$Sample"] <- "Sample"
+    return(final_df)
+  }
 }
 
-#============================
-# Convert file to genind object
-# Dependencies: dplyr, adegenet
-#============================
-convert_to_genind <- function(file, to_str = FALSE){
-   file <- dplyr::rename(file, Ind = 1, Pop = 2)
-   
-   if (isTRUE(to_str)){
-      names(file)[names(file) == "Ind"] <- "Ind2"
-      file$Ind <- rownames(file)
-      file2 <- file
-      Ind <- file$Ind
-      data <- file[2:ncol(file)-1]
-      file <- data.frame(Ind, data)
-   }
-   
-   ind <- as.character(file$Ind)
-   pop <- as.character(file$Pop)
-   fsnps_geno <- file[, 3:ncol(file)]
-   
-   fsnps_gen <- adegenet::df2genind(fsnps_geno, 
-                                    ind.names = ind, 
-                                    pop = pop, 
-                                    sep = "/", 
-                                    NA.char = "N", 
-                                    ploidy = 2, 
-                                    type = "codom")
-   
-   fsnps_gen@pop <- as.factor(file$Pop)
-   
-   if (isTRUE(to_str)){
-      return(list(fsnps_gen = fsnps_gen, 
-                  new_file = file2))
-   } else {
-      return(fsnps_gen)
-   }
+
+#' Convert dataframes to genind object
+#' 
+#' @param file dataframe
+#' @param to_str whether input file will be used to generate .str files.
+#' @returns genind object
+#'
+#' @importFrom adegenet df2genind
+#' @importFrom dplyr rename
+#' 
+#' @export
+#' @examples
+#' convert_to_genind(file = my_table, to_str = FALSE)
+
+convert_to_genind <- function(file, to_str = FALSE) {
+  file <- dplyr::rename(file, Ind = 1, Pop = 2)
+
+  if (isTRUE(to_str)) {
+    names(file)[names(file) == "Ind"] <- "Ind2"
+    file$Ind <- rownames(file)
+    file2 <- file
+    Ind <- file$Ind
+    data <- file[2:ncol(file) - 1]
+    file <- data.frame(Ind, data)
+  }
+
+  ind <- as.character(file$Ind)
+  pop <- as.character(file$Pop)
+  fsnps_geno <- file[, 3:ncol(file)]
+
+  fsnps_gen <- adegenet::df2genind(fsnps_geno,
+    ind.names = ind,
+    pop = pop,
+    sep = "/",
+    NA.char = "N",
+    ploidy = 2,
+    type = "codom"
+  )
+
+  fsnps_gen@pop <- as.factor(file$Pop)
+
+  if (isTRUE(to_str)) {
+    return(list(
+      fsnps_gen = fsnps_gen,
+      new_file = file2
+    ))
+  } else {
+    return(fsnps_gen)
+  }
 }
 
-#============================
+
 # Homogenize data format
-# Dependencies: dplyr
-#============================
+
 clean_input_data <- function(file) {
-   file1 <- lapply(file, function(x) gsub("|", "/", x, fixed = TRUE))
-   file1 <- as.data.frame(file1)
-   file1[is.na(file1)] <- "N"
-   
-   file1 <- file1 %>%
-      mutate(across(everything(), as.character)) %>%
-      mutate(across(everything(), ~ case_when(
-         .x %in% c("N/A", "NA") ~ "N",
-         TRUE ~ .x)))
-   file1 <- as.data.frame(file1)
-   
-   return(file1)
+  file1 <- lapply(file, function(x) gsub("|", "/", x, fixed = TRUE))
+  file1 <- as.data.frame(file1)
+  file1[is.na(file1)] <- "N"
+
+  file1 <- file1 %>%
+    mutate(across(everything(), as.character)) %>%
+    mutate(across(everything(), ~ case_when(
+      .x %in% c("N/A", "NA") ~ "N",
+      TRUE ~ .x
+    )))
+  file1 <- as.data.frame(file1)
+
+  return(file1)
 }
 
-#============================
+# ============================
 # Convert file to STRUCTURE analysis-ready file
 # Dependencies: poppr
-#============================
-revise_structure_file <- function(file, output.dir, system = "Windows"){
-   fsnps_gen_sub <- poppr::popsub(file)
-   path <- file.path(output.dir, "structure_file.str")
-   
-   if (system == "Windows"){
-      genind2structure2(fsnps_gen_sub, file = path, pops = TRUE, unix = FALSE)
-   } else if(system == "Linux"){
-      genind2structure2(fsnps_gen_sub, file = path, pops = TRUE, markers = TRUE, unix = TRUE)
-      system(paste("tr '\t' ' '", shQuote(path), ">", shQuote(path)))
-      system(paste("sed -e 's/ /\t/2' -e 's/ /\t/1'", shQuote(path), ">", shQuote(path)))
-   } 
-   
-   return(path)
+# ============================
+#' Convert dataframes to genind object
+#' 
+#' @param file dataframe
+#' @param to_str whether input file will be used to generate .str files.
+#' @returns genind object
+#'
+#' @importFrom adegenet df2genind
+#' @importFrom dplyr rename
+#' 
+#' @export
+#' @examples
+#' convert_to_genind(file = my_table, to_str = FALSE)
+
+revise_structure_file <- function(file, output.dir, system = "Windows") {
+  fsnps_gen_sub <- poppr::popsub(file)
+  path <- file.path(output.dir, "structure_file.str")
+
+  if (system == "Windows") {
+    genind2structure2(fsnps_gen_sub, file = path, pops = TRUE, unix = FALSE)
+  } else if (system == "Linux") {
+    genind2structure2(fsnps_gen_sub, file = path, pops = TRUE, markers = TRUE, unix = TRUE)
+    system(paste("tr '\t' ' '", shQuote(path), ">", shQuote(path)))
+    system(paste("sed -e 's/ /\t/2' -e 's/ /\t/1'", shQuote(path), ">", shQuote(path)))
+  }
+
+  return(path)
 }
 
-#============================
+# ============================
 # Convert files to SNIPPER analysis-ready file
 # Dependencies: dplyr, purrr, tools, plyr
-#============================
+# ============================
 to_snipper <- function(input,
-                      references,
-                      target.pop = TRUE,
-                      population.name = NULL,
-                      markers = snps){
-   
-   if (is.data.frame(input)) {
-      input.file <- input
-   } else {
-      stop("Not a dataframe.")
-   }
-   
-   tosnipper <- lapply(
-      input.file,
-      function(x){
-         gsub(pattern = "/", replacement = "", x = x, fixed = TRUE)
-      }
-   )
-   
-   tosnipper <- as.data.frame(tosnipper)
-   
-   if(class(tosnipper$Sample) != "character"){
-      tosnipper$Sample <-  as.character(tosnipper$Sample)
-   }
-   
-   if (is.data.frame(references)) {
-      reference <- references
-   } else {
-      stop("Not a dataframe.")
-   }
-   
-   if(class(reference$Sample) != "character"){
-      reference$Sample <-  as.character(reference$Sample)
-   }
-   
-   matched <- tosnipper %>% dplyr::left_join(reference, by = "Sample")
-   last.col <- as.integer(ncol(matched))
-   sec.last <- last.col - 1
-   Superpop <- as.data.frame(matched[,last.col])
-   Population <- as.data.frame(matched[,sec.last])
-   Sample <- as.data.frame(matched$Sample)
-   data <- as.data.frame(matched[,2:ncol(matched)-1])
-   drops <- "Sample"
-   data <- data[,!(names(data) %in% drops)]
-   
-   to_excel <- dplyr::bind_cols(Population, Superpop, Sample, data)
-   names(to_excel)[names(to_excel) == "matched[, last.col]"] <- "Superpop"
-   names(to_excel)[names(to_excel) == "matched[, sec.last]"] <- "Population"
-   names(to_excel)[names(to_excel) == "matched$Sample"] <- "Sample"
-   tosnpr_split <- split(to_excel, to_excel$Population)
-   tosnpr_split <- tosnpr_split %>% map(`rownames<-`, NULL)
-   tosnpr_split <- lapply(
-      tosnpr_split,
-      function(x){
-         x$No <- rownames(x)
-         as.data.frame(x)
-         data <- as.data.frame(x[,2:ncol(x)-2])
-         Sample <- x[,1]
-         x <- dplyr::bind_cols(x$No, Sample, data)
-      }
-   )
-   
-   merged <- plyr::ldply(tosnpr_split, data.frame)
-   merged <- merged[,-c(1,3)]
-   
-   if(target.pop == TRUE){
-      target <- merged[merged$Population == population.name,]
-      target$snpr <- "0"
-      non.target <- merged[merged$Population != population.name,]
-      non.target$snpr <- "1"
-      merged2 <- dplyr::bind_rows(target, non.target)
-   } else if(target.pop == FALSE) {
-      merged2 <- merged
-      merged2$snpr <- "1"
-   } else{
-      stop("Parameter target.pop is not stated.")
-   }
-   
-   sample.count <- as.integer(nrow(merged2))
-   pop.only <- as.data.frame(merged2$Superpop)
-   pop.only <- pop.only[!duplicated(pop.only), ]
-   pop.only <- as.data.frame(pop.only)
-   pop.count <- as.integer(nrow(pop.only))
-   merged3 <- merged2[,-2]
-   merged3 <- as.data.frame(merged3)
-   
-   names(merged3)[names(merged3) == "...1"] <- sample.count
-   names(merged3)[names(merged3) == "Superpop"] <- markers
-   names(merged3)[names(merged3) == "Sample"] <- pop.count
-   names(merged3)[names(merged3) == "snpr"] <- ""
-   
-   merged3 <- rbind(NA, merged3)
-   merged3 <- rbind(NA, merged3)
-   merged3 <- rbind(NA, merged3)
-   merged3 <- rbind(NA, merged3)
-   
-   return(merged3)
+                       references,
+                       target.pop = TRUE,
+                       population.name = NULL,
+                       markers = snps) {
+  if (is.data.frame(input)) {
+    input.file <- input
+  } else {
+    stop("Not a dataframe.")
+  }
+
+  tosnipper <- lapply(
+    input.file,
+    function(x) {
+      gsub(pattern = "/", replacement = "", x = x, fixed = TRUE)
+    }
+  )
+
+  tosnipper <- as.data.frame(tosnipper)
+
+  if (class(tosnipper$Sample) != "character") {
+    tosnipper$Sample <- as.character(tosnipper$Sample)
+  }
+
+  if (is.data.frame(references)) {
+    reference <- references
+  } else {
+    stop("Not a dataframe.")
+  }
+
+  if (class(reference$Sample) != "character") {
+    reference$Sample <- as.character(reference$Sample)
+  }
+
+  matched <- tosnipper %>% dplyr::left_join(reference, by = "Sample")
+  last.col <- as.integer(ncol(matched))
+  sec.last <- last.col - 1
+  Superpop <- as.data.frame(matched[, last.col])
+  Population <- as.data.frame(matched[, sec.last])
+  Sample <- as.data.frame(matched$Sample)
+  data <- as.data.frame(matched[, 2:ncol(matched) - 1])
+  drops <- "Sample"
+  data <- data[, !(names(data) %in% drops)]
+
+  to_excel <- dplyr::bind_cols(Population, Superpop, Sample, data)
+  names(to_excel)[names(to_excel) == "matched[, last.col]"] <- "Superpop"
+  names(to_excel)[names(to_excel) == "matched[, sec.last]"] <- "Population"
+  names(to_excel)[names(to_excel) == "matched$Sample"] <- "Sample"
+  tosnpr_split <- split(to_excel, to_excel$Population)
+  tosnpr_split <- tosnpr_split %>% map(`rownames<-`, NULL)
+  tosnpr_split <- lapply(
+    tosnpr_split,
+    function(x) {
+      x$No <- rownames(x)
+      as.data.frame(x)
+      data <- as.data.frame(x[, 2:ncol(x) - 2])
+      Sample <- x[, 1]
+      x <- dplyr::bind_cols(x$No, Sample, data)
+    }
+  )
+
+  merged <- plyr::ldply(tosnpr_split, data.frame)
+  merged <- merged[, -c(1, 3)]
+
+  if (target.pop == TRUE) {
+    target <- merged[merged$Population == population.name, ]
+    target$snpr <- "0"
+    non.target <- merged[merged$Population != population.name, ]
+    non.target$snpr <- "1"
+    merged2 <- dplyr::bind_rows(target, non.target)
+  } else if (target.pop == FALSE) {
+    merged2 <- merged
+    merged2$snpr <- "1"
+  } else {
+    stop("Parameter target.pop is not stated.")
+  }
+
+  sample.count <- as.integer(nrow(merged2))
+  pop.only <- as.data.frame(merged2$Superpop)
+  pop.only <- pop.only[!duplicated(pop.only), ]
+  pop.only <- as.data.frame(pop.only)
+  pop.count <- as.integer(nrow(pop.only))
+  merged3 <- merged2[, -2]
+  merged3 <- as.data.frame(merged3)
+
+  names(merged3)[names(merged3) == "...1"] <- sample.count
+  names(merged3)[names(merged3) == "Superpop"] <- markers
+  names(merged3)[names(merged3) == "Sample"] <- pop.count
+  names(merged3)[names(merged3) == "snpr"] <- ""
+
+  merged3 <- rbind(NA, merged3)
+  merged3 <- rbind(NA, merged3)
+  merged3 <- rbind(NA, merged3)
+  merged3 <- rbind(NA, merged3)
+
+  return(merged3)
 }
 
-#============================
+# ============================
 # Create POS range file for future merging
-#============================
-create_range_file <- function(pos_input, addID = FALSE, output_dir){
-   
-   if (is.character(pos_input)) {
-      pos_df <- load_csv_xlsx_files(pos_input)
-   } else {
-      pos_df <- pos_input
-   }
-   
-   pos_df <- as.data.frame(pos_df)
-   
-   if (isTRUE(addID)){
-      chr <- as.character(pos_df[[2]])
-      pos <- as.numeric(pos_df[[3]])
-      label <- as.character(pos_df[[1]])
-      
-      range_df <- data.frame(
-         CHR = chr,
-         START = pos,
-         END = pos,
-         LABEL = label,
-         stringsAsFactors = FALSE
-      )
-      
-      range_file <- file.path(output_dir, "range.txt")
-      
-      write.table(
-         range_df,
-         file = range_file,
-         row.names = FALSE,
-         col.names = FALSE,
-         quote = FALSE,
-         sep = "\t"
-      )
-      
-      update_name <- data.frame(
-         new = paste0(chr, ":", pos, sep = ""),
-         id = label,
-         stringsAsFactors = FALSE
-      )
-      
-      updated_file <- file.path(output_dir, "update_name.txt")
-      
-      write.table(
-         update_name,
-         file = updated_file,
-         row.names = FALSE,
-         col.names = FALSE,
-         quote = FALSE,
-         sep = "\t"
-      )
-      
-      return(list(range_file = range_file, updated_file = updated_file))
-      
-   } else {
-      chr <- as.character(pos_df[[1]])
-      pos <- as.numeric(pos_df[[2]])
-      
-      range_df <- data.frame(
-         CHR = chr,
-         START = pos,
-         END = pos,
-         stringsAsFactors = FALSE
-      )
-      
-      range_file <- file.path(output_dir, "range.txt")
-      
-      write.table(
-         range_df,
-         file = range_file,
-         row.names = FALSE,
-         col.names = FALSE,
-         quote = FALSE,
-         sep = "\t"
-      )
-      return(list(range_file = range_file))
-   }
+# ============================
+create_range_file <- function(pos_input, addID = FALSE, output_dir) {
+  if (is.character(pos_input)) {
+    pos_df <- load_csv_xlsx_files(pos_input)
+  } else {
+    pos_df <- pos_input
+  }
+
+  pos_df <- as.data.frame(pos_df)
+
+  if (isTRUE(addID)) {
+    chr <- as.character(pos_df[[2]])
+    pos <- as.numeric(pos_df[[3]])
+    label <- as.character(pos_df[[1]])
+
+    range_df <- data.frame(
+      CHR = chr,
+      START = pos,
+      END = pos,
+      LABEL = label,
+      stringsAsFactors = FALSE
+    )
+
+    range_file <- file.path(output_dir, "range.txt")
+
+    write.table(
+      range_df,
+      file = range_file,
+      row.names = FALSE,
+      col.names = FALSE,
+      quote = FALSE,
+      sep = "\t"
+    )
+
+    update_name <- data.frame(
+      new = paste0(chr, ":", pos, sep = ""),
+      id = label,
+      stringsAsFactors = FALSE
+    )
+
+    updated_file <- file.path(output_dir, "update_name.txt")
+
+    write.table(
+      update_name,
+      file = updated_file,
+      row.names = FALSE,
+      col.names = FALSE,
+      quote = FALSE,
+      sep = "\t"
+    )
+
+    return(list(range_file = range_file, updated_file = updated_file))
+  } else {
+    chr <- as.character(pos_df[[1]])
+    pos <- as.numeric(pos_df[[2]])
+
+    range_df <- data.frame(
+      CHR = chr,
+      START = pos,
+      END = pos,
+      stringsAsFactors = FALSE
+    )
+
+    range_file <- file.path(output_dir, "range.txt")
+
+    write.table(
+      range_df,
+      file = range_file,
+      row.names = FALSE,
+      col.names = FALSE,
+      quote = FALSE,
+      sep = "\t"
+    )
+    return(list(range_file = range_file))
+  }
 }
 
-#============================
+# ============================
 # Extract markers by rsID
-#============================
+# ============================
 extract_by_ID_pgen <- function(pgen_prefix,
                                snps_list,
                                output_dir,
                                merged_file,
-                               plink_path){
-   
-   out_prefix <- file.path(output_dir, merged_file)
-   
-   cmd <- paste(
-      shQuote(plink_path),
-      "--pfile", shQuote(pgen_prefix),
-      "--extract", shQuote(snps_list),
-      "--export vcf",
-      "--out", shQuote(out_prefix)
-   )
-   
-   system(cmd)
-   return(paste0(out_prefix, ".vcf"))
+                               plink_path) {
+  out_prefix <- file.path(output_dir, merged_file)
+
+  cmd <- paste(
+    shQuote(plink_path),
+    "--pfile", shQuote(pgen_prefix),
+    "--extract", shQuote(snps_list),
+    "--export vcf",
+    "--out", shQuote(out_prefix)
+  )
+
+  system(cmd)
+  return(paste0(out_prefix, ".vcf"))
 }
 
-#============================
+# ============================
 # Extract markers by GRCh38/37 POS
-#============================
+# ============================
 extract_by_pos_pgen <- function(pos_list,
                                 pgen_prefix,
                                 output_dir,
                                 merged_file,
-                                plink_path){
-   
-   range_file <- create_range_file(pos_list, addID = FALSE, output_dir)
-   
-   out_prefix <- file.path(output_dir, merged_file)
-   
-   cmd <- paste(
-      shQuote(plink_path),
-      "--pfile", shQuote(pgen_prefix),
-      "--extract", "range", shQuote(range_file$range_file),
-      "--export vcf",
-      "--out", shQuote(out_prefix)
-   )
-   
-   system(cmd)
-   
-   vcf_file <- paste0(out_prefix, ".vcf")
-   
-   if(!file.exists(vcf_file)){
-      stop("PLINK extraction failed: no VCF generated.")
-   }
-   
-   return(vcf_file)
+                                plink_path) {
+  range_file <- create_range_file(pos_list, addID = FALSE, output_dir)
+
+  out_prefix <- file.path(output_dir, merged_file)
+
+  cmd <- paste(
+    shQuote(plink_path),
+    "--pfile", shQuote(pgen_prefix),
+    "--extract", "range", shQuote(range_file$range_file),
+    "--export vcf",
+    "--out", shQuote(out_prefix)
+  )
+
+  system(cmd)
+
+  vcf_file <- paste0(out_prefix, ".vcf")
+
+  if (!file.exists(vcf_file)) {
+    stop("PLINK extraction failed: no VCF generated.")
+  }
+
+  return(vcf_file)
 }
 
-#============================
+# ============================
 # Extract markers by GRCh38/37 POS and add rsID
-#============================
+# ============================
 extract_POStoID_pgen <- function(pos_list,
                                  pgen_prefix,
                                  output_dir,
-                                 plink_path){
-   
-   range_file <- create_range_file(pos_list, addID = TRUE, output_dir)
-   
-   extracted_prefix <- file.path(output_dir, "pos_extract")
-   cmd_extract <- paste(
-      shQuote(plink_path),
-      "--pfile", shQuote(pgen_prefix),
-      "--extract", "range", shQuote(range_file$range_file),
-      "--make-pgen",
-      "--out", shQuote(extracted_prefix)
-   )
-   system(cmd_extract)
-   
-   renamed_prefix <- file.path(output_dir, "updated_file")
-   cmd_rename <- paste(
-      shQuote(plink_path),
-      "--pfile", shQuote(extracted_prefix),
-      "--set-all-var-ids @:#",
-      "--make-pgen",
-      "--out", shQuote(renamed_prefix)
-   )
-   system(cmd_rename)
-   
-   updated_prefix <- file.path(output_dir, "extracted_file")
-   cmd_updated <- paste(
-      shQuote(plink_path),
-      "--pfile", shQuote(renamed_prefix),
-      "--update-name", shQuote(range_file$updated_file),
-      "--recode vcf",
-      "--out", shQuote(updated_prefix)
-   )
-   system(cmd_updated)
-   
-   vcf_file <- paste0(updated_prefix, ".vcf")
-   
-   if(!file.exists(vcf_file)){
-      stop("PLINK extraction failed: no VCF generated.")
-   }
-   
-   return(vcf_file)
+                                 plink_path) {
+  range_file <- create_range_file(pos_list, addID = TRUE, output_dir)
+
+  extracted_prefix <- file.path(output_dir, "pos_extract")
+  cmd_extract <- paste(
+    shQuote(plink_path),
+    "--pfile", shQuote(pgen_prefix),
+    "--extract", "range", shQuote(range_file$range_file),
+    "--make-pgen",
+    "--out", shQuote(extracted_prefix)
+  )
+  system(cmd_extract)
+
+  renamed_prefix <- file.path(output_dir, "updated_file")
+  cmd_rename <- paste(
+    shQuote(plink_path),
+    "--pfile", shQuote(extracted_prefix),
+    "--set-all-var-ids @:#",
+    "--make-pgen",
+    "--out", shQuote(renamed_prefix)
+  )
+  system(cmd_rename)
+
+  updated_prefix <- file.path(output_dir, "extracted_file")
+  cmd_updated <- paste(
+    shQuote(plink_path),
+    "--pfile", shQuote(renamed_prefix),
+    "--update-name", shQuote(range_file$updated_file),
+    "--recode vcf",
+    "--out", shQuote(updated_prefix)
+  )
+  system(cmd_updated)
+
+  vcf_file <- paste0(updated_prefix, ".vcf")
+
+  if (!file.exists(vcf_file)) {
+    stop("PLINK extraction failed: no VCF generated.")
+  }
+
+  return(vcf_file)
 }
 
-#============================
+# ============================
 # Concordance Analysis
 # Description: Compares genetic data information generated by different sequencing techniques.
-# It compares the genetic data of the same individual from technique 1 and technique 2.  
+# It compares the genetic data of the same individual from technique 1 and technique 2.
 # Dependencies: dplyr, janitor, tibble, purrr, tidyselect, QurvE
-#============================
-calc_concordance <- function(file1, file2, haplotypes = FALSE){
-   if(!file.exists(file1)){
-      stop("First file does not exist in the working directory")
-   } else {
-      file1 <- load_csv_xlsx_files(file1)
-   }
-   
-   if(!file.exists(file2)){
-      stop("Second file does not exist in the working directory")
-   } else {
-      file2 <- load_csv_xlsx_files(file2)
-   }
-   
-   file1 <- dplyr::rename(file1, Ind = 1)
-   file2 <- dplyr::rename(file2, Ind = 1)
-   file_list <- list(file1, file2)
-   overlaps <- as.list(intersect(file1$Ind, file2$Ind))
-   
-   if (is.null(overlaps)){
-      stop("Samples names from the two files are different.")
-   }
-   
-   file_list2 <- lapply(
-      file_list,
-      function(x){
-         x[x$Ind %in% overlaps, ]
-      }
-   )
-   
-   file_list3 <- lapply(
-      file_list2,
-      function(x){
-         library(dplyr)
-         data.frame(t(x)) %>%
-            janitor::row_to_names(row_number = 1) %>%
-            tibble::rownames_to_column(., var = "markers") 
-      }
-   )
-   
-   overlaps <- as.character(overlaps)
-   markers1 = file_list3[[1]]$markers
-   markers2 = file_list3[[2]]$markers
-   
-   file_list4 <- lapply(
-      file_list3,
-      function(x){
-         relocate(x, any_of(overlaps)) 
-      }
-   )
-   
-   file_list4[[1]]$markers = markers1
-   file_list4[[2]]$markers = markers2
-   merged <- file_list4 %>% purrr::reduce(full_join, by= "markers")
-   ID <- merged$markers
-   merged <- clean_input_data(merged)
-   
-   if(haplotypes == TRUE){
-      message("Assuming the data are haplotypes.")
-      merged <- merged %>% mutate(across(tidyselect::everything(), ~ case_when(
-         . == "A" ~ "A/A",
-         . == "T" ~ "T/T",
-         . == "C" ~ "C/C",
-         . == "G" ~ "G/G",
-         TRUE ~ .x)))
-   } else if(haplotypes == FALSE){
-      merged <- merged %>% mutate(across(tidyselect::everything(), ~ case_when(
-         . == "A" ~ "A/A",
-         . == "T" ~ "T/T",
-         . == "C" ~ "C/C",
-         . == "G" ~ "G/G",
-         . == "T/C" ~ "C/T",
-         . == "T/G" ~ "G/T",
-         . == "T/A" ~ "A/T",
-         . == "G/A" ~ "A/G",
-         . == "C/G" ~ "G/C",
-         . == "C/A" ~ "A/C",
-         TRUE ~ .x)))
-   } else {
-      stop("Parameter haplotype is required.")
-   }
-   
-   overlap1 <- merged %>% select(dplyr::ends_with(".x"))
-   overlap2 <- merged %>% select(dplyr::ends_with(".y"))
-   for_conc <- QurvE::zipFastener(overlap1, overlap2, along = 2)
-   for_conc2 <- data.frame(ID, for_conc)
-   for_conc2[is.na(for_conc2)] <- "N"
-   names(for_conc2) <-  sub('^X', '', names(for_conc2))
-   
-   return(for_conc2)
+# ============================
+calc_concordance <- function(file1, file2, haplotypes = FALSE) {
+  if (!file.exists(file1)) {
+    stop("First file does not exist in the working directory")
+  } else {
+    file1 <- load_csv_xlsx_files(file1)
+  }
+
+  if (!file.exists(file2)) {
+    stop("Second file does not exist in the working directory")
+  } else {
+    file2 <- load_csv_xlsx_files(file2)
+  }
+
+  file1 <- dplyr::rename(file1, Ind = 1)
+  file2 <- dplyr::rename(file2, Ind = 1)
+  file_list <- list(file1, file2)
+  overlaps <- as.list(intersect(file1$Ind, file2$Ind))
+
+  if (is.null(overlaps)) {
+    stop("Samples names from the two files are different.")
+  }
+
+  file_list2 <- lapply(
+    file_list,
+    function(x) {
+      x[x$Ind %in% overlaps, ]
+    }
+  )
+
+  file_list3 <- lapply(
+    file_list2,
+    function(x) {
+      library(dplyr)
+      data.frame(t(x)) %>%
+        janitor::row_to_names(row_number = 1) %>%
+        tibble::rownames_to_column(., var = "markers")
+    }
+  )
+
+  overlaps <- as.character(overlaps)
+  markers1 <- file_list3[[1]]$markers
+  markers2 <- file_list3[[2]]$markers
+
+  file_list4 <- lapply(
+    file_list3,
+    function(x) {
+      relocate(x, any_of(overlaps))
+    }
+  )
+
+  file_list4[[1]]$markers <- markers1
+  file_list4[[2]]$markers <- markers2
+  merged <- file_list4 %>% purrr::reduce(full_join, by = "markers")
+  ID <- merged$markers
+  merged <- clean_input_data(merged)
+
+  if (haplotypes == TRUE) {
+    message("Assuming the data are haplotypes.")
+    merged <- merged %>% mutate(across(tidyselect::everything(), ~ case_when(
+      . == "A" ~ "A/A",
+      . == "T" ~ "T/T",
+      . == "C" ~ "C/C",
+      . == "G" ~ "G/G",
+      TRUE ~ .x
+    )))
+  } else if (haplotypes == FALSE) {
+    merged <- merged %>% mutate(across(tidyselect::everything(), ~ case_when(
+      . == "A" ~ "A/A",
+      . == "T" ~ "T/T",
+      . == "C" ~ "C/C",
+      . == "G" ~ "G/G",
+      . == "T/C" ~ "C/T",
+      . == "T/G" ~ "G/T",
+      . == "T/A" ~ "A/T",
+      . == "G/A" ~ "A/G",
+      . == "C/G" ~ "G/C",
+      . == "C/A" ~ "A/C",
+      TRUE ~ .x
+    )))
+  } else {
+    stop("Parameter haplotype is required.")
+  }
+
+  overlap1 <- merged %>% select(dplyr::ends_with(".x"))
+  overlap2 <- merged %>% select(dplyr::ends_with(".y"))
+  for_conc <- QurvE::zipFastener(overlap1, overlap2, along = 2)
+  for_conc2 <- data.frame(ID, for_conc)
+  for_conc2[is.na(for_conc2)] <- "N"
+  names(for_conc2) <- sub("^X", "", names(for_conc2))
+
+  return(for_conc2)
 }
 
-#============================
+# ============================
 # Plot concordance calls
 # Dependencies: ggplot2, tidyr, forcats
-#============================
-plot_concordance <- function(dataframe){
-   dataframe <- dplyr::rename(dataframe, ID = 1)
-   x_cols <- dataframe %>% dplyr::select(dplyr::ends_with(".x"))
-   y_cols <- dataframe %>% dplyr::select(dplyr::ends_with(".y"))
-   Total <- ncol(x_cols)
-   Incomparable <- rowSums(x_cols == "N" | y_cols == "N")
-   Concordant <- rowSums(x_cols == y_cols & x_cols != "N" & y_cols != "N")
-   Discordant <- Total - (Concordant + Incomparable)
+# ============================
+plot_concordance <- function(dataframe) {
+  dataframe <- dplyr::rename(dataframe, ID = 1)
+  x_cols <- dataframe %>% dplyr::select(dplyr::ends_with(".x"))
+  y_cols <- dataframe %>% dplyr::select(dplyr::ends_with(".y"))
+  Total <- ncol(x_cols)
+  Incomparable <- rowSums(x_cols == "N" | y_cols == "N")
+  Concordant <- rowSums(x_cols == y_cols & x_cols != "N" & y_cols != "N")
+  Discordant <- Total - (Concordant + Incomparable)
 
-   concordance <- dataframe %>%
-      dplyr::mutate(
-         Total = Total,
-         Incomparable = Incomparable,
-         Concordant = Concordant,
-         Discordant = Discordant
-      ) %>% dplyr::relocate(Total, Incomparable, Concordant, Discordant, .after = ID)
-   
-   ID <- concordance[,1]
-   pivot2 <- concordance[,3:5]
-   pivot <- data.frame(ID, pivot2)
-   pivot <- pivot %>%
-      tidyr::pivot_longer(!ID,
-                          names_to = 'Condition',
-                          values_to = 'Count'
-      )
-   
-   Count <- as.integer(pivot$Count)
-   rsID <- pivot$ID
-   Condition <- pivot$Condition
-   visual <- data.frame(rsID, Count, Condition)
-   
-   plot_conc <- visual %>%
-      arrange(Count) %>%
-      arrange(Condition) %>%
-      mutate(rsID = forcats::fct_inorder(rsID)) %>%
-      ggplot(aes(fill = Condition, x= rsID, y=Count)) +
-      geom_bar(position = "stack", stat = "identity") +
-      theme(
-         axis.text.x = element_text(
-            angle = 90,
-            vjust = .3), 
-         panel.background = element_blank()) +
-      scale_fill_manual(values= c("#1ca7ec",
-                                  "#fb7a8e",
-                                  "#1f2f98"
-      ))
-   return(list(
-      results = concordance,
-      plot = plot_conc 
-   ))
+  concordance <- dataframe %>%
+    dplyr::mutate(
+      Total = Total,
+      Incomparable = Incomparable,
+      Concordant = Concordant,
+      Discordant = Discordant
+    ) %>%
+    dplyr::relocate(Total, Incomparable, Concordant, Discordant, .after = ID)
+
+  ID <- concordance[, 1]
+  pivot2 <- concordance[, 3:5]
+  pivot <- data.frame(ID, pivot2)
+  pivot <- pivot %>%
+    tidyr::pivot_longer(!ID,
+      names_to = "Condition",
+      values_to = "Count"
+    )
+
+  Count <- as.integer(pivot$Count)
+  rsID <- pivot$ID
+  Condition <- pivot$Condition
+  visual <- data.frame(rsID, Count, Condition)
+
+  plot_conc <- visual %>%
+    arrange(Count) %>%
+    arrange(Condition) %>%
+    mutate(rsID = forcats::fct_inorder(rsID)) %>%
+    ggplot(aes(fill = Condition, x = rsID, y = Count)) +
+    geom_bar(position = "stack", stat = "identity") +
+    theme(
+      axis.text.x = element_text(
+        angle = 90,
+        vjust = .3
+      ),
+      panel.background = element_blank()
+    ) +
+    scale_fill_manual(values = c(
+      "#1ca7ec",
+      "#fb7a8e",
+      "#1f2f98"
+    ))
+  return(list(
+    results = concordance,
+    plot = plot_conc
+  ))
 }
 
-#============================
+# ============================
 # Depth Plot
 # Description: Generates depth of coverage plot available only when using VCF files.
 # Dependencies: dplyr, vcfR, tidyr, ggplot2
-#============================
-depth_from_vcf <- function(vcf, 
-                           output.dir, 
-                           reference, 
-                           palette = NULL, 
-                           width = 10, 
-                           height = 8, 
-                           dpi = 300){
-   
-   vcf.file <- vcfR::read.vcfR(vcf)
-   depth <- vcfR::extract.gt(vcf.file, element = "DP", as.numeric = TRUE)
-   depth <- as.data.frame(t(depth))
-   depth$Sample <- rownames(depth)
-   
-   depth_long <- depth %>% tidyr::pivot_longer(
-      !Sample,
-      names_to = "rsID",
-      values_to = "Depth"
-   )
-   
-   # reference assumes there are only two columns: 
-   # [1] assumes it has the same key as one either the sample or marker name similar to VCF files
-   # [2] the data to be highlighted 
-   if(!is.null(reference)){
-      ref <- load_csv_xlsx_files(reference)
-      ref <- dplyr::rename(ref, Sample = 1, highlight = 2)
-      depth_long <- depth_long %>% dplyr::left_join(ref, by = "Sample")
-      fill2 = depth_long$highlight
-   } else {
-      fill2 = NULL
-   }
-   
-   # plot of depth per marker
-   # to-do: slant the rsID labels
-   p_rsid <- ggplot2::ggplot(depth_long, ggplot2::aes(x=rsID, y = Depth, fill = fill2)) +
-      ggplot2::geom_boxplot() +
-      ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = .4)) +
-      ggplot2::scale_fill_brewer(palette = palette)
-   
-   out_dp_rsid <- file.path(output.dir, "Depth_marker.png")
-   ggsave(out_dp_rsid, plot = p_rsid, width = width, height = height, dpi = dpi)
-   
-   # plot of depth per sample
-   p_sample <- ggplot2::ggplot(depth_long, ggplot2::aes(x=Sample, y = Depth, fill = fill2)) +
-      ggplot2::geom_boxplot() +
-      ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = .4)) +
-      ggplot2::scale_fill_brewer(palette = palette)
-   
-   out_dp_sample <- file.path(output.dir, "Depth_samples.png")
-   ggsave(out_dp_sample, plot = p_sample, width = width, height = height, dpi = dpi)
-   
-   return(list(
-      plot_marker = out_dp_rsid,
-      plot_sample = out_dp_sample
-   ))
+# ============================
+depth_from_vcf <- function(vcf,
+                           output.dir,
+                           reference,
+                           palette = NULL,
+                           width = 10,
+                           height = 8,
+                           dpi = 300) {
+  vcf.file <- vcfR::read.vcfR(vcf)
+  depth <- vcfR::extract.gt(vcf.file, element = "DP", as.numeric = TRUE)
+  depth <- as.data.frame(t(depth))
+  depth$Sample <- rownames(depth)
+
+  depth_long <- depth %>% tidyr::pivot_longer(
+    !Sample,
+    names_to = "rsID",
+    values_to = "Depth"
+  )
+
+  # reference assumes there are only two columns:
+  # [1] assumes it has the same key as one either the sample or marker name similar to VCF files
+  # [2] the data to be highlighted
+  if (!is.null(reference)) {
+    ref <- load_csv_xlsx_files(reference)
+    ref <- dplyr::rename(ref, Sample = 1, highlight = 2)
+    depth_long <- depth_long %>% dplyr::left_join(ref, by = "Sample")
+    fill2 <- depth_long$highlight
+  } else {
+    fill2 <- NULL
+  }
+
+  # plot of depth per marker
+  # to-do: slant the rsID labels
+  p_rsid <- ggplot2::ggplot(depth_long, ggplot2::aes(x = rsID, y = Depth, fill = fill2)) +
+    ggplot2::geom_boxplot() +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = .4)) +
+    ggplot2::scale_fill_brewer(palette = palette)
+
+  out_dp_rsid <- file.path(output.dir, "Depth_marker.png")
+  ggsave(out_dp_rsid, plot = p_rsid, width = width, height = height, dpi = dpi)
+
+  # plot of depth per sample
+  p_sample <- ggplot2::ggplot(depth_long, ggplot2::aes(x = Sample, y = Depth, fill = fill2)) +
+    ggplot2::geom_boxplot() +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = .4)) +
+    ggplot2::scale_fill_brewer(palette = palette)
+
+  out_dp_sample <- file.path(output.dir, "Depth_samples.png")
+  ggsave(out_dp_sample, plot = p_sample, width = width, height = height, dpi = dpi)
+
+  return(list(
+    plot_marker = out_dp_rsid,
+    plot_sample = out_dp_sample
+  ))
 }
 
-#============================
+# ============================
 # Compute population statistics (heterozygosities, mar, inbreeding)
 # Dependencies: dplyr, ade4, adegenet, hierfstat, tidyr
-#============================
+# ============================
 compute_pop_stats <- function(fsnps_gen) {
-   mar_matrix <- hierfstat::allelic.richness(hierfstat::genind2hierfstat(fsnps_gen))$Ar %>%
-      apply(MARGIN = 2, FUN = mean) %>%
-      round(digits = 3)
-   mar_list <- as.data.frame(mar_matrix)
-   
-   basic_fsnps <- hierfstat::basic.stats(fsnps_gen, diploid = TRUE)
-   Ho <- apply(basic_fsnps$Ho, 2, mean, na.rm = TRUE) %>% round(2)
-   He <- apply(basic_fsnps$Hs, 2, mean, na.rm = TRUE) %>% round(2)
-   inv_het <- 1 / (1-He) %>% round(3)
-   heterozygosity_df <- data.frame(Population = names(Ho), Ho = Ho, He = He, Ae = inv_het) %>%
-      tidyr::pivot_longer(cols = c("Ho", "He", "Ae"), names_to = "Variable", values_to = "Value")
-   
-   # T-Test between Heterozygosities
-   ttest_df <- data.frame(
-      Locus = rownames(basic_fsnps$perloc),
-      basic_fsnps$perloc,
-      row.names = NULL
-   )
-   
-   # Inbreeding Coefficient
-   fis_values <- apply(basic_fsnps$Fis, 2, mean, na.rm = TRUE) %>%
-      round(3)
-   fis_df <- data.frame(Population = names(fis_values), Fis = fis_values)
-   
-   return(list(
-      mar_list = mar_list,
-      heterozygosity = heterozygosity_df,
-      ttest = ttest_df,
-      inbreeding_coeff = fis_df
-   ))
+  mar_matrix <- hierfstat::allelic.richness(hierfstat::genind2hierfstat(fsnps_gen))$Ar %>%
+    apply(MARGIN = 2, FUN = mean) %>%
+    round(digits = 3)
+  mar_list <- as.data.frame(mar_matrix)
+
+  basic_fsnps <- hierfstat::basic.stats(fsnps_gen, diploid = TRUE)
+  Ho <- apply(basic_fsnps$Ho, 2, mean, na.rm = TRUE) %>% round(2)
+  He <- apply(basic_fsnps$Hs, 2, mean, na.rm = TRUE) %>% round(2)
+  inv_het <- 1 / (1 - He) %>% round(3)
+  heterozygosity_df <- data.frame(Population = names(Ho), Ho = Ho, He = He, Ae = inv_het) %>%
+    tidyr::pivot_longer(cols = c("Ho", "He", "Ae"), names_to = "Variable", values_to = "Value")
+
+  # T-Test between Heterozygosities
+  ttest_df <- data.frame(
+    Locus = rownames(basic_fsnps$perloc),
+    basic_fsnps$perloc,
+    row.names = NULL
+  )
+
+  # Inbreeding Coefficient
+  fis_values <- apply(basic_fsnps$Fis, 2, mean, na.rm = TRUE) %>%
+    round(3)
+  fis_df <- data.frame(Population = names(fis_values), Fis = fis_values)
+
+  return(list(
+    mar_list = mar_list,
+    heterozygosity = heterozygosity_df,
+    ttest = ttest_df,
+    inbreeding_coeff = fis_df
+  ))
 }
 
-#============================
+# ============================
 # Compute allele frequencies
 # Dependencies: dplyr, adegenet
-#============================
-compute_af <- function(fsnps_gen){
-   fsnps_gpop <- adegenet::genind2genpop(fsnps_gen)
-   allele_freqs <- t(adegenet::makefreq(fsnps_gpop, quiet = FALSE, missing = NA)) %>%
-      as.data.frame()
-   
-   allele_freqs <- data.frame(rownames(allele_freqs), allele_freqs)
-   allele_freqs <- dplyr::rename(allele_freqs, markers = 1)
-   rownames(allele_freqs) <- NULL
-   
-   return(allele_freqs)
+# ============================
+compute_af <- function(fsnps_gen) {
+  fsnps_gpop <- adegenet::genind2genpop(fsnps_gen)
+  allele_freqs <- t(adegenet::makefreq(fsnps_gpop, quiet = FALSE, missing = NA)) %>%
+    as.data.frame()
+
+  allele_freqs <- data.frame(rownames(allele_freqs), allele_freqs)
+  allele_freqs <- dplyr::rename(allele_freqs, markers = 1)
+  rownames(allele_freqs) <- NULL
+
+  return(allele_freqs)
 }
 
-#============================
+# ============================
 # Compute HWE
 # Dependencies: pegas, dplyr, tibble, adegenet
-#============================
+# ============================
 compute_hwe <- function(fsnps_gen) {
-   
-   # Hardy-Weinberg Equilibrium (List for export)
-   fsnps_hwe <- as.data.frame(round(pegas::hw.test(fsnps_gen, B = 1000), 6)) 
-   fsnps_hwe <- data.frame(rownames(fsnps_hwe), fsnps_hwe)
-   fsnps_hwe <- dplyr::rename(fsnps_hwe, rsID = 1)
-   rownames(fsnps_hwe) <- NULL
-   
-   # Chi-square test (Matrix for export, Data Frame for ggplot)
-   fsnps_hwe_test <- data.frame(sapply(adegenet::seppop(fsnps_gen), 
-                                       function(ls) pegas::hw.test(ls, B=0)[,3]))
-   
-   fsnps_hwe_chisq_matrix <- as.matrix(fsnps_hwe_test)
-   fsnps_hwe_chisq_df <- as.data.frame(t(fsnps_hwe_chisq_matrix)) %>% tibble::rownames_to_column("Population")
-   
-   return(list(
-      hw_summary = fsnps_hwe,
-      hw_dataframe = fsnps_hwe_chisq_df
-   ))
+  # Hardy-Weinberg Equilibrium (List for export)
+  fsnps_hwe <- as.data.frame(round(pegas::hw.test(fsnps_gen, B = 1000), 6))
+  fsnps_hwe <- data.frame(rownames(fsnps_hwe), fsnps_hwe)
+  fsnps_hwe <- dplyr::rename(fsnps_hwe, rsID = 1)
+  rownames(fsnps_hwe) <- NULL
+
+  # Chi-square test (Matrix for export, Data Frame for ggplot)
+  fsnps_hwe_test <- data.frame(sapply(
+    adegenet::seppop(fsnps_gen),
+    function(ls) pegas::hw.test(ls, B = 0)[, 3]
+  ))
+
+  fsnps_hwe_chisq_matrix <- as.matrix(fsnps_hwe_test)
+  fsnps_hwe_chisq_df <- as.data.frame(t(fsnps_hwe_chisq_matrix)) %>% tibble::rownames_to_column("Population")
+
+  return(list(
+    hw_summary = fsnps_hwe,
+    hw_dataframe = fsnps_hwe_chisq_df
+  ))
 }
 
-#============================
+# ============================
 # Compute FST
 # Dependencies: hierfstat, tibble, tidyr
-#============================
+# ============================
 compute_fst <- function(fsnps_gen) {
-   
-   # Pairwise Fst matrix using Weir & Cockerham 1984 method
-   fst_matrix_raw <- hierfstat::genet.dist(fsnps_gen, method = "WC84") %>%
-      round(3)
-   
-   fst_list <- if (length(fst_matrix_raw) == 0) {
-      list(message = "No Fst values calculated")
-   } else {
-      as.list(as.matrix(fst_matrix_raw))
-   }
-   
-   fst_df <- as.data.frame(as.matrix(fst_matrix_raw)) %>%
-      tibble::rownames_to_column("Site1") %>%
-      tidyr::pivot_longer(cols = -Site1, names_to = "Site2", values_to = "Fst")
-   
-   return(list(
-      fst_matrix = fst_list,   
-      fst_dataframe = fst_df   
-   ))
+  # Pairwise Fst matrix using Weir & Cockerham 1984 method
+  fst_matrix_raw <- hierfstat::genet.dist(fsnps_gen, method = "WC84") %>%
+    round(3)
+
+  fst_list <- if (length(fst_matrix_raw) == 0) {
+    list(message = "No Fst values calculated")
+  } else {
+    as.list(as.matrix(fst_matrix_raw))
+  }
+
+  fst_df <- as.data.frame(as.matrix(fst_matrix_raw)) %>%
+    tibble::rownames_to_column("Site1") %>%
+    tidyr::pivot_longer(cols = -Site1, names_to = "Site2", values_to = "Fst")
+
+  return(list(
+    fst_matrix = fst_list,
+    fst_dataframe = fst_df
+  ))
 }
 
-#============================
+# ============================
 # Plot heterozygosity tables to compare observed and expected
 # Dependencies: ggplot2
-#============================
+# ============================
 plot_heterozygosity <- function(Het_fsnps_df, out_dir) {
-   
-   out_path <- file.path(out_dir, "heterozygosity_plot.png")
-   
-   Het_fsnps_df <- Het_fsnps_df %>%
-      dplyr::filter(Variable %in% c("Ho", "He"))
-   
-   Het_fsnps_df$Variable <- as.factor(Het_fsnps_df$Variable)
-   
-   p <- ggplot(Het_fsnps_df, aes(x = Population, y = Value, fill = Variable)) +
-      geom_bar(stat = "identity", position = position_dodge(width = 0.6), colour = "black") +
-      scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
-      scale_fill_manual(
-         values = c("royalblue", "#bdbdbd"),
-         labels = c(expression(italic("H")[o]), expression(italic("H")[e]))
-      ) +
-      labs(y = "Heterozygosity") +
-      theme(axis.text.x = element_text(size = 10, angle = 90, vjust = 0.5, face = "bold"))
-   
-   ggsave(out_path, plot = p, width = 9, dpi = 300)
-   return(out_path)
+  out_path <- file.path(out_dir, "heterozygosity_plot.png")
+
+  Het_fsnps_df <- Het_fsnps_df %>%
+    dplyr::filter(Variable %in% c("Ho", "He"))
+
+  Het_fsnps_df$Variable <- as.factor(Het_fsnps_df$Variable)
+
+  p <- ggplot(Het_fsnps_df, aes(x = Population, y = Value, fill = Variable)) +
+    geom_bar(stat = "identity", position = position_dodge(width = 0.6), colour = "black") +
+    scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5)) +
+    scale_fill_manual(
+      values = c("royalblue", "#bdbdbd"),
+      labels = c(expression(italic("H")[o]), expression(italic("H")[e]))
+    ) +
+    labs(y = "Heterozygosity") +
+    theme(axis.text.x = element_text(size = 10, angle = 90, vjust = 0.5, face = "bold"))
+
+  ggsave(out_path, plot = p, width = 9, dpi = 300)
+  return(out_path)
 }
 
-#============================
+# ============================
 # Plot FST across populations
 # Dependencies: ggplot2
-#============================
+# ============================
 plot_fst <- function(fst_df, out_dir) {
+  out_path <- file.path(out_dir, "fst_heatmap.png")
 
-   out_path <- file.path(out_dir, "fst_heatmap.png")
-   
-   p <- ggplot(fst_df, aes(x = Site1, y = Site2, fill = Fst, label = round(Fst, 3))) +
-      geom_tile(color = "black") +
-      geom_text(aes(label = round(Fst, 3)), size = 3, color = "black") +
-      scale_fill_gradient2(
-         low = "blue", mid = "pink", high = "red",
-         midpoint = max(fst_df$Fst, na.rm = TRUE) / 2
-      ) +
-      labs(x = "Site 1", y = "Site 2", fill = "Fst") +
-      theme_minimal(base_size = 11) +
-      theme(
-         axis.text = element_text(face = "bold"),
-         axis.text.x = element_text(angle = 45, hjust = 1)
-      )
-   ggsave(out_path, plot = p, width = 8, height = 6, dpi = 300)
-   return(out_path)
+  p <- ggplot(fst_df, aes(x = Site1, y = Site2, fill = Fst, label = round(Fst, 3))) +
+    geom_tile(color = "black") +
+    geom_text(aes(label = round(Fst, 3)), size = 3, color = "black") +
+    scale_fill_gradient2(
+      low = "blue", mid = "pink", high = "red",
+      midpoint = max(fst_df$Fst, na.rm = TRUE) / 2
+    ) +
+    labs(x = "Site 1", y = "Site 2", fill = "Fst") +
+    theme_minimal(base_size = 11) +
+    theme(
+      axis.text = element_text(face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    )
+  ggsave(out_path, plot = p, width = 8, height = 6, dpi = 300)
+  return(out_path)
 }
 
-#============================
+# ============================
 # Export all population statistics generated
 # Dependencies: openxlsx
-#============================
+# ============================
 export_pop_results <- function(allele_freq, priv_alleles, stats_matrix, hw_matrix, fst_matrix, dir = tempdir()) {
-   
-   timestamp <- format(Sys.time(), "%Y%m%d_%H%M")
-   out_file <- file.path(dir, paste0("population-statistics-results_", timestamp, ".xlsx"))
-   
-   # Revise formats
-   #------ MAR
-   mar <- data.frame(rownames(stats_matrix$mar_list), stats_matrix$mar_list)
-   mar <- dplyr::rename(mar, Pop = 1)
-   rownames(mar) <- NULL
-   
-   #------ Heterozygosity
-   het <- stats_matrix$heterozygosity
-   het <-  tidyr::pivot_wider(data = het,
-                                 names_from = Variable,
-                                 values_from = Value)
-   
-   #------- IC
-   ic <- stats_matrix$inbreeding_coeff
-   rownames(ic) <- NULL
-   
-   datasets <- list(
-      "Private Alleles" = as.data.frame(priv_alleles),
-      "Mean Allelic Richness" = mar,
-      "Heterozygosities" = het,
-      "T-test per Locus" = as.data.frame(stats_matrix$ttest),
-      "Inbreeding Coefficient" = as.data.frame(stats_matrix$inbreeding_coeff),
-      "Allele Frequencies" = allele_freq,
-      "Hardy-Weinberg Equilibrium"= as.data.frame(hw_matrix$hw_summary),
-      "Chi-square Test Results" = as.data.frame(hw_matrix$hw_dataframe),
-      "Pairwise Fst Matrix" = as.data.frame(fst_matrix$fst_matrix)
-   )
-   
-   openxlsx::write.xlsx(datasets, file = out_file)
-   return(out_file)
+  timestamp <- format(Sys.time(), "%Y%m%d_%H%M")
+  out_file <- file.path(dir, paste0("population-statistics-results_", timestamp, ".xlsx"))
+
+  # Revise formats
+  #------ MAR
+  mar <- data.frame(rownames(stats_matrix$mar_list), stats_matrix$mar_list)
+  mar <- dplyr::rename(mar, Pop = 1)
+  rownames(mar) <- NULL
+
+  #------ Heterozygosity
+  het <- stats_matrix$heterozygosity
+  het <- tidyr::pivot_wider(
+    data = het,
+    names_from = Variable,
+    values_from = Value
+  )
+
+  #------- IC
+  ic <- stats_matrix$inbreeding_coeff
+  rownames(ic) <- NULL
+
+  datasets <- list(
+    "Private Alleles" = as.data.frame(priv_alleles),
+    "Mean Allelic Richness" = mar,
+    "Heterozygosities" = het,
+    "T-test per Locus" = as.data.frame(stats_matrix$ttest),
+    "Inbreeding Coefficient" = as.data.frame(stats_matrix$inbreeding_coeff),
+    "Allele Frequencies" = allele_freq,
+    "Hardy-Weinberg Equilibrium" = as.data.frame(hw_matrix$hw_summary),
+    "Chi-square Test Results" = as.data.frame(hw_matrix$hw_dataframe),
+    "Pairwise Fst Matrix" = as.data.frame(fst_matrix$fst_matrix)
+  )
+
+  openxlsx::write.xlsx(datasets, file = out_file)
+  return(out_file)
 }
 
-#============================
+# ============================
 # Evaluate if input file is an allele frequency or gt frequency table
-#============================
-evaluate_file <- function(df, sample_size = 50, genotype = "^[A-Z]/[A-Z]$"){
-   all_vals <- unlist(df, use.names = FALSE)
-   all_vals <- all_vals[!is.na(all_vals) & all_vals != "N"]
-   sample_vals <- if (length(all_vals) > sample_size){
-      sample(all_vals, sample_size)
-   } else { all_vals }
-   
-   num_gts <- sum(stringr::str_detect(sample_vals, genotype))
-   num_vals <- suppressWarnings(as.numeric(sample_vals))
-   num_freqs <- sum(!is.na(num_vals) & num_vals >= 0 & num_vals <= 1)
-   
-   if (num_gts > num_freqs){
-      return("gts")
-   } else if (num_freqs > num_gts) {
-      return("freqs")
-   } else {
-      return("unknown data format")
-   }
+# ============================
+evaluate_file <- function(df, sample_size = 50, genotype = "^[A-Z]/[A-Z]$") {
+  all_vals <- unlist(df, use.names = FALSE)
+  all_vals <- all_vals[!is.na(all_vals) & all_vals != "N"]
+  sample_vals <- if (length(all_vals) > sample_size) {
+    sample(all_vals, sample_size)
+  } else {
+    all_vals
+  }
+
+  num_gts <- sum(stringr::str_detect(sample_vals, genotype))
+  num_vals <- suppressWarnings(as.numeric(sample_vals))
+  num_freqs <- sum(!is.na(num_vals) & num_vals >= 0 & num_vals <= 1)
+
+  if (num_gts > num_freqs) {
+    return("gts")
+  } else if (num_freqs > num_gts) {
+    return("freqs")
+  } else {
+    return("unknown data format")
+  }
 }
 
-#============================
+# ============================
 # Calculate genotype frequencies (marker/population)
 # Dependencies: dplyr, stringr
-#============================
-calc_genotype_freq <- function(df, pop = NULL){
-   df <- dplyr::rename(df, markers = 1)
-   
-   df <- df %>% 
-      mutate(
-         marker = stringr::str_remove(markers, "\\..*"),
-         allele = stringr::str_remove(markers, ".*\\.")
-      ) %>%
-      dplyr::select(-markers)
-   
-   df_long <- df %>% tidyr::pivot_longer(
-      cols = -c(marker, allele),
-      names_to = "population",
-      values_to = "freq"
-   )
-   
-   # double check single alleles
-   geno_freqs1 <- df_long %>%
-      dplyr::group_by(marker, population) %>%
-      dplyr::summarise(
-         n_alleles = dplyr::n(),
-         allele1 = dplyr::first(allele),
-         allele2 = dplyr::last(allele),
-         p = dplyr::first(freq),
-         q = dplyr::last(freq),
-         .groups = "drop"
-      ) 
-   
-      if (is.null(pop)) {
-         geno_freqs2 <- geno_freqs1 %>%
-            dplyr::mutate(
-            q = dplyr::if_else(n_alleles == 1, 0, q),
-            allele2 = dplyr::if_else(n_alleles == 1, NA_character_, allele2),
-            homozygous1 = p^2,
-            heterozygous = dplyr::if_else(n_alleles == 1, 0, 2*p*q),
-            homozygous2 = dplyr::if_else(n_alleles == 1, 0, q^2)
-         )
-   
-       } else if (!is.null(pop)) {
-          floor = 5/(2*pop)
-          
-          geno_freqs2 <- geno_freqs1 %>%
-            dplyr::mutate(
-            p = pmax(p, floor),
-            q = pmax(q, floor),
-            homozygous1 = p^2,
-            heterozygous = dplyr::if_else(n_alleles == 1, 0, 2*p*q),
-            homozygous2 = dplyr::if_else(n_alleles == 1, 0, q^2)
-            )}
-   
-   by_pop <- split(geno_freqs2, geno_freqs2$population)
-   by_pop <- lapply(by_pop, function(x){
-      x <- x[,-2]
-   })
-   
-   clean_names <- names(by_pop) %>%
-      stringr::str_replace_all("[._]", " ")
-   names(by_pop) <- clean_names
-   
-   return(list(gt_complete = geno_freqs2,
-               gt_by_pop = by_pop))
+# ============================
+calc_genotype_freq <- function(df, pop = NULL) {
+  df <- dplyr::rename(df, markers = 1)
+
+  df <- df %>%
+    mutate(
+      marker = stringr::str_remove(markers, "\\..*"),
+      allele = stringr::str_remove(markers, ".*\\.")
+    ) %>%
+    dplyr::select(-markers)
+
+  df_long <- df %>% tidyr::pivot_longer(
+    cols = -c(marker, allele),
+    names_to = "population",
+    values_to = "freq"
+  )
+
+  # double check single alleles
+  geno_freqs1 <- df_long %>%
+    dplyr::group_by(marker, population) %>%
+    dplyr::summarise(
+      n_alleles = dplyr::n(),
+      allele1 = dplyr::first(allele),
+      allele2 = dplyr::last(allele),
+      p = dplyr::first(freq),
+      q = dplyr::last(freq),
+      .groups = "drop"
+    )
+
+  if (is.null(pop)) {
+    geno_freqs2 <- geno_freqs1 %>%
+      dplyr::mutate(
+        q = dplyr::if_else(n_alleles == 1, 0, q),
+        allele2 = dplyr::if_else(n_alleles == 1, NA_character_, allele2),
+        homozygous1 = p^2,
+        heterozygous = dplyr::if_else(n_alleles == 1, 0, 2 * p * q),
+        homozygous2 = dplyr::if_else(n_alleles == 1, 0, q^2)
+      )
+  } else if (!is.null(pop)) {
+    floor <- 5 / (2 * pop)
+
+    geno_freqs2 <- geno_freqs1 %>%
+      dplyr::mutate(
+        p = pmax(p, floor),
+        q = pmax(q, floor),
+        homozygous1 = p^2,
+        heterozygous = dplyr::if_else(n_alleles == 1, 0, 2 * p * q),
+        homozygous2 = dplyr::if_else(n_alleles == 1, 0, q^2)
+      )
+  }
+
+  by_pop <- split(geno_freqs2, geno_freqs2$population)
+  by_pop <- lapply(by_pop, function(x) {
+    x <- x[, -2]
+  })
+
+  clean_names <- names(by_pop) %>%
+    stringr::str_replace_all("[._]", " ")
+  names(by_pop) <- clean_names
+
+  return(list(
+    gt_complete = geno_freqs2,
+    gt_by_pop = by_pop
+  ))
 }
 
-#============================
+# ============================
 # Calculate forensic parameters for iisnps
 # Dependencies: dplyr, stringr
-#============================
-calc_iisnps_params <- function(geno_freqs, profile = NULL, theta = 0){
-   
-   marker_metrics <- geno_freqs %>%
-      dplyr::rowwise() %>%
+# ============================
+calc_iisnps_params <- function(geno_freqs, profile = NULL, theta = 0) {
+  marker_metrics <- geno_freqs %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(
+      RMP = homozygous1^2 + heterozygous^2 + homozygous2^2,
+      PD = 1 - RMP,
+      PIC = 1 - (homozygous1 + homozygous2) - (2 * (homozygous1 * homozygous2)), # 2 * homozygous1 * homozygous2 * (1-2*homozygous1*homozygous2),
+      H = homozygous1 + homozygous2,
+      h = heterozygous,
+      PE = (h^2) * (1 - 2 * h * H),
+      TPI = 1 / (2 * H)
+    ) %>%
+    dplyr::select(marker, population, RMP, PD, PIC, PE, TPI) %>%
+    dplyr::ungroup()
+
+  if (!is.null(profile)) {
+    profile <- dplyr::rename(profile, marker = 1)
+
+    geno_theta <- geno_freqs %>%
       dplyr::mutate(
-         RMP = homozygous1^2 + heterozygous^2 + homozygous2^2,
-         PD = 1 - RMP,
-         PIC = 1 - (homozygous1 + homozygous2) - (2*(homozygous1*homozygous2)), #2 * homozygous1 * homozygous2 * (1-2*homozygous1*homozygous2),
-         H = homozygous1 + homozygous2,
-         h = heterozygous,
-         PE = (h^2)*(1-2*h*H),
-         TPI = 1/(2*H)
-      ) %>%
-      dplyr::select(marker, population, RMP, PD, PIC, PE, TPI) %>%
-      dplyr::ungroup()
-   
-   if (!is.null(profile)){
-      profile <- dplyr::rename(profile, marker = 1)
-      
-      geno_theta <- geno_freqs %>%
-         dplyr::mutate(
-            homozygous1 = p^2 + p*(1-p)*theta,
-            heterozygous = 2*p*q*(1-theta),
-            homozygous2 = q^2 + q*(1-q)*theta
-         )
-      
-      rmp_table <- profile %>%
-         dplyr::left_join(geno_theta, by = "marker") %>%
-         dplyr::mutate(
-            g1 = stringr::str_split(genotype, "/", simplify = TRUE)[,1], # second column of profile
-            g2 = stringr::str_split(genotype, "/", simplify = TRUE)[,2],
-            
-            genotype_freqs = dplyr::case_when(
-               g1 == allele1 & g2 == allele1 ~ homozygous1,
-               g1 == allele2 & g2 == allele2 ~ homozygous2,
-               g1 != g2 ~ heterozygous,
-               TRUE ~ NA_real_
-            )
-         )
-      
-      rmp <- prod(rmp_table$genotype_freqs, na.rm = TRUE)
-      
-      return(list(
-         RMP_profile = rmp,
-         marker_metrics = marker_metrics
-      ))
-      
-   } else {
-      # breakdown 
-      by_pop <- split(marker_metrics, marker_metrics[,2])
-      by_pop <- lapply(by_pop, function(x){
-         x <- x[,-2]
-      })
-      
-      clean_names <- names(by_pop) %>%
-         stringr::str_replace_all("[._]", " ")
-      names(by_pop) <- clean_names
-      
-      return(list(
-         overall = marker_metrics,
-         by_population = by_pop
-      ))
-   }
-   
+        homozygous1 = p^2 + p * (1 - p) * theta,
+        heterozygous = 2 * p * q * (1 - theta),
+        homozygous2 = q^2 + q * (1 - q) * theta
+      )
+
+    rmp_table <- profile %>%
+      dplyr::left_join(geno_theta, by = "marker") %>%
+      dplyr::mutate(
+        g1 = stringr::str_split(genotype, "/", simplify = TRUE)[, 1], # second column of profile
+        g2 = stringr::str_split(genotype, "/", simplify = TRUE)[, 2],
+        genotype_freqs = dplyr::case_when(
+          g1 == allele1 & g2 == allele1 ~ homozygous1,
+          g1 == allele2 & g2 == allele2 ~ homozygous2,
+          g1 != g2 ~ heterozygous,
+          TRUE ~ NA_real_
+        )
+      )
+
+    rmp <- prod(rmp_table$genotype_freqs, na.rm = TRUE)
+
+    return(list(
+      RMP_profile = rmp,
+      marker_metrics = marker_metrics
+    ))
+  } else {
+    # breakdown
+    by_pop <- split(marker_metrics, marker_metrics[, 2])
+    by_pop <- lapply(by_pop, function(x) {
+      x <- x[, -2]
+    })
+
+    clean_names <- names(by_pop) %>%
+      stringr::str_replace_all("[._]", " ")
+    names(by_pop) <- clean_names
+
+    return(list(
+      overall = marker_metrics,
+      by_population = by_pop
+    ))
+  }
 }
 
-#============================
+# ============================
 # Calculate principal components
 # Dependencies: ade4, adegenet, stats
-#============================
+# ============================
 compute_pca <- function(fsnps_gen) {
-   
-   x <- tab(fsnps_gen, NA.method = "mean")
-   set.seed(9999)
-   pca1 <- ade4::dudi.pca(x, scannf = FALSE, scale = FALSE, nf = 7)
-   
-   percent <- pca1$eig/sum(pca1$eig)*100
-   
-   ind_coords <- as.data.frame(pca1$li)
-   colnames(ind_coords) <- paste0("PC", seq_len(ncol(ind_coords)))
-   ind_coords$Ind <- adegenet::indNames(fsnps_gen)
-   ind_coords$Site <- fsnps_gen@pop
-   
-   centroid <- stats::aggregate(
-      ind_coords[, grep("^PC", names(ind_coords))], 
-                                by = list(ind_coords$Site), 
-                                FUN = mean)
-   colnames(centroid)[1] <- "Site"
-   centroid <- as.data.frame(centroid)
-   
-   return(list(pca1 = pca1, 
-               percent = percent, 
-               ind_coords = ind_coords, 
-               centroid = centroid))
+  x <- tab(fsnps_gen, NA.method = "mean")
+  set.seed(9999)
+  pca1 <- ade4::dudi.pca(x, scannf = FALSE, scale = FALSE, nf = 7)
+
+  percent <- pca1$eig / sum(pca1$eig) * 100
+
+  ind_coords <- as.data.frame(pca1$li)
+  colnames(ind_coords) <- paste0("PC", seq_len(ncol(ind_coords)))
+  ind_coords$Ind <- adegenet::indNames(fsnps_gen)
+  ind_coords$Site <- fsnps_gen@pop
+
+  centroid <- stats::aggregate(
+    ind_coords[, grep("^PC", names(ind_coords))],
+    by = list(ind_coords$Site),
+    FUN = mean
+  )
+  colnames(centroid)[1] <- "Site"
+  centroid <- as.data.frame(centroid)
+
+  return(list(
+    pca1 = pca1,
+    percent = percent,
+    ind_coords = ind_coords,
+    centroid = centroid
+  ))
 }
 
-#============================
+# ============================
 # Organize labels for PCA plotting
 # Dependencies: ade4, adegenet, RColorBrewer
-#============================
+# ============================
 get_labels <- function(fsnps_gen, use_default = TRUE, label_file = NULL) {
+  if (use_default) {
+    labels <- levels(as.factor(fsnps_gen@pop))
+    n <- as.integer(length(labels))
+    colors <- rep(
+      RColorBrewer::brewer.pal(9, "Set1"),
+      length.out = n
+    )
+    shapes <- rep(21:25, length.out = n)
+  } else {
+    if (is.null(label_file)) {
+      stop("Please provide a label file.")
+    }
 
-   if (use_default) {
-      labels <- levels(as.factor(fsnps_gen@pop))
-      n <- as.integer(length(labels))
-      colors <- rep(
-         RColorBrewer::brewer.pal(9, "Set1"),
-         length.out = n
-      )
-      shapes <- rep(21:25, length.out = n)
-   } else {
-      
-      if (is.null(label_file)) {
-         stop("Please provide a label file.")
-      }
-      
-      df <- load_csv_xlsx_files(label_file)
-      if (ncol(df) < 3){
-         stop("Label file must contain at least three columns.")
-      }
-      
-      labels <- trimws(as.character(df[[1]]))
-      colors <- trimws(as.character(df[[2]]))
-      colors <- setNames(colors, labels)
-      shapes <- as.numeric(df[[3]])
-      shapes <- setNames(shapes, labels)
-      
-      if (length(unique(labels)) != length(labels)){
-         stop("Duplicate population names found.")
-      }
-      
-      expected_labels <- sort(unique(as.character(fsnps_gen@pop)))
-      given_labels <- sort(unique(labels))
-      missing <- BiocGenerics::setdiff(expected_labels, given_labels)
-      extra <- BiocGenerics::setdiff(given_labels, expected_labels)
-      
-      if (length(missing) > 0 || length(extra) > 0){
-         stop("Populations in the dataset and given labels do not match.")
-      }
-      
-      if (length(labels) != length(colors) || 
-          length(labels) != length(shapes)
-      ) {
-         stop("Population, color, and shape columns must have the same length")
-      }
-   }
-   return(list(labels = labels, colors = colors, shapes = shapes))
+    df <- load_csv_xlsx_files(label_file)
+    if (ncol(df) < 3) {
+      stop("Label file must contain at least three columns.")
+    }
+
+    labels <- trimws(as.character(df[[1]]))
+    colors <- trimws(as.character(df[[2]]))
+    colors <- setNames(colors, labels)
+    shapes <- as.numeric(df[[3]])
+    shapes <- setNames(shapes, labels)
+
+    if (length(unique(labels)) != length(labels)) {
+      stop("Duplicate population names found.")
+    }
+
+    expected_labels <- sort(unique(as.character(fsnps_gen@pop)))
+    given_labels <- sort(unique(labels))
+    missing <- BiocGenerics::setdiff(expected_labels, given_labels)
+    extra <- BiocGenerics::setdiff(given_labels, expected_labels)
+
+    if (length(missing) > 0 || length(extra) > 0) {
+      stop("Populations in the dataset and given labels do not match.")
+    }
+
+    if (length(labels) != length(colors) ||
+      length(labels) != length(shapes)
+    ) {
+      stop("Population, color, and shape columns must have the same length")
+    }
+  }
+  return(list(labels = labels, colors = colors, shapes = shapes))
 }
 
-#============================
+# ============================
 # Plot PCA
 # Dependencies: ggplot2, ggrepel
-#============================
+# ============================
 plot_pca <- function(ind_coords, centroid, percent, labels_colors, width = 8, height = 8, pc_x = 1, pc_y = 2) {
-   if(!require("pacman")) {
-      install.packages("pacman")
-   }
-   pacman::p_load(ggplot2, ggrepel, install = TRUE)
-   
-   # Ensure data frames
-   if (!is.data.frame(ind_coords)) ind_coords <- as.data.frame(ind_coords)
-   if (!is.data.frame(centroid)) centroid <- as.data.frame(centroid)
-   
-   # Axis labels
-   xlab <- paste("PC", pc_x, " (", format(round(percent[pc_x], 1), nsmall = 1), "%)", sep = "")
-   ylab <- paste("PC", pc_y, " (", format(round(percent[pc_y], 1), nsmall = 1), "%)", sep = "")
-   
-   # Theme
-   ggtheme <- theme(
-      axis.text.y = element_text(colour = "black", size = 12),
-      axis.text.x = element_text(colour = "black", size = 12),
-      axis.title = element_text(colour = "black", size = 12),
-      panel.border = element_rect(colour = "black", fill = NA, size = 1),
-      panel.background = element_blank(),
-      plot.title = element_text(hjust = 0.5, size = 15)
-   )
-   
-   # Plot
-   plot <- ggplot(ind_coords, aes(
-      x = .data[[paste0("PC", pc_x)]],
-      y = .data[[paste0("PC", pc_y)]],
-      fill = Site, 
-      shape = Site
-   )) +
-      geom_hline(yintercept = 0) +
-      geom_vline(xintercept = 0) +
-      geom_point(color = "black", size = 3, show.legend = FALSE) + 
-      geom_label_repel(data = centroid,
-                       aes(x = .data[[paste0("PC", pc_x)]],
-                           y = .data[[paste0("PC", pc_y)]],
-                           label = Site,
-                           fill = Site),
-                       color = "black",
-                       size = 4, show.legend = FALSE) +
-      scale_fill_manual(values = labels_colors$colors) +
-      scale_shape_manual(values = labels_colors$shapes) +
-      labs(x = xlab, y = ylab) +
-      ggtheme
-   return(plot)
+  if (!require("pacman")) {
+    install.packages("pacman")
+  }
+  pacman::p_load(ggplot2, ggrepel, install = TRUE)
+
+  # Ensure data frames
+  if (!is.data.frame(ind_coords)) ind_coords <- as.data.frame(ind_coords)
+  if (!is.data.frame(centroid)) centroid <- as.data.frame(centroid)
+
+  # Axis labels
+  xlab <- paste("PC", pc_x, " (", format(round(percent[pc_x], 1), nsmall = 1), "%)", sep = "")
+  ylab <- paste("PC", pc_y, " (", format(round(percent[pc_y], 1), nsmall = 1), "%)", sep = "")
+
+  # Theme
+  ggtheme <- theme(
+    axis.text.y = element_text(colour = "black", size = 12),
+    axis.text.x = element_text(colour = "black", size = 12),
+    axis.title = element_text(colour = "black", size = 12),
+    panel.border = element_rect(colour = "black", fill = NA, size = 1),
+    panel.background = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 15)
+  )
+
+  # Plot
+  plot <- ggplot(ind_coords, aes(
+    x = .data[[paste0("PC", pc_x)]],
+    y = .data[[paste0("PC", pc_y)]],
+    fill = Site,
+    shape = Site
+  )) +
+    geom_hline(yintercept = 0) +
+    geom_vline(xintercept = 0) +
+    geom_point(color = "black", size = 3, show.legend = FALSE) +
+    geom_label_repel(
+      data = centroid,
+      aes(
+        x = .data[[paste0("PC", pc_x)]],
+        y = .data[[paste0("PC", pc_y)]],
+        label = Site,
+        fill = Site
+      ),
+      color = "black",
+      size = 4, show.legend = FALSE
+    ) +
+    scale_fill_manual(values = labels_colors$colors) +
+    scale_shape_manual(values = labels_colors$shapes) +
+    labs(x = xlab, y = ylab) +
+    ggtheme
+  return(plot)
 }
 
-#============================
+# ============================
 # Revise input file for STRUCTURE compatibility
 # Convert individual/sample and population names to numeric
 # Dependencies: dplyr, adegenet
-#============================
+# ============================
 clean_input_data_str <- function(file) {
-   if(!require("pacman")) {
-      install.packages("pacman")
-   }
-   pacman::p_load(dplyr, adegenet, install = TRUE)
-   
-   file <- clean_input_data(file)
+  if (!require("pacman")) {
+    install.packages("pacman")
+  }
+  pacman::p_load(dplyr, adegenet, install = TRUE)
 
-   # For Plotting
-   populations_df <- file[,1:2]
-   colnames(populations_df) <- c("Label", "Population")
-   populations_df$Label <- rownames(populations_df)
-   
-   ### Change pop to numeric - for STRUCTURE
-   pop_df <- as.data.frame(file$Pop) %>%
-      dplyr::rename(pops = 1)
-   
-   # Get total no. of pops
-   pop_df_unique <- as.data.frame(pop_df[!duplicated(pop_df), ]) %>%
-      dplyr::rename(pops = 1)
-   # add row names as numbers
-   pop_df_unique$num <- rownames(pop_df_unique)
-   # write.csv(pop_df_unique, file = "population_order.csv") # RETURN THIS FOR DOWNLOAD
-   
-   # replace the pops in the original df (pop_df) with the numbers
-   pop_df_corr <- left_join(pop_df, pop_df_unique, by = "pops") 
-   pops <- pop_df_corr$num
-   
-   ### Change Ind to numeric
-   ind_only <- as.data.frame(file[,1])
-   ind_only$num <- rownames(ind_only)
-   
-   ind <- as.character(ind_only$num)
-   pop <- as.character(pops)
-   geno <- file[, 3:ncol(file)]
-   
-   genind_obj <- adegenet::df2genind(geno, ind.names = ind, pop = pop, sep = "/", NA.char = "N", ploidy = 2, type = "codom")
-   genind_obj@pop <- as.factor(pop)
-   
-   return(list(
-      fsnps_gen = genind_obj,
-      populations = pop_df_unique,
-      pop_labels = populations_df
-   )) 
+  file <- clean_input_data(file)
+
+  # For Plotting
+  populations_df <- file[, 1:2]
+  colnames(populations_df) <- c("Label", "Population")
+  populations_df$Label <- rownames(populations_df)
+
+  ### Change pop to numeric - for STRUCTURE
+  pop_df <- as.data.frame(file$Pop) %>%
+    dplyr::rename(pops = 1)
+
+  # Get total no. of pops
+  pop_df_unique <- as.data.frame(pop_df[!duplicated(pop_df), ]) %>%
+    dplyr::rename(pops = 1)
+  # add row names as numbers
+  pop_df_unique$num <- rownames(pop_df_unique)
+  # write.csv(pop_df_unique, file = "population_order.csv") # RETURN THIS FOR DOWNLOAD
+
+  # replace the pops in the original df (pop_df) with the numbers
+  pop_df_corr <- left_join(pop_df, pop_df_unique, by = "pops")
+  pops <- pop_df_corr$num
+
+  ### Change Ind to numeric
+  ind_only <- as.data.frame(file[, 1])
+  ind_only$num <- rownames(ind_only)
+
+  ind <- as.character(ind_only$num)
+  pop <- as.character(pops)
+  geno <- file[, 3:ncol(file)]
+
+  genind_obj <- adegenet::df2genind(geno, ind.names = ind, pop = pop, sep = "/", NA.char = "N", ploidy = 2, type = "codom")
+  genind_obj@pop <- as.factor(pop)
+
+  return(list(
+    fsnps_gen = genind_obj,
+    populations = pop_df_unique,
+    pop_labels = populations_df
+  ))
 }
 
-#============================
+# ============================
 # Calculate Q metrices
-#============================
-q_matrices <- function(dir){
-   output <- list.files(path = dir, pattern = "\\_f$", full.names = TRUE)
-   output_list <- lapply(output, function(filepath){
-      lines <- readLines(filepath)
-      
-      start <- grep("Inferred ancestry of individuals", lines) + 2
-      end <- grep("^Estimated Allele Frequencies in each cluster", lines)[1] - 1
-      
-      qmatrices <- lines[start:end]
-      
-      qmatrices_data <- do.call(rbind, lapply(qmatrices, function(line){
-         section <- unlist(strsplit(line, ":"))
-         
-         if(length(section) == 2) {
-            props <- as.numeric(strsplit(trimws(section[2]), "\\s+")[[1]])
-            return(props)
-         } else {
-            return(NULL)
-         }
-      }))
-      return(qmatrices_data)
-   })
+# ============================
+q_matrices <- function(dir) {
+  output <- list.files(path = dir, pattern = "\\_f$", full.names = TRUE)
+  output_list <- lapply(output, function(filepath) {
+    lines <- readLines(filepath)
 
-   names(output_list) <- basename(output)
-   return(output_list)
+    start <- grep("Inferred ancestry of individuals", lines) + 2
+    end <- grep("^Estimated Allele Frequencies in each cluster", lines)[1] - 1
+
+    qmatrices <- lines[start:end]
+
+    qmatrices_data <- do.call(rbind, lapply(qmatrices, function(line) {
+      section <- unlist(strsplit(line, ":"))
+
+      if (length(section) == 2) {
+        props <- as.numeric(strsplit(trimws(section[2]), "\\s+")[[1]])
+        return(props)
+      } else {
+        return(NULL)
+      }
+    }))
+    return(qmatrices_data)
+  })
+
+  names(output_list) <- basename(output)
+  return(output_list)
 }
 
-#============================
+# ============================
 # Read fasta files
 # Dependencies: utils, BiocManager, Biostrings
-#============================
-read_fasta <- function(zipped, directory){
+# ============================
+read_fasta <- function(zipped, directory) {
+  utils::unzip(zipped,
+    files = NULL,
+    list = FALSE,
+    overwrite = TRUE,
+    exdir = file.path(directory, "fasta_files")
+  )
 
-   utils::unzip(zipped, 
-                files = NULL, 
-                list = FALSE, 
-                overwrite = TRUE, 
-                exdir = file.path(directory, "fasta_files"))
-   
-   data_path <- file.path(directory, "fasta_files")
-   fasta_patterns <- paste("\\.fasta$", "\\.fa$", "\\.fna$", "\\fas$", sep = "|")
-   fasta_files <- list.files(path = data_path, pattern = fasta_patterns, full.names = TRUE)
-   dna_sequences <- Biostrings::readDNAStringSet(fasta_files)
-   return(dna_sequences)
+  data_path <- file.path(directory, "fasta_files")
+  fasta_patterns <- paste("\\.fasta$", "\\.fa$", "\\.fna$", "\\fas$", sep = "|")
+  fasta_files <- list.files(path = data_path, pattern = fasta_patterns, full.names = TRUE)
+  dna_sequences <- Biostrings::readDNAStringSet(fasta_files)
+  return(dna_sequences)
 }
 
-#============================
+# ============================
 # Perform multiple sequence alignment
 # Dependencies: BiocManager, pwalign, tinytex, seqinr, msa, DECIPHER, Biostrings
-#============================
-calc_msa <- function(files, algorithm){
-   
-   # Creating Substitution Matrix
-   personal_matrix <- pwalign::nucleotideSubstitutionMatrix(
-      match = 1, mismatch = 0, baseOnly = FALSE, type = "DNA")
-   
-   gap_penalty <- -2
-   personal_matrix <- rbind(personal_matrix, "-" = gap_penalty)
-   personal_matrix <- cbind(personal_matrix, "-" = gap_penalty)
-   colnames(personal_matrix) <- c("A", "C", "G", "T", "M", "R", "W", "S", "Y", "K", "V", "H", "D", "B", "N", "-")
-   rownames(personal_matrix) <-  c("A", "C", "G", "T", "M", "R", "W", "S", "Y", "K", "V", "H", "D", "B", "N", "-")
-   personal_matrix <- as.matrix(personal_matrix)
-   
-   # perform msa
-   aligned_sequences <- msa::msa(
-      files,
-      substitutionMatrix = personal_matrix, 
-      method = algorithm) # ClustalW, ClustalOmega, MUSCLE
-   
-   # calculate alignment score
-   alignment_scores <- msa::msaConservationScore(
-      aligned_sequences, substitutionMatrix = personal_matrix)
-   
-   # Post-processing
-   aligned_dnastrings <- msa::msaConvert(
-      aligned_sequences, type = "seqinr::alignment")
-   aligned_dnastrings <- Biostrings::DNAStringSet(
-      setNames(aligned_dnastrings$seq, aligned_dnastrings$nam))
-   
-   adjusted <- DECIPHER::AdjustAlignment(aligned_dnastrings)
-   staggered <- DECIPHER::StaggerAlignment(adjusted)
-   
-   return(list(
-      alignment = aligned_sequences,
-      scores = alignment_scores,
-      adjusted = adjusted,
-      staggered = staggered
-   ))
+# ============================
+calc_msa <- function(files, algorithm) {
+  # Creating Substitution Matrix
+  personal_matrix <- pwalign::nucleotideSubstitutionMatrix(
+    match = 1, mismatch = 0, baseOnly = FALSE, type = "DNA"
+  )
+
+  gap_penalty <- -2
+  personal_matrix <- rbind(personal_matrix, "-" = gap_penalty)
+  personal_matrix <- cbind(personal_matrix, "-" = gap_penalty)
+  colnames(personal_matrix) <- c("A", "C", "G", "T", "M", "R", "W", "S", "Y", "K", "V", "H", "D", "B", "N", "-")
+  rownames(personal_matrix) <- c("A", "C", "G", "T", "M", "R", "W", "S", "Y", "K", "V", "H", "D", "B", "N", "-")
+  personal_matrix <- as.matrix(personal_matrix)
+
+  # perform msa
+  aligned_sequences <- msa::msa(
+    files,
+    substitutionMatrix = personal_matrix,
+    method = algorithm
+  ) # ClustalW, ClustalOmega, MUSCLE
+
+  # calculate alignment score
+  alignment_scores <- msa::msaConservationScore(
+    aligned_sequences,
+    substitutionMatrix = personal_matrix
+  )
+
+  # Post-processing
+  aligned_dnastrings <- msa::msaConvert(
+    aligned_sequences,
+    type = "seqinr::alignment"
+  )
+  aligned_dnastrings <- Biostrings::DNAStringSet(
+    setNames(aligned_dnastrings$seq, aligned_dnastrings$nam)
+  )
+
+  adjusted <- DECIPHER::AdjustAlignment(aligned_dnastrings)
+  staggered <- DECIPHER::StaggerAlignment(adjusted)
+
+  return(list(
+    alignment = aligned_sequences,
+    scores = alignment_scores,
+    adjusted = adjusted,
+    staggered = staggered
+  ))
 }
 
-#============================
+# ============================
 # Read MSA files
 # Dependencies: seqinr, Biostrings
-#============================
-read_msa_file <- function(path, filename){
-   ext <- tolower(tools::file_ext(filename))
-   
-   if (ext == "msa"){
-      return(Biostrings::readDNAStringSet(path))
-   }
-   
-   if (ext %in% c("fa", "fas", "fasta")){ ext <- "fasta" }
-      
-   if (ext == "aln"){ ext <- "clustal" }
-   
-   if (!ext %in% c("fasta", "msf", "clustal")){ stop(paste("Unsupported format")) }
-   
-   seqinr::read.alignment(
-      file = path, 
-      format = ext
-   )
+# ============================
+read_msa_file <- function(path, filename) {
+  ext <- tolower(tools::file_ext(filename))
+
+  if (ext == "msa") {
+    return(Biostrings::readDNAStringSet(path))
+  }
+
+  if (ext %in% c("fa", "fas", "fasta")) {
+    ext <- "fasta"
+  }
+
+  if (ext == "aln") {
+    ext <- "clustal"
+  }
+
+  if (!ext %in% c("fasta", "msf", "clustal")) {
+    stop(paste("Unsupported format"))
+  }
+
+  seqinr::read.alignment(
+    file = path,
+    format = ext
+  )
 }
 
-#============================
+# ============================
 # Convert alignment to DNA.bin
 # Dependencies: ape, rphast
-#============================
-alignment_to_dnabin <- function(path){
-   ext <- tolower(tools::file_ext(path))
-   
-   if (ext %in% c("fasta", "fa", "fas", "aln")){
-      alignment <- ape::read.dna(
-         file = path,
-         format = "fasta",
-         as.character = TRUE,
-         skip = 0,
-         as.matrix = FALSE
-      )
-      return(alignment)
-   } else if (ext == "msa"){
-      msa_alignment <- rphast::read.msa(
-         path, format = rphast::guess.format.msa(path, method = "content")
-      )
-      
-      seqs <- msa_alignment$seq
-      names <- msa_alignment$nam
-      
-      matrix <- do.call(rbind, lapply(seqs, function(x){
-         strsplit(toupper(x), "")[[1]]
-      }))
-      rownames(matrix) <- names
-      return(ape::as.DNAbin(matrix))
-   }
-   stop("Unsupported file format: ", ext)
+# ============================
+alignment_to_dnabin <- function(path) {
+  ext <- tolower(tools::file_ext(path))
+
+  if (ext %in% c("fasta", "fa", "fas", "aln")) {
+    alignment <- ape::read.dna(
+      file = path,
+      format = "fasta",
+      as.character = TRUE,
+      skip = 0,
+      as.matrix = FALSE
+    )
+    return(ape::as.DNAbin(alignment))
+  } else if (ext == "msa") {
+    msa_alignment <- rphast::read.msa(
+      path,
+      format = rphast::guess.format.msa(path, method = "content")
+    )
+
+    seqs <- msa_alignment$seq
+    names <- msa_alignment$nam
+
+    matrix <- do.call(rbind, lapply(seqs, function(x) {
+      strsplit(toupper(x), "")[[1]]
+    }))
+    rownames(matrix) <- names
+    return(ape::as.DNAbin(matrix))
+  }
+  stop("Unsupported file format: ", ext)
 }
 
-#============================
+# ============================
 # Build phylogenetic tree using NJ method
 # Dependencies: ape, ggtree
-#============================
-build_nj_tree <- function(alignment, outgroup = NULL, seed = 123, model = model){
+# ============================
+build_nj_tree <- function(alignment, outgroup = NULL, seed = 123, model = model) {
+  bins <- ape::as.DNAbin(alignment)
+  distance <- ape::dist.dna(bins, model = model)
+  nj_tree <- ape::nj(distance)
 
-   bins <- ape::as.DNAbin(alignment)
-   distance <- ape::dist.dna(bins, model = model)
-   nj_tree <- ape::nj(distance)
-   
-   if (!is.null(outgroup) && outgroup %in% nj_tree$tip.label){
-      nj_tree <- ape::root(nj_tree, outgroup = outgroup)
-   }
-   
-   nj_tree <- ape::ladderize(nj_tree)
-   num_sites <- ncol(bins)
-   if (num_sites < 10){
-      warning("Alignment has fewer than 10 sites. Skipping bootstrap.")
-      tree_plot <- ggtree(nj_tree, branch.length = "none") +
-         theme_tree2() +
-         geom_tiplab() +
-         ggtitle("NJ Tree")
-      return(tree_plot)
-   } 
-   
-   # Bootstrapping
-   set.seed(seed)
-   boots <- ape::boot.phylo(nj_tree, bins, 
-                            FUN = function(x){
-                               tree <- ape::nj(ape::dist.dna(x, model = model))
-                               if (!is.null(outgroup) && outgroup %in% tree$tip.label){
-                                  tree <- ape::root(tree, outgroup = outgroup)
-                               }
-                               ape::ladderize(tree)
-                            }, rooted = TRUE
-   )
-   
-   boots[is.na(boots)] <- 0
-   nj_tree$node.label <- as.character(boots)
-   tree_plot <- ggtree(nj_tree, branch.length = "none") +
+  if (!is.null(outgroup) && outgroup %in% nj_tree$tip.label) {
+    nj_tree <- ape::root(nj_tree, outgroup = outgroup)
+  }
+
+  nj_tree <- ape::ladderize(nj_tree)
+  num_sites <- ncol(bins)
+  if (num_sites < 10) {
+    warning("Alignment has fewer than 10 sites. Skipping bootstrap.")
+    tree_plot <- ggtree(nj_tree, branch.length = "none") +
       theme_tree2() +
       geom_tiplab() +
-      geom_text2(aes(subset = !isTip, label = label), hjust = -0.3) +
-      ggtitle("NJ Tree") +
-      xlim(0, 20)
-   
-   return(tree_plot)
+      ggtitle("NJ Tree")
+    return(tree_plot)
+  }
+
+  # Bootstrapping
+  set.seed(seed)
+  boots <- ape::boot.phylo(nj_tree, bins,
+    FUN = function(x) {
+      tree <- ape::nj(ape::dist.dna(x, model = model))
+      if (!is.null(outgroup) && outgroup %in% tree$tip.label) {
+        tree <- ape::root(tree, outgroup = outgroup)
+      }
+      ape::ladderize(tree)
+    }, rooted = TRUE
+  )
+
+  boots[is.na(boots)] <- 0
+  nj_tree$node.label <- as.character(boots)
+  tree_plot <- ggtree(nj_tree, branch.length = "none") +
+    theme_tree2() +
+    geom_tiplab() +
+    geom_text2(aes(subset = !isTip, label = label), hjust = -0.3) +
+    ggtitle("NJ Tree") +
+    xlim(0, 20)
+
+  return(tree_plot)
 }
 
-#============================
+# ============================
 # Build phylogenetic tree using UPGMA method
 # Dependencies: ape, ggtree
-#============================
-build_upgma_tree <- function(alignment, outgroup = NULL, seed =123, model = model){
-   
-   bins <- ape::as.DNAbin(alignment)
-   distance <- ape::dist.dna(bins, model = model)
-   upgma_tree <- upgma(distance)
-   
-   if (!is.null(outgroup) && outgroup %in% upgma_tree$tip.label){
-      upgma_tree <- ape::root(upgma_tree, outgroup = outgroup)
-   }
-   
-   upgma_tree <- ape::ladderize(upgma_tree)
-   num_sites <- ncol(bins)
-   if (num_sites < 10){
-      warning("Alignment has fewer than 10 sites. Skipping bootstrap.")
-      
-      tree_plot <- ggtree(upgma_tree, branch.length = "none") +
-         theme_tree2() +
-         geom_tiplab() +
-         ggtitle("UPGMA Tree")
-      
-      return(tree_plot)
-   }
-   
-   set.seed(seed)
-   boots <- ape::boot.phylo(upgma_tree, bins, 
-                            FUN = function(x){
-                               tree <- ape::nj(ape::dist.dna(x, model = model))
-                               if (!is.null(outgroup) && outgroup %in% tree$tip.label){
-                                  tree <- ape::root(tree, outgroup = outgroup)
-                               }
-                               ape::ladderize(tree)
-                            }, rooted = TRUE, 
-   )
-   
-   boots[is.na(boots)] <- 0
-   upgma_tree$node.label <- as.character(boots)
-   tree_plot <- ggtree(upgma_tree, branch.length = "none") +
+# ============================
+build_upgma_tree <- function(alignment, outgroup = NULL, seed = 123, model = model) {
+  bins <- ape::as.DNAbin(alignment)
+  distance <- ape::dist.dna(bins, model = model)
+  upgma_tree <- upgma(distance)
+
+  if (!is.null(outgroup) && outgroup %in% upgma_tree$tip.label) {
+    upgma_tree <- ape::root(upgma_tree, outgroup = outgroup)
+  }
+
+  upgma_tree <- ape::ladderize(upgma_tree)
+  num_sites <- ncol(bins)
+  if (num_sites < 10) {
+    warning("Alignment has fewer than 10 sites. Skipping bootstrap.")
+
+    tree_plot <- ggtree(upgma_tree, branch.length = "none") +
       theme_tree2() +
       geom_tiplab() +
-      geom_text2(aes(subset = !isTip, label = label), hjust = -0.3) +
-      ggtitle("UPGMA Tree") +
-      xlim(0, 20)
-   
-   return(tree_plot)
+      ggtitle("UPGMA Tree")
+
+    return(tree_plot)
+  }
+
+  set.seed(seed)
+  boots <- ape::boot.phylo(upgma_tree, bins,
+    FUN = function(x) {
+      tree <- ape::nj(ape::dist.dna(x, model = model))
+      if (!is.null(outgroup) && outgroup %in% tree$tip.label) {
+        tree <- ape::root(tree, outgroup = outgroup)
+      }
+      ape::ladderize(tree)
+    }, rooted = TRUE,
+  )
+
+  boots[is.na(boots)] <- 0
+  upgma_tree$node.label <- as.character(boots)
+  tree_plot <- ggtree(upgma_tree, branch.length = "none") +
+    theme_tree2() +
+    geom_tiplab() +
+    geom_text2(aes(subset = !isTip, label = label), hjust = -0.3) +
+    ggtitle("UPGMA Tree") +
+    xlim(0, 20)
+
+  return(tree_plot)
 }
 
-#============================
+# ============================
 # Build phylogenetic tree using Maximum Parismony method
 # Dependencies: ape, phangorn
-#============================
-build_max_parsimony <- function(alignment, outgroup = NULL, seed = 123, directory){
-   
-   bins <- ape::as.DNAbin(alignment)
-   phy <- phangorn::phyDat(bins, type = "DNA")
-   dm <- dist.ml(phy)
-   start_tree <- NJ(dm)
-   parsimony_tree <- optim.parsimony(start_tree, phy)
-   
-   # Rooting
-   if (!is.null(outgroup) && outgroup %in% parsimony_tree$tip.label){
-      parsimony_tree <- root(parsimony_tree, outgroup = outgroup, resolve.root = TRUE)
-   } 
-   
-   # boostrapping
-   set.seed(seed)
-   bs_pars <- bootstrap.phyDat(phy, \(x) optim.parsimony(NJ(dist.ml(x)), x))
-   
-   # plot
-   filename <- paste(directory, "parsimony_tree.png")
-   png(filename, width = 800, height = 600)
-   plotBS(parsimony_tree, bs_pars, main = "Parsimony Tree")
-   dev.off()
-   
-   return(filename)
+# ============================
+build_max_parsimony <- function(alignment, outgroup = NULL, seed = 123, directory) {
+  bins <- ape::as.DNAbin(alignment)
+  phy <- phangorn::phyDat(bins, type = "DNA")
+  dm <- dist.ml(phy)
+  start_tree <- NJ(dm)
+  parsimony_tree <- optim.parsimony(start_tree, phy)
+
+  # Rooting
+  if (!is.null(outgroup) && outgroup %in% parsimony_tree$tip.label) {
+    parsimony_tree <- root(parsimony_tree, outgroup = outgroup, resolve.root = TRUE)
+  }
+
+  # boostrapping
+  set.seed(seed)
+  bs_pars <- bootstrap.phyDat(phy, \(x) optim.parsimony(NJ(dist.ml(x)), x))
+
+  # plot
+  filename <- paste(directory, "parsimony_tree.png")
+  png(filename, width = 800, height = 600)
+  plotBS(parsimony_tree, bs_pars, main = "Parsimony Tree")
+  dev.off()
+
+  return(filename)
 }
 
-#============================
+# ============================
 # Build phylogenetic tree using Maximum Likelihood method
 # Dependencies: ape, phangorn
-#============================
-build_ml_tree <- function(alignment, 
-                          outgroup = NULL, 
-                          seed = 123, 
+# ============================
+build_ml_tree <- function(alignment,
+                          outgroup = NULL,
+                          seed = 123,
                           bs_reps = 100,
-                          directory){
-   if(!require("pacman")) {
-      install.packages("pacman")
-   }
-   pacman::p_load(ape, phangorn, install = TRUE)
-   
-   bins <- ape::as.DNAbin(alignment)
-   phy <- phyDat(bins, type = "DNA")
-   
-   dm <- dist.ml(phy)
-   start_tree <- NJ(dm)
-   
-   fit <- pml(start_tree, data = phy)
-   
-   # find best-fit model
-   model_test <- modelTest(phy, tree = start_tree)
-   best_model <- model_test$Model[which.min(model_test$BIC)]
-   best_model <- sub("\\+.*", "", best_model)
-   fit_opt <- optim.pml(fit, model = best_model, optGamma = TRUE, optInv = TRUE, rearrangement = "stochastic")
-   
-   tree <- fit_opt$tree
-   if (!is.null(outgroup) && outgroup %in% tree$tip.label){
-      tree <- root(tree, outgroup = outgroup, resolve.root=TRUE)
-   } 
-   
-   # bootstrapping
-   set.seed(seed)
-   bs <- bootstrap.pml(fit_opt, bs = bs_reps, optNni = TRUE)
-   
-   filename <-  paste(directory, "ml_tree.png")
-   png(filename, width = 800, height = 600)
-   plotBS(tree, bs, main = paste("ML Tree (", best_model, ")"))
-   dev.off()
-   return(list(
-      best_model = best_model,
-      filename = filename
-   ))
+                          directory) {
+  if (!require("pacman")) {
+    install.packages("pacman")
+  }
+  pacman::p_load(ape, phangorn, install = TRUE)
+
+  bins <- ape::as.DNAbin(alignment)
+  phy <- phyDat(bins, type = "DNA")
+
+  dm <- dist.ml(phy)
+  start_tree <- NJ(dm)
+
+  fit <- pml(start_tree, data = phy)
+
+  # find best-fit model
+  model_test <- modelTest(phy, tree = start_tree)
+  best_model <- model_test$Model[which.min(model_test$BIC)]
+  best_model <- sub("\\+.*", "", best_model)
+  fit_opt <- optim.pml(fit, model = best_model, optGamma = TRUE, optInv = TRUE, rearrangement = "stochastic")
+
+  tree <- fit_opt$tree
+  if (!is.null(outgroup) && outgroup %in% tree$tip.label) {
+    tree <- root(tree, outgroup = outgroup, resolve.root = TRUE)
+  }
+
+  # bootstrapping
+  set.seed(seed)
+  bs <- bootstrap.pml(fit_opt, bs = bs_reps, optNni = TRUE)
+
+  filename <- paste(directory, "ml_tree.png")
+  png(filename, width = 800, height = 600)
+  plotBS(tree, bs, main = paste("ML Tree (", best_model, ")"))
+  dev.off()
+  return(list(
+    best_model = best_model,
+    filename = filename
+  ))
 }
 
-#============================
-# Perform classification 
+# ============================
+# Perform classification
 # build and train model then classify samples
 # Dependencies: dplyr, tidyr, e1071, caret
-#============================
-calculate_naive_bayes <- function(file){
+# ============================
+calculate_naive_bayes <- function(file) {
+  data_fsnps <- load_csv_xlsx_files(file)
+  data_fsnps <- dplyr::rename(data_fsnps, Sample = 1, Pop = 2)
+  data_fsnps[] <- lapply(data_fsnps, factor)
+  predictors <- !grepl("Pop", colnames(data_fsnps))
+  label <- "Pop"
+  data_fsnps <- as.data.frame(data_fsnps)
 
-   data_fsnps <- load_csv_xlsx_files(file)
-   data_fsnps <- dplyr::rename(data_fsnps, Sample = 1, Pop = 2)
-   data_fsnps[] <- lapply(data_fsnps, factor)
-   predictors = !grepl("Pop",colnames(data_fsnps))
-   label = "Pop"
-   data_fsnps <- as.data.frame(data_fsnps)
-   
-   # training the naive bayes classifier using a leave-one-out cross validation method
-   res = lapply(1:nrow(data_fsnps),function(i){
-      fit = naiveBayes(y=factor(data_fsnps[-i,label]),
-                       x=as.matrix(data_fsnps[-i,predictors]))
-      data.frame(label=data_fsnps[i,label],
-                 pred = predict(fit,as.matrix(data_fsnps[i,predictors],nrow=1))
-      )
-   })
-   
-   # summarise predictions
-   res = do.call(rbind,res)
-   
-   # prepare the confusion matrix from the results
-   confMatrix = confusionMatrix(res$pred,data_fsnps$Pop, mode = "everything")
-   
-   # convert to table, get pred and ref values
-   pred = as.data.frame(confMatrix$table)
-   
-   predWide = tidyr::pivot_wider(data = pred,
-                                 names_from = Reference,
-                                 values_from = Freq)
-   
-   # access accuracy values
-   predStat = as.data.frame(confMatrix$overall)
-   
-   # get other stats
-   otherStat = as.data.frame(confMatrix$byClass)
-   
-   return(list(
-      predTable = predWide,
-      predStat = predStat,
-      otherStat = otherStat
-   ))
+  # training the naive bayes classifier using a leave-one-out cross validation method
+  res <- lapply(1:nrow(data_fsnps), function(i) {
+    fit <- naiveBayes(
+      y = factor(data_fsnps[-i, label]),
+      x = as.matrix(data_fsnps[-i, predictors])
+    )
+    data.frame(
+      label = data_fsnps[i, label],
+      pred = predict(fit, as.matrix(data_fsnps[i, predictors], nrow = 1))
+    )
+  })
+
+  # summarise predictions
+  res <- do.call(rbind, res)
+
+  # prepare the confusion matrix from the results
+  confMatrix <- confusionMatrix(res$pred, data_fsnps$Pop, mode = "everything")
+
+  # convert to table, get pred and ref values
+  pred <- as.data.frame(confMatrix$table)
+
+  predWide <- tidyr::pivot_wider(
+    data = pred,
+    names_from = Reference,
+    values_from = Freq
+  )
+
+  # access accuracy values
+  predStat <- as.data.frame(confMatrix$overall)
+
+  # get other stats
+  otherStat <- as.data.frame(confMatrix$byClass)
+
+  return(list(
+    predTable = predWide,
+    predStat = predStat,
+    otherStat = otherStat
+  ))
 }
-
