@@ -14,7 +14,7 @@ source("functions.R")
 #' @examples
 #' unpack_input_file('my_zipped_file.zip', output.dir = "./unpacked")
 
-unpack_input_file <- function(files, output.dir = output.dir) {
+unpack_input_file <- function(files, output.dir = ".") {
   if (!file.exists(files)) {
     stop("File does not exist in the working directory")
   } else {
@@ -107,7 +107,7 @@ converted_to_plink2 <- function(input.file,
 #' @examples
 #' prepare_input_dataset_archive('my_zipped_file.zip', output.dir = "./unpacked", plink2_path = "./plink2/plink2.exe")
 #' 
-prepare_input_dataset_archive <- function(input_file, output.dir, plink2_path) {
+prepare_input_dataset_archive <- function(input_file, output.dir = ".", plink2_path) {
   unpacked <- unpack_input_file(input_file, output.dir)
   files <- unpacked$data_files
 
@@ -173,9 +173,7 @@ prepare_input_dataset_archive <- function(input_file, output.dir, plink2_path) {
 #' @examples
 #' prepare_input_dataset('my_zipped_file.zip', output.dir = "./unpacked", plink2_path = "./plink2/plink2.exe")
 
-prepare_input_dataset <- function(input_file,
-                                  output.dir,
-                                  plink2_path) {
+prepare_input_dataset <- function(input_file, output.dir = ".", plink2_path) {
   ext <- tools::file_ext(input_file)
   is_archive <- ext %in% c("zip", "tar")
 
@@ -222,7 +220,7 @@ prepare_input_dataset <- function(input_file,
 
 convert_from_plink2 <- function(prefix,
                                 output_type,
-                                output.dir,
+                                output.dir = ".",
                                 plink2_path,
                                 ref = NULL) {
   out_prefix <- file.path(output.dir, "converted")
@@ -315,7 +313,7 @@ merge_plink2_files <- function(plink2_path, merge_list, output_prefix) {
 #' @examples
 #' load_vcf_files('my_file.vcf')
 
-load_vcf_files <- function(vcf, output.dir = NULL) {
+load_vcf_files <- function(vcf, output.dir = ".") {
   if (tools::file_ext(vcf) == "vcf") {
     vcf_object <- vcfR::read.vcfR(vcf, verbose = FALSE)
     genotypes <- vcfR::extract.gt(vcf_object, return.alleles = TRUE)
@@ -389,7 +387,7 @@ load_csv_xlsx_files <- function(input) {
 #' @examples
 #' vcf_to_csv('extracted_markers.vcf', ref = "reference_file.xlsx")
 
-vcf_to_csv <- function(files, ref = NULL, output.dir = NULL) {
+vcf_to_csv <- function(files, ref = NULL, output.dir = ".") {
   extension <- tools::file_ext(files)
 
   if (extension %in% c("vcf", "gz")) {
@@ -555,7 +553,7 @@ csv_to_gentibble <- function(file, loci.meta = loci.meta) {
 #' Widen long genotype file
 #' 
 #' @param files zipped file containing long genotype files
-#' @param population (optional) metadata of samples. Default is NULL.
+#' @param population (optional) metadata of samples.
 #' @param output.dir directory to save unpacked files
 #' @returns dataframe of widened and merged genotype files
 #'
@@ -571,7 +569,7 @@ csv_to_gentibble <- function(file, loci.meta = loci.meta) {
 
 widen_genotype_file <- function(files = files,
                                 population = NULL,
-                                output.dir = output.dir) {
+                                output.dir = ".") {
   if (!file.exists(files)) {
     stop("File does not exist in the working directory")
   } else {
@@ -650,7 +648,7 @@ widen_genotype_file <- function(files = files,
 #' Convert dataframes to genind object
 #' 
 #' @param file dataframe
-#' @param to_str whether input file will be used to generate .str files.
+#' @param to_str whether input file will be used to generate .str files. Default is FALSE.
 #' @returns genind object
 #'
 #' @importFrom adegenet df2genind
@@ -699,7 +697,6 @@ convert_to_genind <- function(file, to_str = FALSE) {
 
 
 # Homogenize data format
-
 clean_input_data <- function(file) {
   file1 <- lapply(file, function(x) gsub("|", "/", x, fixed = TRUE))
   file1 <- as.data.frame(file1)
@@ -716,24 +713,19 @@ clean_input_data <- function(file) {
   return(file1)
 }
 
-# ============================
-# Convert file to STRUCTURE analysis-ready file
-# Dependencies: poppr
-# ============================
-#' Convert dataframes to genind object
+#' Convert dataframe to structure file
 #' 
 #' @param file dataframe
 #' @param to_str whether input file will be used to generate .str files.
-#' @returns genind object
+#' @returns file path to the .str file
 #'
-#' @importFrom adegenet df2genind
-#' @importFrom dplyr rename
+#' @importFrom poppr popsub
 #' 
 #' @export
 #' @examples
-#' convert_to_genind(file = my_table, to_str = FALSE)
+#' revise_structure_file(file = my_table, output.dir = ".", system = "Linux")
 
-revise_structure_file <- function(file, output.dir, system = "Windows") {
+revise_structure_file <- function(file, output.dir = ".", system = "Windows") {
   fsnps_gen_sub <- poppr::popsub(file)
   path <- file.path(output.dir, "structure_file.str")
 
@@ -748,10 +740,23 @@ revise_structure_file <- function(file, output.dir, system = "Windows") {
   return(path)
 }
 
-# ============================
-# Convert files to SNIPPER analysis-ready file
-# Dependencies: dplyr, purrr, tools, plyr
-# ============================
+
+#' Convert dataframe to SNIPPER-analysis-compatible file
+#' 
+#' @param input dataframe with genotype and sample information
+#' @param references dataframe containing population metadata of input. Sample name should match
+#' @param target.pop indicates whether test data will be used. Otherwise, all data will be used included as a training set. Default is TRUE.
+#' @param population.name the population to be used if test data will be used.
+#' @param markers the number of markers in the dataset
+#' @returns data frame formatted for SNIPPER compatibility
+#'
+#' @importFrom dplyr left_join bind_cols bind_rows
+#' @importFrom plyr ldply
+#' 
+#' @export
+#' @examples
+#' to_snipper(input = df, references = pop_info, target.pop = FALSE, markers = 56)
+
 to_snipper <- function(input,
                        references,
                        target.pop = TRUE,
@@ -850,10 +855,21 @@ to_snipper <- function(input,
   return(merged3)
 }
 
-# ============================
-# Create POS range file for future merging
-# ============================
-create_range_file <- function(pos_input, addID = FALSE, output_dir) {
+
+#' Create POS range file for merging
+#' @description
+#' Creates a range file necessary when extracting SNPs by base pair position. The rsIDs are assumed to be absent from input file. The function also creates a file for adding rsID if addID set to TRUE. Default is FALSE.
+#' 
+#' @param pos_input path to file containing marker information. Required columns are [1] rsID, [2] chromosome, [3] position if addID is TRUE. Else, only the last two columns are expected.
+#' @param addID indicate whether rsIDs will be added to the extracted SNPs.
+#' @param output_dir directory to save the range files.
+#' @returns list of file paths of range files.
+#' 
+#' @export
+#' @examples
+#' create_range_file(pos_input = 'markerfile.csv', addID = FALSE)
+
+create_range_file <- function(pos_input, addID = FALSE, output_dir = ".") {
   if (is.character(pos_input)) {
     pos_df <- load_csv_xlsx_files(pos_input)
   } else {
@@ -904,6 +920,7 @@ create_range_file <- function(pos_input, addID = FALSE, output_dir) {
     )
 
     return(list(range_file = range_file, updated_file = updated_file))
+    
   } else {
     chr <- as.character(pos_df[[1]])
     pos <- as.numeric(pos_df[[2]])
@@ -929,13 +946,24 @@ create_range_file <- function(pos_input, addID = FALSE, output_dir) {
   }
 }
 
-# ============================
-# Extract markers by rsID
-# ============================
+
+#' Extract SNPs by rsID
+#' 
+#' @param pgen_prefix prefix of the PLINK2.0 files.
+#' @param snps_list dataframe of the list of SNPs to be extracted.
+#' @param output_dir directory to save output file.
+#' @param merged_file name of the output file.
+#' @param plink_path file path to PLINK executable.
+#' @returns file path of result.
+#' 
+#' @export
+#' @examples
+#' extract_by_ID_pgen(pgen_prefix = 'my_file', snps_list = 'list_of_snps', plink_path = "./plink2.exe")
+
 extract_by_ID_pgen <- function(pgen_prefix,
                                snps_list,
-                               output_dir,
-                               merged_file,
+                               output_dir = ".",
+                               merged_file = "extracted_file",
                                plink_path) {
   out_prefix <- file.path(output_dir, merged_file)
 
@@ -948,17 +976,35 @@ extract_by_ID_pgen <- function(pgen_prefix,
   )
 
   system(cmd)
-  return(paste0(out_prefix, ".vcf"))
+  vcf_file <- paste0(out_prefix, ".vcf")
+  
+  if (!file.exists(vcf_file)) {
+    stop("PLINK extraction failed: no VCF generated.")
+  }
+  
+  return(vcf_file)
 }
 
-# ============================
-# Extract markers by GRCh38/37 POS
-# ============================
+
+#' Extract SNPs by GRCh38/37 positions
+#' 
+#' @param pos_list file path of the list of SNPs to be extracted.
+#' @param pgen_prefix prefix of the PLINK2.0 files.
+#' @param output_dir directory to save output file.
+#' @param merged_file name of the output file.
+#' @param plink_path file path to PLINK executable.
+#' @returns file path of result.
+#' 
+#' @export
+#' @examples
+#' extract_by_pos_pgen(pos_list = "my_snps.xlsx", pgen_prefix = 'my_file', merged_file = "extracted_file", plink_path = "./plink2.exe")
+
 extract_by_pos_pgen <- function(pos_list,
                                 pgen_prefix,
-                                output_dir,
-                                merged_file,
+                                output_dir = ".",
+                                merged_file = "extracted_file",
                                 plink_path) {
+  
   range_file <- create_range_file(pos_list, addID = FALSE, output_dir)
 
   out_prefix <- file.path(output_dir, merged_file)
@@ -972,7 +1018,6 @@ extract_by_pos_pgen <- function(pos_list,
   )
 
   system(cmd)
-
   vcf_file <- paste0(out_prefix, ".vcf")
 
   if (!file.exists(vcf_file)) {
@@ -982,12 +1027,22 @@ extract_by_pos_pgen <- function(pos_list,
   return(vcf_file)
 }
 
-# ============================
-# Extract markers by GRCh38/37 POS and add rsID
-# ============================
+
+#' Extract SNPs by GRCh38/37 positions and add rsID
+#' 
+#' @param pos_list file path of the list of SNPs to be extracted.
+#' @param pgen_prefix prefix of the PLINK2.0 files.
+#' @param output_dir directory to save output file.
+#' @param plink_path file path to PLINK executable.
+#' @returns file path of result.
+#' 
+#' @export
+#' @examples
+#' extract_POStoID_pgen(pos_list = "my_snps.xlsx", pgen_prefix = 'my_file', plink_path = "./plink2.exe")
+
 extract_POStoID_pgen <- function(pos_list,
                                  pgen_prefix,
-                                 output_dir,
+                                 output_dir = ".",
                                  plink_path) {
   range_file <- create_range_file(pos_list, addID = TRUE, output_dir)
 
@@ -1030,13 +1085,26 @@ extract_POStoID_pgen <- function(pos_list,
   return(vcf_file)
 }
 
-# ============================
-# Concordance Analysis
-# Description: Compares genetic data information generated by different sequencing techniques.
-# It compares the genetic data of the same individual from technique 1 and technique 2.
-# Dependencies: dplyr, janitor, tibble, purrr, tidyselect, QurvE
-# ============================
-calc_concordance <- function(file1, file2, haplotypes = FALSE) {
+
+#' Match samples for concordance analysis
+#' 
+#' @param file1 file path of sequencing results using technique 1. Expected sample and genotype information.
+#' @param file2 file path of sequencing results using technique 2. Expected sample and genotype information.
+#' @param phased indicates if genotypes are phased. Default is FALSE.
+#' @returns data frame containing the genotype of samples present in both file1 and file2.
+#' 
+#' @importFrom dplyr rename select ends_with
+#' @importFrom janitor row_to_names
+#' @importFrom tibble rownames_to_column
+#' @importFrom purrr reduce
+#' @importFrom tidyselect everything
+#' @importFrom QurvE zipFastener
+#' 
+#' @export
+#' @examples
+#' calc_concordance(file1 = "ngs.csv", file2 = 'wgs.xlsx')
+
+calc_concordance <- function(file1, file2, phased = FALSE) {
   if (!file.exists(file1)) {
     stop("First file does not exist in the working directory")
   } else {
@@ -1094,7 +1162,7 @@ calc_concordance <- function(file1, file2, haplotypes = FALSE) {
 
   if (haplotypes == TRUE) {
     message("Assuming the data are haplotypes.")
-    merged <- merged %>% mutate(across(tidyselect::everything(), ~ case_when(
+    merged <- merged %>% dplyr::mutate(across(tidyselect::everything(), ~ case_when(
       . == "A" ~ "A/A",
       . == "T" ~ "T/T",
       . == "C" ~ "C/C",
@@ -1102,7 +1170,7 @@ calc_concordance <- function(file1, file2, haplotypes = FALSE) {
       TRUE ~ .x
     )))
   } else if (haplotypes == FALSE) {
-    merged <- merged %>% mutate(across(tidyselect::everything(), ~ case_when(
+    merged <- merged %>% dplyr::mutate(across(tidyselect::everything(), ~ case_when(
       . == "A" ~ "A/A",
       . == "T" ~ "T/T",
       . == "C" ~ "C/C",
@@ -1119,8 +1187,8 @@ calc_concordance <- function(file1, file2, haplotypes = FALSE) {
     stop("Parameter haplotype is required.")
   }
 
-  overlap1 <- merged %>% select(dplyr::ends_with(".x"))
-  overlap2 <- merged %>% select(dplyr::ends_with(".y"))
+  overlap1 <- merged %>% dplyr::select(dplyr::ends_with(".x"))
+  overlap2 <- merged %>% dplyr::select(dplyr::ends_with(".y"))
   for_conc <- QurvE::zipFastener(overlap1, overlap2, along = 2)
   for_conc2 <- data.frame(ID, for_conc)
   for_conc2[is.na(for_conc2)] <- "N"
@@ -1129,10 +1197,22 @@ calc_concordance <- function(file1, file2, haplotypes = FALSE) {
   return(for_conc2)
 }
 
-# ============================
-# Plot concordance calls
-# Dependencies: ggplot2, tidyr, forcats
-# ============================
+
+#' Perform concordance analysis
+#' @description
+#' Compares genetic data information generated by different sequencing techniques. It compares the genetic data of the same individual from technique 1 and technique 2.
+#' 
+#' @param dataframe dataframe containing genotype information of samples sequenced using two different techniques.
+#' @returns list containing the dataframe of the tally of concordant and discordant calls and the concordance plot.
+#' 
+#' @importFrom dplyr rename select ends_with mutate relocate
+#' @importFrom tidyr pivot_longer
+#' @importFrom forcats fct_inorder
+#' 
+#' @export
+#' @examples
+#' plot_concordance(dataframe = "merged_samples")
+
 plot_concordance <- function(dataframe) {
   dataframe <- dplyr::rename(dataframe, ID = 1)
   x_cols <- dataframe %>% dplyr::select(dplyr::ends_with(".x"))
@@ -1194,6 +1274,7 @@ plot_concordance <- function(dataframe) {
 # Description: Generates depth of coverage plot available only when using VCF files.
 # Dependencies: dplyr, vcfR, tidyr, ggplot2
 # ============================
+
 depth_from_vcf <- function(vcf,
                            output.dir,
                            reference,
@@ -1249,10 +1330,19 @@ depth_from_vcf <- function(vcf,
   ))
 }
 
-# ============================
-# Compute population statistics (heterozygosities, mar, inbreeding)
-# Dependencies: dplyr, ade4, adegenet, hierfstat, tidyr
-# ============================
+
+#' Compute heterozygosities, MAR, and inbreeding
+#' 
+#' @param fsnps_gen genind data containing genotype and population information
+#' @returns list containing the metrices.
+#' 
+#' @importFrom hierfstat allelic.richness genind2hierfstat basic.stats
+#' @importFrom tidyr pivot_longer
+#' 
+#' @export
+#' @examples
+#' compute_pop_stats(fsnps_gen = my_genind)
+
 compute_pop_stats <- function(fsnps_gen) {
   mar_matrix <- hierfstat::allelic.richness(hierfstat::genind2hierfstat(fsnps_gen))$Ar %>%
     apply(MARGIN = 2, FUN = mean) %>%
@@ -1286,10 +1376,18 @@ compute_pop_stats <- function(fsnps_gen) {
   ))
 }
 
-# ============================
-# Compute allele frequencies
-# Dependencies: dplyr, adegenet
-# ============================
+#' Compute heterozygosities, MAR, and inbreeding
+#' 
+#' @param fsnps_gen genind data containing genotype and population information
+#' @returns allele frequency dataframe
+#' 
+#' @importFrom adegenet genind2genpop makefreq
+#' @importFrom dplyr rename
+#' 
+#' @export
+#' @examples
+#' compute_pop_stats(fsnps_gen = my_genind)
+
 compute_af <- function(fsnps_gen) {
   fsnps_gpop <- adegenet::genind2genpop(fsnps_gen)
   allele_freqs <- t(adegenet::makefreq(fsnps_gpop, quiet = FALSE, missing = NA)) %>%
@@ -1302,10 +1400,21 @@ compute_af <- function(fsnps_gen) {
   return(allele_freqs)
 }
 
-# ============================
-# Compute HWE
-# Dependencies: pegas, dplyr, tibble, adegenet
-# ============================
+
+#' Compute HWE
+#' 
+#' @param fsnps_gen genind data containing genotype and population information
+#' @returns HWE stats results
+#' 
+#' @importFrom pegas hw.test
+#' @importFrom dplyr rename
+#' @importFrom adegenet seppop
+#' @importFrom tibble rownames_to_column
+#' 
+#' @export
+#' @examples
+#' compute_hwe(fsnps_gen = my_genind)
+
 compute_hwe <- function(fsnps_gen) {
   # Hardy-Weinberg Equilibrium (List for export)
   fsnps_hwe <- as.data.frame(round(pegas::hw.test(fsnps_gen, B = 1000), 6))
@@ -1328,10 +1437,20 @@ compute_hwe <- function(fsnps_gen) {
   ))
 }
 
-# ============================
-# Compute FST
-# Dependencies: hierfstat, tibble, tidyr
-# ============================
+
+#' Compute FST
+#' 
+#' @param fsnps_gen genind data containing genotype and population information
+#' @returns FST stats results
+#' 
+#' @importFrom hierfstat genet.dist
+#' @importFrom tibble rownames_to_column
+#' @importFrom tidyr pivot_longer
+#' 
+#' @export
+#' @examples
+#' compute_fst(fsnps_gen = my_genind)
+
 compute_fst <- function(fsnps_gen) {
   # Pairwise Fst matrix using Weir & Cockerham 1984 method
   fst_matrix_raw <- hierfstat::genet.dist(fsnps_gen, method = "WC84") %>%
@@ -1403,10 +1522,25 @@ plot_fst <- function(fst_df, out_dir) {
   return(out_path)
 }
 
-# ============================
-# Export all population statistics generated
-# Dependencies: openxlsx
-# ============================
+
+#' Compile and export calculated population summary statistics
+#' 
+#' @param allele_freq dataframe of calculated allele frequencies
+#' @param priv_alleles list/dataframe of the total number of calculated private alleles per population
+#' @param stats_matrix list of the calculated heterozygosities, MAR, and inbreeding coefficient
+#' @param hw_matrix list of the HWE metrices
+#' @param fst_matrix list of the FST metrices
+#' @param dir directory to save the result
+#' @returns Excel file containing the results in individual sheets
+#' 
+#' @importFrom dplyr rename
+#' @importFrom tidyr pivot_wider
+#' @importFrom openxlsx write.xlsx
+#' 
+#' @export
+#' @examples
+#' export_pop_results(allele_freq, priv_alleles, stats_matrix, hw_matrix, fst_matrix, dir = ".")
+
 export_pop_results <- function(allele_freq, priv_alleles, stats_matrix, hw_matrix, fst_matrix, dir = tempdir()) {
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M")
   out_file <- file.path(dir, paste0("population-statistics-results_", timestamp, ".xlsx"))
@@ -1470,10 +1604,21 @@ evaluate_file <- function(df, sample_size = 50, genotype = "^[A-Z]/[A-Z]$") {
   }
 }
 
-# ============================
-# Calculate genotype frequencies (marker/population)
-# Dependencies: dplyr, stringr
-# ============================
+
+#' Calculate the genotype frequencies per population
+#' 
+#' @param df dataframe of sample, population, and genotype information
+#' @param pop the total number of samples in the data. Required if employing five-event minimum allele frequency.
+#' @returns list containing genotype frequency (overall and by population)
+#' 
+#' @importFrom dplyr rename first last mutate if_else
+#' @importFrom stringr str_remove str_replace_all
+#' @importFrom tidyr pivot_longer
+#' 
+#' @export
+#' @examples
+#' calc_genotype_freq(allele_freq)
+
 calc_genotype_freq <- function(df, pop = NULL) {
   df <- dplyr::rename(df, markers = 1)
 
@@ -1539,10 +1684,21 @@ calc_genotype_freq <- function(df, pop = NULL) {
   ))
 }
 
-# ============================
-# Calculate forensic parameters for iisnps
-# Dependencies: dplyr, stringr
-# ============================
+
+#' Calculate forensic parameters for iisnps
+#' 
+#' @param geno_freqs dataframe of genotype frequencies per population.
+#' @param profile if target profile will be provided for identification.
+#' @param theta parameter necessary for sample identification
+#' @returns list of metrices
+#' 
+#' @importFrom dplyr rowwise mutate select ungroup rename left_join case_when
+#' @importFrom stringr str_split str_replace_all
+#' 
+#' @export
+#' @examples
+#' calc_iisnps_params(geno_freq)
+
 calc_iisnps_params <- function(geno_freqs, profile = NULL, theta = 0) {
   marker_metrics <- geno_freqs %>%
     dplyr::rowwise() %>%
@@ -1605,10 +1761,20 @@ calc_iisnps_params <- function(geno_freqs, profile = NULL, theta = 0) {
   }
 }
 
-# ============================
-# Calculate principal components
-# Dependencies: ade4, adegenet, stats
-# ============================
+
+#' Find principal components
+#' 
+#' @param fsnps_gen genind data containing genotype and population information.
+#' @returns list of metrices
+#' 
+#' @importFrom ade4 dudi.pca
+#' @importFrom adegenet indNames
+#' @importFrom stats aggregate
+#' 
+#' @export
+#' @examples
+#' compute_pca(genind_obj)
+
 compute_pca <- function(fsnps_gen) {
   x <- tab(fsnps_gen, NA.method = "mean")
   set.seed(9999)
@@ -1637,10 +1803,21 @@ compute_pca <- function(fsnps_gen) {
   ))
 }
 
-# ============================
-# Organize labels for PCA plotting
-# Dependencies: ade4, adegenet, RColorBrewer
-# ============================
+
+#' Set up labels for PCA plotting
+#' 
+#' @param fsnps_gen genind data containing genotype and population information.
+#' @param use_default indicates if default shapes and colors will be used. Default is TRUE.
+#' @param label_file the file path to custom shapes and colors 
+#' @returns list of custom labels, shapes, and colors
+#' 
+#' @importFrom RColorBrewer brewer.pal
+#' @importFrom BiocGenerics setdiff
+#' 
+#' @export
+#' @examples
+#' get_labels(genind_obj, use_default = FALSE, label_file = "custom.xlsx")
+
 get_labels <- function(fsnps_gen, use_default = TRUE, label_file = NULL) {
   if (use_default) {
     labels <- levels(as.factor(fsnps_gen@pop))
@@ -1688,15 +1865,26 @@ get_labels <- function(fsnps_gen, use_default = TRUE, label_file = NULL) {
   return(list(labels = labels, colors = colors, shapes = shapes))
 }
 
-# ============================
-# Plot PCA
-# Dependencies: ggplot2, ggrepel
-# ============================
+
+#' Plots PCA
+#' 
+#' @param ind_coords eigenvalues of the principal component
+#' @param centroid the average eigenvalue per site/population
+#' @param percent the percentage of variance explained by the set x and y values
+#' @param labels_colors list of custom shapes and colors
+#' @param width output png's width
+#' @param height output png's height
+#' @param pc_x eigenvector to be plotted on the x-axis
+#' @param pc_y eigenvector to be plotted on the y-axis
+#' @returns PCA plot
+#' 
+#' @import ggplot2
+#' 
+#' @export
+#' @examples
+#' plot_pca(ind_coords, centroid, percent, labels_colors, width = 8, height = 8, pc_x = 1, pc_y = 2)
+
 plot_pca <- function(ind_coords, centroid, percent, labels_colors, width = 8, height = 8, pc_x = 1, pc_y = 2) {
-  if (!require("pacman")) {
-    install.packages("pacman")
-  }
-  pacman::p_load(ggplot2, ggrepel, install = TRUE)
 
   # Ensure data frames
   if (!is.data.frame(ind_coords)) ind_coords <- as.data.frame(ind_coords)
@@ -1795,9 +1983,15 @@ clean_input_data_str <- function(file) {
   ))
 }
 
-# ============================
-# Calculate Q metrices
-# ============================
+#' Calculate Q matrices from STRUCTURE v2.3.4 results
+#' 
+#' @param dir the directory containing the STRUCTURE results
+#' @returns directory containing the q matrices files
+#' 
+#' @export
+#' @examples
+#' q_matrices("./structure_res")
+
 q_matrices <- function(dir) {
   output <- list.files(path = dir, pattern = "\\_f$", full.names = TRUE)
   output_list <- lapply(output, function(filepath) {
@@ -1844,10 +2038,23 @@ read_fasta <- function(zipped, directory) {
   return(dna_sequences)
 }
 
-# ============================
-# Perform multiple sequence alignment
-# Dependencies: BiocManager, pwalign, tinytex, seqinr, msa, DECIPHER, Biostrings
-# ============================
+
+#' Perform multiple sequence alignment
+#' 
+#' @param files DNA bin 
+#' @param algorithm method for alignment (ClustalW, ClustalOmega, MUSCLE)
+#' @returns PCA plot
+#' 
+#' @import seqinr
+#' @importFrom pwalign nucleotideSubstitutionMatrix
+#' @importFrom msa msa msaConservationScore msaConvert
+#' @importFrom Biostrings DNAStringSet 
+#' @importFrom DECIPHER AdjustAlignment StaggerAlignment
+#' 
+#' @export
+#' @examples
+#' calc_msa(fasta_files, algorithm = "ClustalW")
+
 calc_msa <- function(files, algorithm) {
   # Creating Substitution Matrix
   personal_matrix <- pwalign::nucleotideSubstitutionMatrix(
@@ -1866,7 +2073,7 @@ calc_msa <- function(files, algorithm) {
     files,
     substitutionMatrix = personal_matrix,
     method = algorithm
-  ) # ClustalW, ClustalOmega, MUSCLE
+  ) 
 
   # calculate alignment score
   alignment_scores <- msa::msaConservationScore(
@@ -1896,7 +2103,7 @@ calc_msa <- function(files, algorithm) {
 
 # ============================
 # Read MSA files
-# Dependencies: seqinr, Biostrings
+# Dependencies: tools, seqinr, Biostrings
 # ============================
 read_msa_file <- function(path, filename) {
   ext <- tolower(tools::file_ext(filename))
@@ -1923,10 +2130,19 @@ read_msa_file <- function(path, filename) {
   )
 }
 
-# ============================
-# Convert alignment to DNA.bin
-# Dependencies: ape, rphast
-# ============================
+#' Convert alignment to DNA bin
+#' 
+#' @param path file path to the alignment
+#' @returns DNA bin
+#' 
+#' @importFrom tools file_ext
+#' @importFrom ape read.dna as.DNAbin
+#' @importFrom rphast read.msa guess.format.msa
+#' 
+#' @export
+#' @examples
+#' alignment_to_dnabin("./alignment.fas")
+
 alignment_to_dnabin <- function(path) {
   ext <- tolower(tools::file_ext(path))
 
@@ -1957,10 +2173,22 @@ alignment_to_dnabin <- function(path) {
   stop("Unsupported file format: ", ext)
 }
 
-# ============================
-# Build phylogenetic tree using NJ method
-# Dependencies: ape, ggtree
-# ============================
+
+#' Build phylogenetic tree using NJ method
+#' 
+#' @param alignment alignment object
+#' @param outgroup set a sample as an outgroup
+#' @param seed value for bootstrapping
+#' @param model substitution model
+#' @returns phylogenetic tree plot
+#' 
+#' @importFrom ape as.DNAbin dist.dna nj root ladderize boot.phylo
+#' @import ggtree
+#' 
+#' @export
+#' @examples
+#' build_nj_tree(my_alignment, seed = 1000, model = "K80")
+
 build_nj_tree <- function(alignment, outgroup = NULL, seed = 123, model = model) {
   bins <- ape::as.DNAbin(alignment)
   distance <- ape::dist.dna(bins, model = model)
@@ -1986,9 +2214,11 @@ build_nj_tree <- function(alignment, outgroup = NULL, seed = 123, model = model)
   boots <- ape::boot.phylo(nj_tree, bins,
     FUN = function(x) {
       tree <- ape::nj(ape::dist.dna(x, model = model))
+      
       if (!is.null(outgroup) && outgroup %in% tree$tip.label) {
         tree <- ape::root(tree, outgroup = outgroup)
       }
+      
       ape::ladderize(tree)
     }, rooted = TRUE
   )
@@ -2005,14 +2235,27 @@ build_nj_tree <- function(alignment, outgroup = NULL, seed = 123, model = model)
   return(tree_plot)
 }
 
-# ============================
-# Build phylogenetic tree using UPGMA method
-# Dependencies: ape, ggtree
-# ============================
+
+#' Build phylogenetic tree using UPGMA method
+#' 
+#' @param alignment alignment object
+#' @param outgroup set a sample as an outgroup
+#' @param seed value for bootstrapping
+#' @param model substitution model
+#' @returns phylogenetic tree plot
+#' 
+#' @importFrom ape as.DNAbin dist.dna ladderize boot.phylo
+#' @importFrom phangorn upgma
+#' @import ggtree
+#' 
+#' @export
+#' @examples
+#' build_upgma_tree(my_alignment, seed = 1000, model = "K80")
+
 build_upgma_tree <- function(alignment, outgroup = NULL, seed = 123, model = model) {
   bins <- ape::as.DNAbin(alignment)
   distance <- ape::dist.dna(bins, model = model)
-  upgma_tree <- upgma(distance)
+  upgma_tree <- phangorn::upgma(distance)
 
   if (!is.null(outgroup) && outgroup %in% upgma_tree$tip.label) {
     upgma_tree <- ape::root(upgma_tree, outgroup = outgroup)
@@ -2034,10 +2277,12 @@ build_upgma_tree <- function(alignment, outgroup = NULL, seed = 123, model = mod
   set.seed(seed)
   boots <- ape::boot.phylo(upgma_tree, bins,
     FUN = function(x) {
-      tree <- ape::nj(ape::dist.dna(x, model = model))
+      tree <- phangorn::upgma(ape::dist.dna(x, model = model))
+      
       if (!is.null(outgroup) && outgroup %in% tree$tip.label) {
         tree <- ape::root(tree, outgroup = outgroup)
       }
+      
       ape::ladderize(tree)
     }, rooted = TRUE,
   )
@@ -2054,16 +2299,29 @@ build_upgma_tree <- function(alignment, outgroup = NULL, seed = 123, model = mod
   return(tree_plot)
 }
 
-# ============================
-# Build phylogenetic tree using Maximum Parismony method
-# Dependencies: ape, phangorn
-# ============================
-build_max_parsimony <- function(alignment, outgroup = NULL, seed = 123, directory) {
+
+#' Build phylogenetic tree using Maximum Parismony method
+#' 
+#' @param alignment alignment object
+#' @param outgroup set a sample as an outgroup
+#' @param seed value for bootstrapping
+#' @param directory directory to save the png plot
+#' @returns phylogenetic tree plot
+#' 
+#' @importFrom ape as.DNAbin root
+#' @importFrom phangorn phyDat dist.ml optim.parsimony bootstrap.phyDat
+#' @import ggtree
+#' 
+#' @export
+#' @examples
+#' build_max_parsimony(my_alignment, seed = 1000)
+
+build_max_parsimony <- function(alignment, outgroup = NULL, seed = 123, directory = ".") {
   bins <- ape::as.DNAbin(alignment)
   phy <- phangorn::phyDat(bins, type = "DNA")
-  dm <- dist.ml(phy)
+  dm <- phangorn::dist.ml(phy)
   start_tree <- NJ(dm)
-  parsimony_tree <- optim.parsimony(start_tree, phy)
+  parsimony_tree <- phangorn::optim.parsimony(start_tree, phy)
 
   # Rooting
   if (!is.null(outgroup) && outgroup %in% parsimony_tree$tip.label) {
@@ -2072,7 +2330,7 @@ build_max_parsimony <- function(alignment, outgroup = NULL, seed = 123, director
 
   # boostrapping
   set.seed(seed)
-  bs_pars <- bootstrap.phyDat(phy, \(x) optim.parsimony(NJ(dist.ml(x)), x))
+  bs_pars <- phangorn::bootstrap.phyDat(phy, \(x) phangorn::optim.parsimony(NJ(phangorn::dist.ml(x)), x))
 
   # plot
   filename <- paste(directory, "parsimony_tree.png")
@@ -2083,19 +2341,29 @@ build_max_parsimony <- function(alignment, outgroup = NULL, seed = 123, director
   return(filename)
 }
 
-# ============================
-# Build phylogenetic tree using Maximum Likelihood method
-# Dependencies: ape, phangorn
-# ============================
+
+#' Build phylogenetic tree using Maximum Likelihood method
+#' 
+#' @param alignment alignment object
+#' @param outgroup set a sample as an outgroup
+#' @param seed value for bootstrapping
+#' @param bs_reps number of boostrap replicates to run
+#' @param directory directory to save the png plot
+#' @returns phylogenetic tree plot
+#' 
+#' @importFrom ape as.DNAbin 
+#' @importFrom phangorn phyDat pml optim.pml modelTest bootstrap.pml
+#' @import ggtree
+#' 
+#' @export
+#' @examples
+#' build_ml_tree(my_alignment, seed = 1000, bs_reps = 1000)
+
 build_ml_tree <- function(alignment,
                           outgroup = NULL,
                           seed = 123,
                           bs_reps = 100,
-                          directory) {
-  if (!require("pacman")) {
-    install.packages("pacman")
-  }
-  pacman::p_load(ape, phangorn, install = TRUE)
+                          directory = ".") {
 
   bins <- ape::as.DNAbin(alignment)
   phy <- phyDat(bins, type = "DNA")
@@ -2103,13 +2371,13 @@ build_ml_tree <- function(alignment,
   dm <- dist.ml(phy)
   start_tree <- NJ(dm)
 
-  fit <- pml(start_tree, data = phy)
+  fit <- phangorn::pml(start_tree, data = phy)
 
   # find best-fit model
-  model_test <- modelTest(phy, tree = start_tree)
+  model_test <- phangorn::modelTest(phy, tree = start_tree)
   best_model <- model_test$Model[which.min(model_test$BIC)]
   best_model <- sub("\\+.*", "", best_model)
-  fit_opt <- optim.pml(fit, model = best_model, optGamma = TRUE, optInv = TRUE, rearrangement = "stochastic")
+  fit_opt <- phangorn::optim.pml(fit, model = best_model, optGamma = TRUE, optInv = TRUE, rearrangement = "stochastic")
 
   tree <- fit_opt$tree
   if (!is.null(outgroup) && outgroup %in% tree$tip.label) {
@@ -2118,7 +2386,7 @@ build_ml_tree <- function(alignment,
 
   # bootstrapping
   set.seed(seed)
-  bs <- bootstrap.pml(fit_opt, bs = bs_reps, optNni = TRUE)
+  bs <- phangorn::bootstrap.pml(fit_opt, bs = bs_reps, optNni = TRUE)
 
   filename <- paste(directory, "ml_tree.png")
   png(filename, width = 800, height = 600)
@@ -2130,11 +2398,21 @@ build_ml_tree <- function(alignment,
   ))
 }
 
-# ============================
-# Perform classification
-# build and train model then classify samples
-# Dependencies: dplyr, tidyr, e1071, caret
-# ============================
+
+#' Perform Naive Bayes classification on forensic SNPs
+#' 
+#' @param file file with sample, population, and genotype information
+#' @returns list containing the prediction rate and other model metrices
+#' 
+#' @importFrom dplyr rename 
+#' @importFrom e1071 naiveBayes
+#' @importFrom caret confusionMatrix
+#' @importFrom tidyr pivot_wider 
+#' 
+#' @export
+#' @examples
+#' calculate_naive_bayes("./file/my_pop_file.xlsx")
+
 calculate_naive_bayes <- function(file) {
   data_fsnps <- load_csv_xlsx_files(file)
   data_fsnps <- dplyr::rename(data_fsnps, Sample = 1, Pop = 2)

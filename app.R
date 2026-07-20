@@ -595,15 +595,15 @@ ui <- dashboardPage(
               box(
                 fileInput("concordanceFile1", "Upload File A", accept = c(".xlsx", ".csv")),
                 fileInput("concordanceFile2", "Upload File B", accept = c(".xlsx", ".csv")),
-                checkboxInput("isHaplotype", "Treat data as haplotypes", value = FALSE),
+                checkboxInput("isPhased", "Phased genotypes", value = FALSE),
                 actionButton("compareBtn", "Run Concordance Analysis", icon = icon("play"))
               ),
               tabBox(
                 tabPanel(
                   "Instructions",
                   h4("This performs concordance analysis between files/datasets with overlapping samples."),
-                  p(strong("Input file/s:"), "Two .csv or .xlsx files with the same data format (i.e. same columns)."),
-                  p(strong("Parameter/s:"), "Indicate if using haplotypes."),
+                  p(strong("Input file/s:"), "CSV or Excel (.xlsx) files with the same data format (i.e. same columns)."),
+                  p(strong("Parameter/s:"), "Indicate if using phased genotypes"),
                   helpText("Markers will be directly compared and the order of the alleles is considered when matching for concordance."),
                   p(strong("Expected output/s:")),
                   tags$ul(
@@ -2534,10 +2534,10 @@ server <- function(input, output, session) {
         {
           req(input$concordanceFile1$datapath, input$concordanceFile2$datapath)
 
-          haplo_flag <- input$isHaplotype
+          phased_flag <- input$isPhased
           file1_path <- input$concordanceFile1$datapath
           file2_path <- input$concordanceFile2$datapath
-          result <- calc_concordance(file1_path, file2_path, haplotypes = haplo_flag)
+          result <- calc_concordance(file1_path, file2_path, phased = phased_flag)
           plot <- plot_concordance(result)
 
           enable("compareBtn")
