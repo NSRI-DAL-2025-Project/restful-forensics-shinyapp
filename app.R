@@ -136,33 +136,7 @@ ui <- dashboardPage(
                   radioButtons("inputType2_vcf", "Choose final file type",
                     choices = c(
                       "PLINK2 files (.psam/.pvar/.pgen)" = "plink2",
-                      "PLINK1.9 files (.bed/.bim/.fam)" = "plink1",
-                      "CSV file" = "csv2"
-                    )
-                  ),
-                  conditionalPanel(
-                    condition = "input.inputType2_vcf == 'csv2'",
-                    radioButtons("poptype_vcf", "Do samples come from a single population?",
-                      choices = c("Yes" = "single", "No" = "multiplepop")
-                    ),
-                    conditionalPanel(
-                      condition = "input.poptype_vcf == 'multiplepop'",
-                      fileInput("multiplepop_vcf", "Reference file with sample ID and population", accept = c(".xlsx", ".csv")),
-                      helpText("*Accepts XLSX and CSV files"),
-
-                      # --- Breakdowns
-                      radioButtons("breakdown_vcf", "Calculate population breakdown?",
-                        choices = c("Yes" = "yesbreakdown_vcf", "No" = "nobreakdown_vcf"), selected = "No"
-                      ),
-                      conditionalPanel(
-                        condition = "input.breakdown_vcf == 'yesbreakdown_vcf'",
-                        helpText("Specify column name to serve as a basis for the summary count."),
-                        textAreaInput("breakdown_column_vcf", "Enter column name", rows = 1)
-                      )
-                    ),
-                    conditionalPanel(
-                      condition = "input.poptype_vcf == 'single'",
-                      textAreaInput("typePop_vcf", "Enter population", rows = 1)
+                      "PLINK1.9 files (.bed/.bim/.fam)" = "plink1"
                     )
                   )
                 ),
@@ -173,33 +147,7 @@ ui <- dashboardPage(
                     choices = c(
                       "VCF file" = "vcf2",
                       "PLINK2 files (.psam/.pvar/.pgen)" = "plink2",
-                      "PLINK1.9 files (.bed/.bim/.fam)" = "plink1",
-                      "CSV file" = "csv2"
-                    )
-                  ),
-                  conditionalPanel(
-                    condition = "input.inputType2_bcf == 'csv2'",
-                    radioButtons("poptype_bcf", "Do samples come from a single population?",
-                      choices = c("Yes" = "single", "No" = "multiplepop")
-                    ),
-                    conditionalPanel(
-                      condition = "input.poptype_bcf == 'multiplepop'",
-                      fileInput("multiplepop_bcf", "Reference file with sample ID and population", accept = c(".xlsx", ".csv")),
-                      helpText("*Accepts XLSX and CSV files"),
-
-                      # --- Breakdowns
-                      radioButtons("breakdown_bcf", "Calculate population breakdown?",
-                        choices = c("Yes" = "yesbreakdown_bcf", "No" = "nobreakdown_bcf"), selected = "No"
-                      ),
-                      conditionalPanel(
-                        condition = "input.breakdown_bcf == 'yesbreakdown_bcf'",
-                        helpText("Specify column name to serve as a basis for the summary count."),
-                        textAreaInput("breakdown_column_bcf", "Enter column name", rows = 1)
-                      )
-                    ),
-                    conditionalPanel(
-                      condition = "input.poptype_bcf == 'single'",
-                      textAreaInput("typePop_bcf", "Enter population", rows = 1)
+                      "PLINK1.9 files (.bed/.bim/.fam)" = "plink1"
                     )
                   )
                 ),
@@ -211,33 +159,7 @@ ui <- dashboardPage(
                   radioButtons("inputType2_plink", "Choose final file type",
                     choices = c(
                       "VCF file" = "vcf2",
-                      "CSV file" = "csv2",
                       "PLINK2 files (.psam/.pvar/.pgen)" = "plink2"
-                    )
-                  ),
-                  conditionalPanel(
-                    condition = "input.inputType2_plink == 'csv2'",
-                    radioButtons("poptype_plink", "Do samples come from a single population?",
-                      choices = c("Yes" = "single", "No" = "multiplepop")
-                    ),
-                    conditionalPanel(
-                      condition = "input.poptype_plink == 'multiplepop'",
-                      fileInput("multiplepop_plink", "Reference file with sample ID and population", accept = c(".xlsx", ".csv")),
-                      helpText("*Accepts XLSX and CSV files"),
-
-                      # --- Breakdowns
-                      radioButtons("breakdown_plink", "Calculate population breakdown?",
-                        choices = c("Yes" = "yesbreakdown_plink", "No" = "nobreakdown_plink"), selected = "No"
-                      ),
-                      conditionalPanel(
-                        condition = "input.breakdown_plink == 'yesbreakdown_plink'",
-                        helpText("Specify column name to serve as a basis for the summary count."),
-                        textAreaInput("breakdown_column_plink", "Enter column name", rows = 1)
-                      )
-                    ),
-                    conditionalPanel(
-                      condition = "input.poptype_plink == 'single'",
-                      textAreaInput("typePop_plink", "Enter population", rows = 1)
                     )
                   )
                 ),
@@ -255,10 +177,8 @@ ui <- dashboardPage(
                   h4("This interconverts common genetic files and formats with or without population information."),
                   p(strong("Input file/s:")),
                   p("Required: VCF, BCF, or PLINK (.bed, .bim, .fam) files. It also accepts zipped files as long as it contains the same file type, except if using PLINK files."),
-                  p("Optional input files:"),
+                  p("Optional input file:"),
                   tags$ul(
-                    tags$li("(to .csv) .xlsx/.csv/.txt file containing metadata (sample ID and population). All columns will be merged to the genotype data. Remove unnecessary columns before running 'Convert files'."),
-                    tags$li("(to .csv) Single-line text indicating the 'Column name' to be used as basis for the calculation of population breakdown."),
                     tags$li("(.csv to .vcf) Marker information with the following columns: [1] SNP, [2] CHR, [3] POS, [4] Genetic distance, [5] REF Allele [6] ALT Allele.")
                   ),
                   p(strong("Expected output file/s:"), "VCF, PLINK (.psam/.pvar/.pgen), or CSV file."),
@@ -267,15 +187,9 @@ ui <- dashboardPage(
                 ),
                 tabPanel(
                   "Sample Input Format/s",
-                  h4("To convert to a CSV file with population metadata:"),
-                  h4("This is a sample reference file. Only the first two columns are used."),
-                  DT::dataTableOutput("ExampleRefFile"),
-                  br(),
                   h4("For File to VCF conversion, a separate file on marker information is needed."),
-                  h4("See the following formats:"),
-                  h4("Required format:"),
-                  DT::dataTableOutput("ExampleCSVFormat"),
                   h4("Required marker info format:"),
+                  DT::dataTableOutput("ExampleCSVFormat"),
                   DT::dataTableOutput("markerInfoFormat")
                 ),
                 tabPanel(
@@ -292,7 +206,84 @@ ui <- dashboardPage(
             ),
             fluidRow(
               tabBox(
-                title = "Conversion Results",
+                width = 12,
+                tabPanel(
+                  "Download Results",
+                  uiOutput("downloadVCF_UI"),
+                  uiOutput("downloadPLINK_UI")
+                )
+              )
+            ),
+          ),
+
+          tabPanel(
+            "Add Metadata",
+            fluidRow(
+              box(
+                checkboxInput("isPLINKmeta", "Use PLINK files", value = FALSE),
+                conditionalPanel(
+                  condition = "input.isPLINKmeta == false",
+                  fileInput("genotypeFile", "Genotype File (.vcf/.vcf.gz/.bcf)", accept = c(".vcf", ".bcf", ".vcf.gz"))
+                ),
+                conditionalPanel(
+                  condition = "input.isPLINKmeta == true",
+                  fileInput("firstPLINK", "Upload BED/PGEN file", accept = c(".bed", ".pgen")),
+                  fileInput("secondPLINK", "Upload BIM/PVAR file", accept = c(".bim", ".pvar")),
+                  fileInput("thirdPLINK", "Upload FAM/PSAM file", accept = c(".fam", ".psam"))
+                ),
+
+                radioButtons("populationType", "Do samples come from a single population?",
+                             choices = c("Yes" = "single", "No" = "multiplepop")
+                ),
+                conditionalPanel(
+                  condition = "input.populationType == 'multiplepop'",
+                  fileInput("refMetadata", "Upload file containing the metadata", accept = c(".csv", ".xlsx")),
+                  uiOutput("metaHeader"),
+                  helpText("*Accepts XLSX and CSV files"),
+                  
+                  # --- Breakdowns
+                  radioButtons("breakdownPop", "Calculate population breakdown?",
+                               choices = c("Yes" = "YesBreakdown", "No" = "NoBreakdown"), selected = "No"
+                  ),
+                  conditionalPanel(
+                    condition = "input.breakdownPop == 'YesBreakdown'",
+                    helpText("Specify column name to serve as a basis for the summary count."),
+                    uiOutput("selectMetaHeader")
+                    #textAreaInput("breakdown_column_plink", "Enter column name", rows = 1)
+                  )
+                ),
+                conditionalPanel(
+                  condition = "input.populationType == 'single'",
+                  textAreaInput("typePop_meta", "Enter population", rows = 1)
+                ),
+                actionButton("addMetadata", "Add Metadata", icon = icon("file-circle-plus"))
+              ),
+              tabBox(
+              tabPanel(
+                "Instructions",
+                h4("This merges select metadata to genotype data."),
+                p(strong("Input file/s:")),
+                tags$ul(
+                  tags$li("Genotype data (.vcf, .vcf.gz, .bcf, or PLINK files"),
+                  tags$li("Sample metadata (.xlsx or .xsv). Select column names to be merged with the genotype data. Ensure sample IDs are the same.")
+                ),
+                p(strong("Expected output file/s:"), "CSV file of sample with metadata.")
+              ),
+              tabPanel(
+                "Sample Input Format/s",
+                h4("To convert to a CSV file with population metadata:"),
+                DT::dataTableOutput("ExampleRefFile"),
+              ),
+              tabPanel(
+                "Download Sample Files",
+                tags$a("A. Sample VCF", href = "sample_hgdp.vcf", download = "sample_hgdp.vcf"),
+                br(),
+                tags$a("B. Sample zipped file (VCF files)", href = "vcf_sample_files.zip", download = "vcf_sample_files.zip"),
+              )
+              )
+            ), # end of fluid row
+            fluidRow(
+              tabBox(
                 width = 12,
                 tabPanel(
                   title = "Preview CSV File and Download Output",
@@ -301,21 +292,21 @@ ui <- dashboardPage(
                     DT::dataTableOutput("previewTable")
                   ),
                   br(),
-                  uiOutput("downloadVCF_UI"),
-                  uiOutput("downloadCSV_UI"),
-                  uiOutput("downloadPLINK_UI")
+                  uiOutput("downloadCSV_UI")
                 ),
                 tabPanel(
                   title = "(to CSV) View Population Breakdown",
                   div(
                     style = "overflow-x: auto;",
                     DT::dataTableOutput("previewTableBreakdown")
-                  )
+                  ),
+                  br(),
+                  uiOutput("downloadBreakdown")
                 )
               )
             )
           ),
-
+          
           # Widen long genotype file submodule ===================================================
           tabPanel(
             "Widen SNP calls",
@@ -1930,15 +1921,8 @@ server <- function(input, output, session) {
     breakdown_ready <- !breakdown_selected ||
       (!is.null(input$breakdown_column_vcf) || !is.null(input$breakdown_column_bcf) || !is.null(input$breakdown_column_plink))
 
-
     toggleState("ConvertFILES", condition = hasfile && breakdown_ready)
   })
-
-  exampleRefCSV <- data.frame(
-    Sample.Name = c("sample1", "sample2", "sample3", "sample4", "..."),
-    Population = c("Malaysia", "Mexico", "Greece", "South Korea", "..."),
-    Superpopulation = c("Southeast Asia", "North and South America", "Europe", "East Asia", "...")
-  )
 
   exampleCSVFile <- data.frame(
     Sample.Name = c("sample1", "sample2", "sample3", "sample4", "..."),
@@ -1956,6 +1940,12 @@ server <- function(input, output, session) {
     alt_allele = c("T", "A", "C", "C", "G")
   )
 
+  exampleRefCSV <- data.frame(
+    Sample.Name = c("sample1", "sample2", "sample3", "sample4", "..."),
+    Population = c("Malaysia", "Mexico", "Greece", "South Korea", "..."),
+    Superpopulation = c("Southeast Asia", "North and South America", "Europe", "East Asia", "...")
+  )
+  
   output$ExampleRefFile <- DT::renderDataTable(
     {
       req(exampleRefCSV)
@@ -2000,44 +1990,6 @@ server <- function(input, output, session) {
       "plink1" = input$inputType2_plink,
       "csv1" = "vcf2"
     )
-  }
-
-  getRefValue <- function(input) {
-    outputType <- output_type(input)
-
-    if (outputType != "csv2") {
-      return(NULL)
-    }
-
-    if (input$inputType1 == "vcf1") {
-      req(input$poptype_vcf)
-      if (input$poptype_vcf == "multiplepop") {
-        req(input$multiplepop_vcf)
-        return(input$multiplepop_vcf$datapath)
-      } else {
-        req(input$typePop_vcf)
-        return(input$typePop_vcf)
-      }
-    } else if (input$inputType1 == "bcf1") {
-      req(input$poptype_bcf)
-      if (input$poptype_bcf == "multiplepop") {
-        req(input$multiplepop_bcf)
-        return(input$multiplepop_bcf$datapath)
-      } else {
-        req(input$typePop_bcf)
-        return(input$typePop_bcf)
-      }
-    } else if (input$inputType1 == "plink1") {
-      req(input$poptype_plink)
-      if (input$poptype_plink == "multiplepop") {
-        req(input$multiplepop_plink)
-        return(input$multiplepop_plink$datapath)
-      } else {
-        req(input$typePop_plink)
-        return(input$typePop_plink)
-      }
-    }
-    return(NULL)
   }
 
   observeEvent(input$ConvertFILES, {
@@ -2088,32 +2040,11 @@ server <- function(input, output, session) {
         output_type = outputType,
         output.dir = output.dir,
         plink2_path = plink2_path,
-        ref = getRefValue(input)
+        ref = NULL
       )
 
       if (outputType == "vcf2") {
         convertedVCF(result)
-      }
-
-      if (outputType == "csv2") {
-        convertedCSV(result)
-        csv_data <- result
-
-        if (is.character(result)) {
-          csv_data <- readr::read_csv(result, show_col_types = FALSE)
-        }
-
-        possible_cols <- c("Population", "population", "pop", "Pop")
-        found_col <- intersect(possible_cols, colnames(csv_data))
-
-        if (length(found_col) > 0) {
-          breakdown_col <- found_col[1]
-          breakdown_results <- pop_breakdown(csv_data, breakdown_col)
-          convertedBreakdown(breakdown_results)
-        } else {
-          convertedBreakdown(NULL)
-          message("No population column found for breakdown.")
-        }
       }
 
       if (outputType %in% c("plink2", "plink1")) {
@@ -2123,16 +2054,6 @@ server <- function(input, output, session) {
     enable("ConvertFILES")
   })
 
-  output$downloadConvertedCSV <- downloadHandler(
-    filename = function() {
-      outputName
-    },
-    content = function(file) {
-      req(convertedCSV())
-      readr::write_csv(convertedCSV(), file)
-    }
-  )
-
   output$downloadConvertedVCF <- downloadHandler(
     filename = function() {
       "csv_to_vcf.vcf"
@@ -2140,16 +2061,6 @@ server <- function(input, output, session) {
     content = function(file) {
       req(convertedVCF())
       file.copy(convertedVCF(), file)
-    }
-  )
-
-  output$downloadConvertedFASTA <- downloadHandler(
-    filename = function() {
-      "consensus.fa"
-    },
-    content = function(file) {
-      req(convertedFASTA())
-      file.copy(convertedFASTA(), file)
     }
   )
 
@@ -2168,6 +2079,157 @@ server <- function(input, output, session) {
     contentType = "application/zip"
   )
 
+  output$downloadVCF_UI <- renderUI({
+    req(convertedVCF())
+    downloadButton("downloadConvertedVCF", "Download VCF File")
+  })
+
+  output$downloadPLINK_UI <- renderUI({
+    req(convertedPLINK())
+    downloadButton("downloadConvertedPLINK", "Download PLINK File")
+  })
+  
+  # =================== Add Metadata ======================#
+  exampleRefCSV <- data.frame(
+    Sample.Name = c("sample1", "sample2", "sample3", "sample4", "..."),
+    Population = c("Malaysia", "Mexico", "Greece", "South Korea", "..."),
+    Superpopulation = c("Southeast Asia", "North and South America", "Europe", "East Asia", "...")
+  )
+  
+  output$ExampleRefFile <- DT::renderDataTable(
+    {
+      req(exampleRefCSV)
+      exampleRefCSV
+    },
+    options = list(
+      scrollX = TRUE,
+      pageLength = 5
+    )
+  )
+  
+  convertedCSV <- reactiveVal(NULL)
+  convertedBreakdown <- reactiveVal(NULL)
+  output.dir <- tempdir()
+  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  outputName <- paste0("converted_", timestamp, ".csv")
+  
+  observe({
+    fileready <- !is.null(input$genotypeFile) || (!is.null(input$firstPLINK) && !is.null(input$secondPLINK) && !is.null(input$thirdPLINK))
+    singlePop <- nzchar(input$typePop_meta) 
+    multiPop <- !is.null(input$refMetadata)
+    metaReady <- singlePop || multiPop
+
+    toggleState("addMetadata", condition = fileready && metaReady)
+  })
+  
+  columns_target <- reactive({
+    req(input$refMetadata)
+    load_csv_xlsx_files(input$refMetadata$datapath)
+  })
+  
+  output$metaHeader <- renderUI({
+    req(columns_target)
+    checkboxGroupInput(
+      inputId = "col_targets",
+      label = "Choose columns to be merged with sample and genotype data",
+      choices = names(columns_target()),
+      selected = NULL
+    )
+  })
+  
+  column_for_breakdown <- reactive({
+    req(input$col_targets)  
+    input$col_targets
+  })
+  
+  output$selectMetaHeader <- renderUI({
+    req(column_for_breakdown)
+    selectInput(
+      "popForBreakdown",
+      label = "Choose column as basis for tally",
+      choices = column_for_breakdown
+    )
+  })
+  
+  output.dir <- tempdir()
+  
+  observeEvent(input$addMetadata, {
+    disable("addMetadata")
+    
+    # check input file
+  tryCatch({    
+      if (!is.null(input$genotypeFile)){
+          input_file = input$genotypeFile$datapath
+        } else {
+          input_file = input$firstPLINK$datapath
+        }
+        
+      # PROCESS METADATA
+      if (!is.null(input$refMetadata)){
+        ref_file <- load_csv_xlsx_files(input$refMetadata$datapath)
+        
+        if (length(input$col_targets) <= 0){
+          stop("Select at least one column to merge")
+        }
+        
+        for_merging <- as.data.frame(subset(ref_file, select = input$col_targets))
+      } else {
+        for_merging <- input$typePop_meta
+      }
+
+        prepared <- prepare_input_dataset(
+          input_file = input_file,
+          output.dir = output.dir,
+          plink2_path = plink2_path
+        )
+        
+        result <- convert_from_plink2(
+          prefix = prepared$prefix,
+          output_type = "csv2",
+          output.dir = output.dir,
+          plink2_path = plink2_path,
+          ref = for_merging
+        )
+        convertedCSV(result)
+        
+      if (input$breakdownPop == "YesBreakdown"){
+        req(input$popForBreakdown)
+        csv_data <- result
+        
+        if (length(input$popForBreakdown) <= 0){
+          stop("No column selected.")
+        }
+        
+        breakdown_results <- pop_breakdown(csv_data, input$popForBreakdown)
+        convertedBreakdown(breakdown_results)
+      }
+    },  # end for try catch
+    error = function(e) {
+      showNotification(paste("Error:", e$message), type = "error")
+    })
+    enable("addMetadata")
+  })
+  
+  output$downloadConvertedCSV <- downloadHandler(
+    filename = function() {
+      outputName
+    },
+    content = function(file) {
+      req(convertedCSV())
+      readr::write_csv(convertedCSV(), file)
+    }
+  )
+  
+  output$downloadPopBreakdown <- downloadHandler(
+    filename = function() {
+      outputName
+    },
+    content = function(file) {
+      req(convertedBreakdown())
+      readr::write_csv(convertedBreakdown(), file)
+    }
+  )
+  
   output$previewTable <- DT::renderDataTable(
     {
       req(convertedCSV())
@@ -2178,7 +2240,7 @@ server <- function(input, output, session) {
       pageLength = 10
     )
   )
-
+  
   output$previewTableBreakdown <- DT::renderDataTable(
     {
       req(convertedBreakdown())
@@ -2189,22 +2251,17 @@ server <- function(input, output, session) {
       pageLength = 10
     )
   )
-
+  
   output$downloadCSV_UI <- renderUI({
     req(convertedCSV())
     downloadButton("downloadConvertedCSV", "Download CSV File")
   })
-
-  output$downloadVCF_UI <- renderUI({
-    req(convertedVCF())
-    downloadButton("downloadConvertedVCF", "Download VCF File")
+  
+  output$downloadBreakdown <- renderUI({
+    req(convertedBreakdown())
+    downloadButton("downloadPopBreakdown", "Download Pop Breakdown")
   })
-
-  output$downloadPLINK_UI <- renderUI({
-    req(convertedPLINK())
-    downloadButton("downloadConvertedPLINK", "Download PLINK File")
-  })
-
+  
   # ================== ForenSeq to CSV ====================#
 
   convertedUAS <- reactiveVal(NULL)
@@ -2242,16 +2299,15 @@ server <- function(input, output, session) {
             output.dir = temp_dir
           )
           convertedUAS(widened.file)
-
-          enable("run_uas2csv")
           showNotification("Conversion complete!", type = "message")
         },
         error = function(e) {
           showNotification(paste("Error:", e$message), type = "error")
-          enable("run_uas2csv")
+          
         }
       )
     })
+    enable("run_uas2csv")
   })
 
   outputName <- "merged_typed_data.csv"
@@ -2778,7 +2834,7 @@ server <- function(input, output, session) {
 
         if (!is.null(input$markerFile)) {
           input_file <- input$markerFile$datapath
-          converted_to_plink2(input_file,
+          convert_to_plink2(input_file,
             original_name = input$markerFile$name,
             isplink = FALSE,
             plink_path = plink2_path,
@@ -2786,7 +2842,7 @@ server <- function(input, output, session) {
           )
         } else {
           bed_prefix <- tools::file_path_sans_ext(input$bedFile$datapath)
-          converted_to_plink2(bed_prefix,
+          convert_to_plink2(bed_prefix,
             original_name = NULL,
             isplink = TRUE, plink_path = plink2_path, name = pgen_prefix
           )
@@ -2936,12 +2992,12 @@ server <- function(input, output, session) {
     }
 
     # convert
-    pgen_prefix <- file.path(temp_dir, "converted_to_plink2")
+    pgen_prefix <- file.path(temp_dir, "convert_to_plink2")
     if (input_type %in% c("vcf", "bcf")) {
-      converted_to_plink2(input$markerFileFilter$datapath, original_name = NULL, isplink = FALSE, plink_path = plink2_path, name = pgen_prefix)
+      convert_to_plink2(input$markerFileFilter$datapath, original_name = NULL, isplink = FALSE, plink_path = plink2_path, name = pgen_prefix)
     } else {
       bed_prefix <- tools::file_path_sans_ext(input$bedFileFilter$datapath)
-      converted_to_plink2(bed_prefix, original_name = NULL, isplink = TRUE, plink_path = plink2_path, name = pgen_prefix)
+      convert_to_plink2(bed_prefix, original_name = NULL, isplink = TRUE, plink_path = plink2_path, name = pgen_prefix)
     }
 
     # for plink filtering

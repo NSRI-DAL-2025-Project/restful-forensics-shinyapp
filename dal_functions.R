@@ -55,14 +55,14 @@ unpack_input_file <- function(files, output.dir = ".") {
 #' 
 #' @export
 #' @examples
-#' converted_to_plink2('my_vcf.vcf', original_name = "my_vcf", isplink = FALSE, plink_path = "./plink2/plink2.exe, name = "converted_file", output_chr = "26")
-#' converted_to_plink2('my_vcf.vcf', original_name = "my_vcf", isplink = FALSE, plink_path = "./plink2/plink2.exe, name = "converted_file", output_chr = "MT")
+#' convert_to_plink2('my_vcf.vcf', original_name = "my_vcf", isplink = FALSE, plink_path = "./plink2/plink2.exe, name = "converted_file", output_chr = "26")
+#' convert_to_plink2('my_vcf.vcf', original_name = "my_vcf", isplink = FALSE, plink_path = "./plink2/plink2.exe, name = "converted_file", output_chr = "MT")
 
-converted_to_plink2 <- function(input.file,
+convert_to_plink2 <- function(input.file,
                                 original_name = NULL,
                                 isplink = FALSE,
                                 plink_path = plink2_path,
-                                name = "converted_to_plink2",
+                                name = "convert_to_plink2",
                                 output_chr = "26") {
   check_name <- if (is.null(original_name)) {
     input.file
@@ -122,7 +122,7 @@ prepare_input_dataset_archive <- function(input_file, output.dir = ".", plink2_p
   for (pref in plink_prefixes) {
     out_pref <- file.path(work_dir, paste0(basename(pref), "_p2"))
 
-    converted <- converted_to_plink2(
+    converted <- convert_to_plink2(
       input.file = pref,
       original_name = NULL,
       isplink = TRUE,
@@ -136,7 +136,7 @@ prepare_input_dataset_archive <- function(input_file, output.dir = ".", plink2_p
   for (f in vcf_bcf_files) {
     base <- tools::file_path_sans_ext(basename(f))
     out_pref <- file.path(work_dir, paste0(base, "_p2"))
-    converted <- converted_to_plink2(
+    converted <- convert_to_plink2(
       input.file = f,
       isplink = FALSE,
       plink_path = plink2_path,
@@ -180,7 +180,7 @@ prepare_input_dataset <- function(input_file, output.dir = ".", plink2_path) {
   if (!is_archive) {
     prefix <- file.path(output.dir, "single_input")
 
-    converted <- converted_to_plink2(
+    converted <- convert_to_plink2(
       input.file = input_file,
       original_name = NULL,
       plink_path = plink2_path,
@@ -266,7 +266,6 @@ convert_from_plink2 <- function(prefix,
 
   if (output_type == "csv2") {
     vcf_file <- convert_from_plink2(prefix, "vcf2", output.dir, plink2_path)
-
     csv <- vcf_to_csv(
       vcf_file,
       ref = ref,
@@ -375,17 +374,17 @@ load_csv_xlsx_files <- function(input) {
 #' Convert VCF to CSV
 #' 
 #' @param files file path of input
-#' @param ref (optional) reference file containing metadata of samples
+#' @param ref (optional) dataframe containing metadata of samples
 #' @param output.dir (optional) output directory to save input files if zipped
-#' @returns dataframe
-#'
+#' @returns dataframe of merged metadata with genotype information
+#' 
+#' @import dplyr
 #' @importFrom tools file_ext
-#' @importFrom dplyr rename left_join
-#' @importFrom readxl read_excel
+#' @importFrom tibble add_column
 #' 
 #' @export
 #' @examples
-#' vcf_to_csv('extracted_markers.vcf', ref = "reference_file.xlsx")
+#' vcf_to_csv('extracted_markers.vcf', ref = reference_file)
 
 vcf_to_csv <- function(files, ref = NULL, output.dir = ".") {
   extension <- tools::file_ext(files)
@@ -399,30 +398,25 @@ vcf_to_csv <- function(files, ref = NULL, output.dir = ".") {
 
   final_df <- raw_file
 
-  if (is.null(ref) || ref == "") stop("Reference should be provided")
-
-  if (file.exists(ref)) {
-    ref_data <- load_csv_xlsx_files(ref)
-    ref_data <- dplyr::rename(ref_data, Sample = 1, Population = 2)
-    ref_data <- ref_data[, 1:2]
-    final_df <- dplyr::left_join(raw_file, ref_data, by = "Sample")
-  } else if (is.character(ref)) {
-    final_df$Population <- ref
+  if (is.null(ref)){
+    return(as.data.frame(final_df))
+    
   } else {
-    stop("Invalid reference input: must be a file path or string.")
+    if (length(ref) == 1){
+      final_df <- tibble::add_column(final_df, Population = ref, .after = 1)
+      
+    } else if (length(ref) > 1){
+      ref_data <- data.frame(ref)
+      ref_data <- dplyr::rename(ref_data, Sample = 1)
+      cols <- colnames(ref_data)
+      
+      final_df <- final_df %>% 
+        dplyr::left_join(ref_data, by = "Sample") %>%
+        tibble::add_column(cols, .after = "Sample")
+    }
+    
+    return(final_df)
   }
-
-  # solution to the pop and sample organization (06 August 2025)
-  sample <- final_df[, 1]
-  nosample <- final_df[, -1]
-  data_cols <- ncol(nosample) - 1
-  total_cols <- as.integer(ncol(final_df))
-  data_gt <- final_df[, 2:data_cols]
-  pop <- final_df[, total_cols]
-  final_df <- bind_cols(sample, pop, data_gt)
-  final_df <- dplyr::rename(final_df, Sample = 1, Population = 2)
-
-  return(final_df)
 }
 
 
